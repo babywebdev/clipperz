@@ -6,11 +6,13 @@ ffmpeg on a synthetic clip with a known GOP structure.
 """
 
 import os
+import json
 import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
+from pathlib import Path
 from unittest import mock
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -30,6 +32,13 @@ def _fail() -> mock.Mock:
 
 
 class CutSegmentTests(unittest.TestCase):
+    def setUp(self):
+        self.log_dir = tempfile.TemporaryDirectory(prefix="podcli-cut-logs-")
+        self.addCleanup(self.log_dir.cleanup)
+        patcher = mock.patch.dict(video_cut.paths, {"logs": self.log_dir.name})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_runs_ffmpeg_with_expected_flags(self):
         with mock.patch.object(video_cut, "proc_run", return_value=_ok()) as mocked:
             out = video_cut.cut_segment("/in.mp4", "/out.mp4", 10.5, 20.25)
@@ -47,6 +56,42 @@ class CutSegmentTests(unittest.TestCase):
             with self.assertRaises(RuntimeError) as ctx:
                 video_cut.cut_segment("/in.mp4", "/out.mp4", 0, 5)
             self.assertIn("FFmpeg cut failed", str(ctx.exception))
+
+    def test_native_crash_keeps_exit_code_and_full_log_outside_render_directory(self):
+        stderr = "Important diagnostic at the beginning\n" + "metadata\n" * 1000
+        failed = mock.Mock(returncode=3221225477, stderr=stderr)
+        with tempfile.TemporaryDirectory() as render_dir:
+            output = str(Path(render_dir) / "cut.mp4")
+            with mock.patch.object(video_cut, "proc_run", return_value=failed):
+                with self.assertRaises(RuntimeError) as ctx:
+                    video_cut.cut_segment("/in.mp4", output, 23.3, 60.8)
+        self.assertIn("0xC0000005", str(ctx.exception))
+        saved_logs = list(Path(self.log_dir.name).rglob("*.json"))
+        self.assertEqual(len(saved_logs), 1)
+        saved = json.loads(saved_logs[0].read_text(encoding="utf-8"))
+        self.assertEqual(saved["stderr"], stderr)
+        self.assertEqual(saved["returncode"], 3221225477)
+        self.assertIn("23.3", saved["command"])
+        self.assertIn(str(saved_logs[0]), str(ctx.exception))
+
+    def test_timeout_is_reported_and_preserved(self):
+        failure = video_cut.ProcError(["ffmpeg"], -1, "timeout after 300s: partial output", 300)
+        with mock.patch.object(video_cut, "proc_run", side_effect=failure):
+            with self.assertRaises(RuntimeError) as ctx:
+                video_cut.cut_segment("/in.mp4", "/out.mp4", 0, 5)
+        self.assertIn("timed out after 300s", str(ctx.exception))
+        saved = json.loads(next(Path(self.log_dir.name).rglob("*.json")).read_text(encoding="utf-8"))
+        self.assertTrue(saved["timed_out"])
+        self.assertIn("partial output", saved["stderr"])
+
+    def test_log_write_failure_preserves_original_ffmpeg_failure(self):
+        with mock.patch.object(video_cut, "proc_run", return_value=_fail()), \
+             mock.patch.object(Path, "write_text", side_effect=OSError("disk full")), \
+             self.assertLogs(video_cut.__name__, level="ERROR"):
+            with self.assertRaises(RuntimeError) as ctx:
+                video_cut.cut_segment("/in.mp4", "/out.mp4", 0, 5)
+        self.assertIn("exit 1", str(ctx.exception))
+        self.assertIn("ffmpeg error", str(ctx.exception))
 
 
 class CutMultiSegmentTests(unittest.TestCase):
@@ -211,6 +256,19 @@ class CutContentAccuracyTests(unittest.TestCase):
         out = os.path.join(self.tmpdir, "cut_on_kf.mp4")
         video_cut.cut_segment(self.src, out, 4.0, 5.0)
         self._assert_frame_is(out, "cyan")
+
+    def test_cut_preserves_zero_presentation_start_with_aac_audio(self):
+        source = os.path.join(self.tmpdir, "with_audio.mp4")
+        output = os.path.join(self.tmpdir, "audio_cut.mp4")
+        subprocess.run(["ffmpeg", "-y", "-v", "error", "-f", "lavfi", "-i", "color=s=64x64:r=30:d=1",
+                        "-f", "lavfi", "-i", "sine=frequency=500:sample_rate=22050:duration=1",
+                        "-c:v", "libx264", "-c:a", "aac", source], capture_output=True, check=True)
+        video_cut.cut_segment(source, output, 0, 1)
+        streams = json.loads(subprocess.run(["ffprobe", "-v", "error", "-show_streams", "-of", "json", output],
+                                           capture_output=True, check=True).stdout)["streams"]
+        self.assertEqual({s["codec_type"] for s in streams}, {"audio", "video"})
+        for stream in streams:
+            self.assertLess(abs(float(stream["start_time"])), .005, "AAC encoder padding must not shift presentation timestamps")
 
 
 if __name__ == "__main__":

@@ -1,3 +1,5 @@
+For this fork's Windows local installation, use the [local setup guide](docs/local-setup.md) and [example clip prompt](docs/clip-test-prompt.md).
+
 <p align="center">
   <img src="public/podcli-badge.png" height="72" alt="podcli" />
 </p>

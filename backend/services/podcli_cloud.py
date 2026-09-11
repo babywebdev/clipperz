@@ -17,6 +17,7 @@ import urllib.request
 from typing import Any, Optional
 
 from config.paths import paths
+from config.policy import strict_ai, require_cloud
 
 DEFAULT_API_URL = "https://api.podcli.com"
 AUTH_FILENAME = "auth.json"
@@ -42,6 +43,8 @@ def _auth_path() -> str:
 
 def read_token() -> Optional[str]:
     """The session token, from the environment or the file `podcli login` wrote."""
+    if strict_ai():
+        return None
     env = (os.environ.get("PODCLI_TOKEN") or "").strip()
     if env:
         return env
@@ -141,6 +144,7 @@ class CloudError(Exception):
 
 def request(method: str, path: str, body: Optional[dict] = None,
             timeout: int = 300) -> Any:
+    require_cloud()
     token = read_token()
     if not token:
         raise CloudError("not signed in — run `podcli login`", status=401)
@@ -414,6 +418,7 @@ def poll_cli_auth(device_code: str) -> Optional[dict]:
 
 def _unauthenticated(method: str, path: str, body: dict) -> dict:
     """Like `request`, for the endpoints that run before there is a session."""
+    require_cloud()
     req = urllib.request.Request(
         f"{api_url()}{path}", data=json.dumps(body).encode("utf-8"), method=method,
         headers={"content-type": "application/json"},

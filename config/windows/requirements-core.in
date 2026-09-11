@@ -1,0 +1,18 @@
+# Initial local features. Optional Google OAuth, diarization, and extra models deferred.
+# Whisper's exact reviewed source archive is built separately, without dependency resolution.
+opencv-python-headless>=4.8.1.78,<5
+numpy>=2.5.2
+onnxruntime>=1.28.0
+Pillow>=12.3.0
+questionary>=2.1.1
+python-dotenv>=1.2.2
+yt-dlp>=2026.7.4
+# Whisper Windows dependencies (Triton is Linux-only).
+more-itertools
+numba
+tiktoken
+torch==2.14.0+cu126
+tqdm
+# Explicit wheel build tooling for Whisper, installed in this venv only.
+setuptools==84.0.0
+wheel==0.48.0

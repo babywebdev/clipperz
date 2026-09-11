@@ -3,6 +3,7 @@
 import os
 import sys
 import unittest
+from unittest import mock
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 BACKEND_ROOT = os.path.join(ROOT, "backend")
@@ -206,6 +207,66 @@ class PrecomputedProfilesTests(unittest.TestCase):
         finally:
             sal.extract_audio_events = orig_events
         self.assertIsInstance(clips, list)
+
+
+class DifferentMomentsTests(unittest.TestCase):
+    @staticmethod
+    def detect(**kwargs):
+        energy = [{"time": float(t), "rms_db": -30 + ({10: 30, 35: 25, 60: 20, 85: 15}.get(t, 0))}
+                  for t in range(100)]
+        return sal.detect_highlights('/nonexistent.mp4', profile_name='auto',
+            energy_data=energy, events_data=[], **kwargs)
+
+    def test_exclusions_are_applied_before_count_cap(self):
+        first = self.detect(top_n=2, min_dur=5, max_dur=10)
+        ranges = [{"start": c['start_second'], "end": c['end_second']} for c in first]
+        second = self.detect(top_n=2, min_dur=5, max_dur=10, excluded_ranges=ranges)
+        self.assertEqual(len(first), 2)
+        self.assertEqual(len(second), 2)
+        for c in second:
+            self.assertFalse(sal.overlaps(c['start_second'], c['end_second'], ranges))
+        ranges += [{"start": c['start_second'], "end": c['end_second']} for c in second]
+        self.assertEqual(self.detect(top_n=2, min_dur=5, max_dur=10, excluded_ranges=ranges), [])
+
+    def test_one_batch_has_no_overlapping_windows(self):
+        clips = self.detect(top_n=10, min_dur=30, max_dur=35)
+        self.assertGreater(len(clips), 1)
+        for a, b in zip(clips, clips[1:]):
+            self.assertLessEqual(a['end_second'], b['start_second'])
+
+    def test_sentence_and_source_edges_obey_hard_limits(self):
+        for segments in (None, [{"start": 0, "end": 200}], [{"start": 3, "end": 3.2}]):
+            for peak in (0, .1, 3, 50, 99.9, 100):
+                for minimum, maximum in ((1, 1), (7.2, 8.3), (20, 20), (1.04, 1.19)):
+                    with self.subTest(segments=segments, peak=peak, limits=(minimum, maximum)):
+                        a, b, _ = sal._window_for_peak(peak, .5, get_profile('auto'), 100.04,
+                            np.zeros(101), minimum, maximum, segments)
+                        self.assertGreaterEqual(a, 0)
+                        self.assertLessEqual(b, 100.04)
+                        self.assertGreaterEqual(round(b - a, 4), minimum)
+                        self.assertLessEqual(round(b - a, 4), maximum)
+                        self.assertLessEqual(a, peak)
+                        self.assertGreaterEqual(b, peak)
+
+    def test_partial_last_second_cannot_extend_past_source(self):
+        with mock.patch.object(sal.os.path, 'isfile', return_value=True), \
+             mock.patch('services.media_probe.get_media_duration_seconds', return_value=60.25):
+            clips = self.detect(top_n=10, min_dur=8, max_dur=12)
+        self.assertTrue(clips)
+        self.assertTrue(all(c['end_second'] <= 60.25 for c in clips))
+
+    def test_invalid_limits_rejected_before_analysis(self):
+        for n, a, b in ((0, 5, 10), (1.5, 5, 10), (2, 10, 5), (2, float('nan'), 10),
+                        (2, 1, float('inf')), (2, 0, 5), (2, 1.01, 1.09)):
+            with self.subTest(n=n, a=a, b=b), self.assertRaises(ValueError):
+                sal.detect_highlights('missing.mp4', top_n=n, min_dur=a, max_dur=b)
+
+    def test_pooled_exclusions_belong_to_their_source(self):
+        excluded = [{"source": 'a.mp4', "start": 10, "end": 20}]
+        with mock.patch.object(sal, 'detect_highlights', return_value=[]) as detect:
+            sal.detect_highlights_pooled(['a.mp4', 'b.mp4'], excluded_ranges=excluded)
+        self.assertEqual(detect.call_args_list[0].kwargs['excluded_ranges'], excluded)
+        self.assertEqual(detect.call_args_list[1].kwargs['excluded_ranges'], [])
 
 
 if __name__ == "__main__":

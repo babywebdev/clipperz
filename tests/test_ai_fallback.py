@@ -416,7 +416,10 @@ class AICliDiscoveryTests(unittest.TestCase):
             cli = os.path.join(tmp, "claude")
             with open(cli, "w", encoding="utf-8") as fh:
                 fh.write("#!/bin/sh\n")
-            with mock.patch.object(ai, "_shell_lookup", return_value=cli):
+            with mock.patch.object(ai, "_shell_lookup", return_value=cli), \
+                 mock.patch.object(ai, "_all_lookup_dirs", return_value=[]), \
+                 mock.patch.object(ai, "_glob_cli_paths", return_value=[]), \
+                 mock.patch.dict(os.environ, {"PATH": ""}):
                 with mock.patch("shutil.which", return_value=None):
                     found = ai._find_cli("claude", [])
             self.assertEqual(found, cli)

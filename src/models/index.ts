@@ -2,7 +2,7 @@
 
 export interface TaskRequest {
   task_id: string;
-  task_type: "transcribe" | "parse_transcript" | "create_clip" | "batch_clips" | "analyze_energy" | "detect_highlights" | "manage_reel" | "pack_transcript" | "detect_encoder" | "presets" | "ping" | "suggest_clips" | "find_moment" | "generate_content" | "generate_custom" | "corrections" | "manage_integrations" | "run_integration_tool" | "manage_config" | "manage_env" | "ai_cli_status" | "ai_provider_status" | "analyze_silence" | "render_silence_removed";
+  task_type: "transcribe" | "parse_transcript" | "create_clip" | "batch_clips" | "analyze_energy" | "detect_highlights" | "manage_reel" | "pack_transcript" | "detect_encoder" | "presets" | "ping" | "suggest_clips" | "find_moment" | "generate_content" | "generate_custom" | "corrections" | "manage_integrations" | "run_integration_tool" | "manage_config" | "manage_env" | "ai_cli_status" | "ai_provider_status" | "analyze_silence" | "render_silence_removed" | "export_full_episode";
   params: Record<string, unknown>;
 }
 
@@ -20,6 +20,7 @@ export interface ProgressEvent {
   message: string;
   clip_result?: BatchClipsResult["results"][number];
   partial?: Record<string, unknown>;
+  ai?: { status: string; provider: string; label: string; fallback_reason: string; attempts: string[] };
 }
 
 // === Transcript Models ===
@@ -124,6 +125,7 @@ export interface UIState {
   deselectedIndices?: number[];
   settings?: {
     captionStyle?: string;
+    foregroundFraming?: import('../services/foreground-framing.js').ForegroundFraming | null;
     cropStrategy?: string;
     format?: Format;
     logoPath?: string;

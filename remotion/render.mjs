@@ -28,6 +28,7 @@ import path from "path";
 import fs from "fs";
 import os from "os";
 import crypto from "crypto";
+import { restrictLocalRenderBrowser } from "./local-browser.mjs";
 
 
 const BOOLEAN_FLAGS = new Set(["prebundle", "keep-overlay", "progress"]);
@@ -306,9 +307,10 @@ async function main() {
   // so a browser we were handed rather than downloaded gets the flag that
   // still exists.
   const chromeMode = browserExecutable ? "chrome-for-testing" : "headless-shell";
-  await ensureBrowser({ browserExecutable, chromeMode });
-
+  const releaseBrowserPolicy = process.env.PODCLI_LOCAL_ONLY === "1"
+    ? await restrictLocalRenderBrowser(browserExecutable) : null;
   try {
+    await ensureBrowser({ browserExecutable, chromeMode });
     // Select composition
     const composition = await selectComposition({
       serveUrl: bundleLocation,
@@ -404,6 +406,7 @@ async function main() {
     console.log(`Done: ${opts.output}`);
   } finally {
     closeAssetServer();
+    await releaseBrowserPolicy?.();
   }
 }
 

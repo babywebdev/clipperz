@@ -95,8 +95,12 @@ class CliTranscriptTests(unittest.TestCase):
                 mock.patch("services.asset_store.default_intro", return_value=None),
                 mock.patch("services.corrections.apply_corrections"),
                 mock.patch(
-                    "services.claude_suggest._find_ai_cli",
-                    return_value=(None, None),
+                    "services.ai_provider.available",
+                    return_value=False,
+                ),
+                mock.patch(
+                    "services.ai_provider.status",
+                    return_value={"providers": []},
                 ),
                 mock.patch(
                     "services.transcript_packer.load_cached_transcript_for_video",

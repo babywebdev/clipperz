@@ -22,6 +22,7 @@ const PAGES: { label: string; path: string; kw: string }[] = [
   { label: "Assets", path: "/assets", kw: "logo outro intro music brand kit" },
   { label: "Knowledge", path: "/knowledge", kw: "brand voice banned words" },
   { label: "Config", path: "/config", kw: "settings api keys tokens" },
+  { label: "Cleanup", path: "/cleanup", kw: "storage disk space temporary unused files" },
   { label: "Integrations", path: "/integrations", kw: "youtube davinci" },
   { label: "MCP setup", path: "/mcp", kw: "claude codex cursor" },
   { label: "Analytics", path: "/analytics", kw: "performance views retention ctr" },

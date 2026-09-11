@@ -2,7 +2,9 @@
 
 import os
 import sys
+import tempfile
 import unittest
+from unittest import mock
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if ROOT not in sys.path:
@@ -12,11 +14,18 @@ from backend.utils import prompt_files
 
 
 class PromptFilesTests(unittest.TestCase):
+    def setUp(self):
+        self.home = tempfile.TemporaryDirectory(prefix="prompt-files-")
+        self.addCleanup(self.home.cleanup)
+        patcher = mock.patch.dict(prompt_files.paths, {"home": self.home.name})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_write_prompt_file_creates_file_in_podcli_tmp(self):
         path = prompt_files.write_prompt_file("hello prompt")
         try:
             self.assertTrue(os.path.exists(path))
-            self.assertIn(".podcli/tmp", path.replace(os.sep, "/"))
+            self.assertEqual(os.path.dirname(path), os.path.join(self.home.name, "tmp"))
             with open(path) as f:
                 self.assertEqual(f.read(), "hello prompt")
         finally:

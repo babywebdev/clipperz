@@ -14,6 +14,7 @@ from typing import Optional, Callable
 
 from config.paths import paths
 from services import ai_provider
+from config.policy import strict_ai
 from services.knowledge_base import load_kb_context as kb_load_context, warn_missing_context
 
 # Codex silently truncates long prompts, so it gets a shortened one. The prompts
@@ -359,7 +360,7 @@ HASHTAGS:
 
     # The Studio renders titles as they arrive. Only the Claude CLI can stream,
     # so it gets first refusal; everything else falls through to the chain.
-    if partial_callback is not None:
+    if partial_callback is not None and not strict_ai():
         cli_path = ai_provider.claude_cli_path()
         if cli_path:
             if progress_callback:

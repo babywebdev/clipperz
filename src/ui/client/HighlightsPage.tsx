@@ -6,8 +6,10 @@ import AssetPicker from "./AssetPicker";
 import RecentSources from "./RecentSources";
 import MomentTrim from "./MomentTrim";
 import { BackIcon, TrashIcon, DownloadIcon } from "./icons";
+import { ArrowUp, ArrowDown, GripVertical } from "lucide-react";
 
 interface Moment {
+  moment_id: string;
   start: number;
   end: number;
   why: string;
@@ -21,6 +23,7 @@ interface Moment {
 
 interface HighlightsResp {
   session_id: string;
+  revision: string;
   source: string;
   sources?: string[];
   format: string;
@@ -28,6 +31,8 @@ interface HighlightsResp {
   out_dir: string;
   reel_path: string | null;
   moments: Moment[];
+  batch_number?: number;
+  selection_settings?: { auto: boolean; top_n: number; min_dur: number; max_dur: number };
 }
 
 interface SessionSummary {
@@ -38,12 +43,21 @@ interface SessionSummary {
   moment_count: number;
   enabled_count: number;
   source_count?: number;
+  batch_number?: number;
   reel_path: string | null;
 }
 
 type Format = "vertical" | "horizontal" | "square";
 
 const download = (p: string) => `/api/reel-download?path=${encodeURIComponent(p)}`;
+function saveDownload(path: string) {
+  const link = document.createElement('a');
+  link.href = download(path);
+  link.download = basename(path);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
 const isHttpUrl = (v: string) => /^https?:\/\//i.test(v.trim());
 
 const FORMAT_LABEL: Record<Format, string> = {
@@ -54,10 +68,10 @@ const FORMAT_LABEL: Record<Format, string> = {
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div>
-      <label className="field-label">{label}</label>
+    <label style={{ display: 'block' }}>
+      <span className="field-label">{label}</span>
       {children}
-    </div>
+    </label>
   );
 }
 
@@ -95,6 +109,26 @@ function DownloadRow({
   );
 }
 
+function ExportProgress({ jobId, onDone, onError }: {
+  jobId: string;
+  onDone: (path: string) => void;
+  onError: (message: string) => void;
+}) {
+  const job = useJob(jobId);
+  const fired = useRef(false);
+  useEffect(() => {
+    if (!job || fired.current) return;
+    if (job.status === 'done' || job.status === 'error') {
+      fired.current = true;
+      if (job.status === 'done' && job.result?.file_path) onDone(job.result.file_path);
+      else onError(job.error || 'Export returned no video file.');
+    }
+  }, [job, onDone, onError]);
+  return <div className="set-note" role="status" style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+    <div className="spinner sm" /> {job?.message || 'Preparing download…'} {Math.round(job?.progress || 0)}%
+  </div>;
+}
+
 export default function HighlightsPage() {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [videoPaths, setVideoPaths] = useState<string[]>([]);
@@ -110,9 +144,52 @@ export default function HighlightsPage() {
   const [logoPath, setLogoPath] = useState("");
   const [session, setSession] = useState<HighlightsResp | null>(null);
   const [selected, setSelected] = useState(0);
+  const [differentMode, setDifferentMode] = useState<'append' | 'new'>('append');
+  const draggingMoment = useRef<{ id: string; startY: number; moved: boolean } | null>(null);
+  const momentList = useRef<HTMLDivElement>(null);
+  const [dropTarget, setDropTarget] = useState<{ index: number; after: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [downloadFormat, setDownloadFormat] = useState<Format>('horizontal');
+  const [exportStarting, setExportStarting] = useState(false);
+  const [exportJob, setExportJob] = useState<{ id: string; label: string } | null>(null);
+  const [readyDownload, setReadyDownload] = useState<{ path: string; label: string } | null>(null);
+  const exportBusy = exportStarting || !!exportJob;
+  const working = busy || saving || exportBusy;
+
+  useEffect(() => {
+    setDownloadFormat((session?.format as Format) || 'horizontal');
+    setReadyDownload(null);
+  }, [session?.session_id]);
+
+  async function exportDownload(index?: number) {
+    if (!session || working) return;
+    const label = `${downloadFormat} ${index === undefined ? 'reel' : `clip ${index}`}`;
+    setReadyDownload(null);
+    setMsg(null);
+    // The original rendition can still be downloaded if its source was moved.
+    const moment = index === undefined ? null : session.moments[index - 1];
+    const existing = moment ? (!moment.dirty && moment.clip_exists ? moment.clip_path : null)
+      : (session.moments.every(m => !m.enabled || !m.dirty) ? session.reel_path : null);
+    if (downloadFormat === session.format && existing) {
+      setReadyDownload({ path: existing, label });
+      saveDownload(existing);
+      return;
+    }
+    setExportStarting(true);
+    try {
+      const result = await api<{ job_id: string }>('/reel-export', {
+        method: 'POST', body: JSON.stringify({ session_id: session.session_id, format: downloadFormat, index }),
+      });
+      if (!result.job_id) throw new Error('The server did not start the export.');
+      setExportJob({ id: result.job_id, label });
+    } catch (error) {
+      setMsg('Download failed: ' + (error instanceof Error ? error.message : String(error)));
+    } finally {
+      setExportStarting(false);
+    }
+  }
 
   async function refreshList() {
     try {
@@ -135,12 +212,31 @@ export default function HighlightsPage() {
 
   async function call(body: Record<string, unknown>, label: string) {
     setBusy(true);
+    setReadyDownload(null);
     setMsg(label);
     try {
       const r = await api<HighlightsResp>("/reel", { method: "POST", body: JSON.stringify(body) });
       setSession(r);
-      setSelected(0);
-      setMsg(null);
+      const keptSelection = r.session_id === session?.session_id
+        ? r.moments.findIndex(m => m.moment_id === session.moments[selected]?.moment_id) : -1;
+      setSelected(keptSelection >= 0 ? keptSelection : Math.min(selected, Math.max(0, r.moments.length - 1)));
+      if (r.session_id !== session?.session_id) { setSelected(0); setDifferentMode('append'); }
+      if (body.action === 'show' || body.action === 'new' || body.action === 'different') {
+        const settings = r.selection_settings;
+        if (settings && typeof settings.auto === 'boolean') {
+          setAuto(settings.auto);
+          if (!settings.auto) {
+            setTopN(settings.top_n);
+            setMinDur(settings.min_dur);
+            setMaxDur(settings.max_dur);
+          }
+        }
+      }
+      setMsg(body.action === 'different'
+        ? r.session_id === session?.session_id
+          ? `Added ${r.moments.length - session.moments.length} new moments to this reel. Your existing order, trims, and exclusions are saved.`
+          : `Batch ${r.batch_number || 2} is ready with ${r.moments.length} unused moments. Your earlier reel is in All highlights.`
+        : null);
       refreshList();
     } catch (e: unknown) {
       setMsg("Error: " + (e instanceof Error ? e.message : String(e)));
@@ -241,17 +337,95 @@ export default function HighlightsPage() {
     );
   }
 
+  const tuning = () => {
+    if (!auto && (!Number.isInteger(topN) || topN < 1 || topN > 50 ||
+        !Number.isFinite(minDur) || !Number.isFinite(maxDur) || minDur < 1 || maxDur < minDur)) {
+      setMsg('Choose 1–50 moments and lengths of at least 1 second, with maximum at least minimum.');
+      return null;
+    }
+    return { auto, top_n: topN, min_dur: minDur, max_dur: maxDur };
+  };
+
   const detect = () => {
+    const settings = tuning();
+    if (!settings || working || !videoPaths.length) return;
     const seed =
       videoPaths.length === 1 ? { video_path: videoPaths[0] } : { video_paths: videoPaths };
-    const tuning = auto ? { auto: true } : { top_n: topN, min_dur: minDur, max_dur: maxDur };
     call(
-      { action: "new", ...seed, profile: "auto", format, ...tuning, ...(logoPath ? { logo: logoPath } : {}) },
+      { action: "new", ...seed, profile: "auto", format, ...settings, ...(logoPath ? { logo: logoPath } : {}) },
       videoPaths.length > 1
-        ? `Finding the best moments across ${videoPaths.length} videos (one-time)…`
-        : "Finding the best moments (one-time, ~2 min)…",
+        ? `Finding the best moments across ${videoPaths.length} videos…`
+        : "Finding the best moments and building your reel…",
     );
   };
+
+  const findDifferent = () => {
+    if (!session || working) return;
+    const settings = tuning();
+    if (!settings) return;
+    call({ action: 'different', session_id: session.session_id, expected_revision: session.revision, mode: differentMode, ...settings },
+      differentMode === 'append' ? 'Finding unused moments to add to this reel…' : 'Finding unused moments for a new batch…');
+  };
+
+  async function moveMoment(from: number, to: number) {
+    if (!session || working || from === to || to < 0 || to >= session.moments.length) return;
+    const previous = session;
+    const selectedId = session.moments[selected]?.moment_id;
+    const moments = [...session.moments];
+    const [moved] = moments.splice(from, 1);
+    moments.splice(to, 0, moved);
+    setBusy(true);
+    setReadyDownload(null);
+    setSession({ ...session, moments });
+    setSelected(Math.max(0, moments.findIndex(m => m.moment_id === selectedId)));
+    setMsg('Saving moment order and rebuilding the reel…');
+    try {
+      const result = await api<HighlightsResp>('/reel', { method: 'POST', body: JSON.stringify({
+        action: 'reorder', session_id: session.session_id, expected_revision: session.revision,
+        order: moments.map(m => m.moment_id),
+      }) });
+      setSession(result);
+      setMsg(`Order saved. Moment ${from + 1} moved to position ${to + 1}. Downloads follow this order.`);
+      refreshList();
+    } catch (error) {
+      setSession(previous);
+      setSelected(selected);
+      setMsg('Could not save order: ' + (error instanceof Error ? error.message : String(error)));
+    } finally { setBusy(false); }
+  }
+
+  function momentDropTarget(clientY: number) {
+    const rows = Array.from(momentList.current?.querySelectorAll<HTMLElement>('[data-moment-row]') || []);
+    for (let index = 0; index < rows.length; index++) {
+      const rect = rows[index].getBoundingClientRect();
+      if (clientY < rect.bottom || index === rows.length - 1)
+        return { index, after: clientY >= rect.top + rect.height / 2 };
+    }
+    return null;
+  }
+
+  function dragMoment(e: React.PointerEvent<HTMLButtonElement>) {
+    const drag = draggingMoment.current;
+    if (!drag || working) return;
+    if (Math.abs(e.clientY - drag.startY) >= 4) drag.moved = true;
+    if (!drag.moved) return;
+    setDropTarget(momentDropTarget(e.clientY));
+    // Pointer capture also makes the handle work with touch and pen input.
+    if (e.clientY < 60) window.scrollBy(0, -20);
+    else if (e.clientY > window.innerHeight - 60) window.scrollBy(0, 20);
+  }
+
+  function finishMomentDrag(e: React.PointerEvent<HTMLButtonElement>, cancelled = false) {
+    const drag = draggingMoment.current;
+    const target = momentDropTarget(e.clientY);
+    draggingMoment.current = null;
+    setDropTarget(null);
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+    if (cancelled || !drag?.moved || !target) return;
+    const from = session?.moments.findIndex(m => m.moment_id === drag.id) ?? -1;
+    const insertion = target.index + (target.after ? 1 : 0);
+    if (from >= 0) moveMoment(from, insertion - (from < insertion ? 1 : 0));
+  }
 
   const open = (id: string) => call({ action: "show", session_id: id }, "Loading…");
 
@@ -260,7 +434,8 @@ export default function HighlightsPage() {
     call({ action: "edit", session_id: session.session_id, index, op, seconds }, "Rebuilding…");
 
   async function commitTrim(index: number, start: number, end: number) {
-    if (!session) return;
+    if (!session || working) return;
+    setReadyDownload(null);
     setSession({ ...session, moments: session.moments.map((m, i) => (i === index ? { ...m, start, end } : m)) });
     setSaving(true);
     try {
@@ -269,6 +444,9 @@ export default function HighlightsPage() {
         body: JSON.stringify({ action: "edit", session_id: session.session_id, index: index + 1, op: "set", start, end }),
       });
       setSession(r);
+    } catch (error) {
+      setSession(session);
+      setMsg('Could not save trim: ' + (error instanceof Error ? error.message : String(error)));
     } finally {
       setSaving(false);
     }
@@ -348,8 +526,8 @@ export default function HighlightsPage() {
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 16 }}>
           <span className="field-label" style={{ margin: 0 }}>Moments</span>
           <div style={{ display: "inline-flex", gap: 4 }}>
-            <button className={`btn ${auto ? "btn-primary" : "btn-ghost"} btn-sm`} onClick={() => setAuto(true)}>Auto</button>
-            <button className={`btn ${!auto ? "btn-primary" : "btn-ghost"} btn-sm`} onClick={() => setAuto(false)}>Custom</button>
+            <button className={`btn ${auto ? "btn-primary" : "btn-ghost"} btn-sm`} disabled={working} onClick={() => setAuto(true)}>Auto</button>
+            <button className={`btn ${!auto ? "btn-primary" : "btn-ghost"} btn-sm`} disabled={working} onClick={() => setAuto(false)}>Custom</button>
           </div>
           {auto && <span className="hint">Best moments and how many, picked for you</span>}
         </div>
@@ -365,17 +543,19 @@ export default function HighlightsPage() {
           {!auto && (
             <>
               <Field label="Moments">
-                <input type="number" min={1} max={50} value={topN} onChange={(e) => setTopN(Number(e.target.value))} style={{ width: "100%" }} />
+                <input type="number" min={1} max={50} disabled={working} value={topN} onChange={(e) => setTopN(Number(e.target.value))} style={{ width: "100%" }} />
               </Field>
               <Field label="Min length (s)">
-                <input type="number" min={1} value={minDur} onChange={(e) => setMinDur(Number(e.target.value))} style={{ width: "100%" }} />
+                <input type="number" min={1} step={0.1} disabled={working} value={minDur} onChange={(e) => setMinDur(Number(e.target.value))} style={{ width: "100%" }} />
               </Field>
               <Field label="Max length (s)">
-                <input type="number" min={1} value={maxDur} onChange={(e) => setMaxDur(Number(e.target.value))} style={{ width: "100%" }} />
+                <input type="number" min={1} step={0.1} disabled={working} value={maxDur} onChange={(e) => setMaxDur(Number(e.target.value))} style={{ width: "100%" }} />
               </Field>
             </>
           )}
         </div>
+
+        {!auto && <p className="hint" style={{ marginTop: 10 }}>Moments is the maximum count. Each selected moment stays within these lengths; fewer may qualify.</p>}
 
         <div style={{ display: "flex", alignItems: "flex-end", gap: 12, marginTop: 14 }}>
           <AssetPicker type="logo" label="Logo" value={logoPath} onChange={chooseLogo} />
@@ -383,7 +563,7 @@ export default function HighlightsPage() {
         </div>
 
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
-          <button className="btn btn-primary" disabled={busy || videoPaths.length === 0} onClick={detect}>
+          <button className="btn btn-primary" disabled={working || videoPaths.length === 0} onClick={detect}>
             {busy && msg?.startsWith("Finding")
               ? "Finding…"
               : videoPaths.length > 1
@@ -394,55 +574,85 @@ export default function HighlightsPage() {
       </div>
 
       {msg && (
-        <div className="set-note" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+        <div className="set-note" role="status" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
           {busy && <div className="spinner sm" />} {msg}
         </div>
       )}
 
+      {exportJob && <ExportProgress key={exportJob.id} jobId={exportJob.id}
+        onDone={path => {
+          setReadyDownload({ path, label: exportJob.label });
+          setExportJob(null);
+          saveDownload(path);
+        }}
+        onError={message => { setMsg('Download failed: ' + message); setExportJob(null); }} />}
+      {readyDownload && <div className="set-note" role="status" style={{ marginBottom: 16 }}>
+        Your {readyDownload.label} is ready. <a href={download(readyDownload.path)} download>Download {readyDownload.label}</a>
+      </div>}
+
       {session ? (
         <div className="stream-in">
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-            <button className="btn btn-ghost btn-sm" onClick={() => setSession(null)} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', padding: 16, marginBottom: 14 }}>
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <div className="card-title">Batch {session.batch_number || 1}</div>
+              <p className="hint" style={{ margin: '6px 0 0' }}>Find unused moments from this reel’s source videos using the Moments settings above. Add them to the end of this reel, or start a separate batch. Fewer moments may qualify.</p>
+            </div>
+            <Field label="New moments">
+              <select value={differentMode} disabled={working} onChange={e => setDifferentMode(e.target.value as 'append' | 'new')}>
+                <option value="append">Add to this reel</option>
+                <option value="new">Create a new batch</option>
+              </select>
+            </Field>
+            <button className="btn btn-primary" disabled={working} onClick={findDifferent}>Find different moments</button>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: 'wrap', gap: 12, marginBottom: 14 }}>
+            <button className="btn btn-ghost btn-sm" disabled={working} onClick={() => setSession(null)} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
               <BackIcon /> All highlights
             </button>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: 'wrap' }}>
               <span className="hint">{enabled}/{session.moments.length} in the cut</span>
-              <AssetPicker type="logo" value={session.logo || ""} disabled={busy} onChange={applySessionLogoPath} />
-              {session.reel_path && (
-                <a className="btn btn-primary btn-sm" href={download(session.reel_path)} style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <AssetPicker type="logo" value={session.logo || ""} disabled={working} onChange={applySessionLogoPath} />
+              <label htmlFor="highlight-download-format" className="field-label" style={{ margin: 0 }}>Download format</label>
+              <select id="highlight-download-format" value={downloadFormat} disabled={working}
+                onChange={e => { setDownloadFormat(e.target.value as Format); setReadyDownload(null); }} style={{ width: 'auto' }}>
+                <option value="vertical">Vertical 9:16</option>
+                <option value="horizontal">Horizontal 16:9</option>
+                <option value="square">Square 1:1</option>
+              </select>
+              {enabled > 0 && (
+                <button className="btn btn-primary btn-sm" disabled={working} onClick={() => exportDownload()} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                   <DownloadIcon /> Download reel
-                </a>
+                </button>
               )}
             </div>
           </div>
+          <p className="hint" style={{ marginBottom: 14 }}>Applies to the reel and every Clip download. Horizontal keeps the full source frame; vertical fills a portrait frame. Another format may take a moment to render.</p>
 
           {active && (
             <div className="section card" style={{ padding: 16 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
                 <span className="section-label" style={{ margin: 0 }}>Moment {selected + 1}</span>
                 <span className="pill pill-blue">{active.why}</span>
                 {(session.sources?.length ?? 1) > 1 && active.source && (
                   <span className="hint" title={active.source}>{basename(active.source)}</span>
                 )}
                 <span className="spacer" style={{ flex: 1 }} />
-                {active.clip_exists && active.clip_path && (
-                  <a className="btn btn-ghost btn-sm" href={download(active.clip_path)} style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <button className="btn btn-ghost btn-sm" disabled={working} onClick={() => exportDownload(selected + 1)} aria-label={`Download moment ${selected + 1} as ${downloadFormat}`} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                     <DownloadIcon /> Clip
-                  </a>
-                )}
-                <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => editOp(selected + 1, "toggle")}>
+                  </button>
+                <button className="btn btn-ghost btn-sm" disabled={working} onClick={() => editOp(selected + 1, "toggle")}>
                   {active.enabled ? "Exclude from cut" : "Include in cut"}
                 </button>
-                <button className="btn btn-danger btn-sm" disabled={busy} onClick={() => editOp(selected + 1, "drop")}>
+                <button className="btn btn-danger btn-sm" disabled={working} onClick={() => editOp(selected + 1, "drop")}>
                   <TrashIcon />
                 </button>
               </div>
               <MomentTrim
-                key={selected}
+                key={`${session.session_id}:${active.moment_id}`}
                 src={streamSrc}
                 start={active.start}
                 end={active.end}
-                saving={saving}
+                saving={working}
                 onCommit={(s, e) => commitTrim(selected, s, e)}
               />
               {active.text && <p className="card-desc" style={{ marginTop: 12, marginBottom: 0 }}>{active.text}</p>}
@@ -450,33 +660,60 @@ export default function HighlightsPage() {
           )}
 
           <div className="section-label" style={{ margin: "4px 0 10px" }}>All moments</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <p className="hint" id="moment-order-help">Drag a handle or use the arrows to reorder. Included moments play from top to bottom in the downloaded reel. Changes save automatically.</p>
+          <div ref={momentList} role="list" aria-label="Reel moment order" aria-busy={working} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {session.moments.map((m, idx) => (
               <div
-                key={idx}
+                key={m.moment_id}
+                role="listitem"
+                data-moment-row
                 className="card"
-                onClick={() => setSelected(idx)}
                 style={{
-                  display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", margin: 0, cursor: "pointer",
-                  opacity: m.enabled ? 1 : 0.45,
+                  display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", margin: 0, flexWrap: 'wrap',
+                  opacity: m.enabled ? 1 : 0.65,
                   borderColor: idx === selected ? "var(--accent-edge)" : "var(--border)",
+                  boxShadow: dropTarget?.index === idx ? `inset 0 ${dropTarget.after ? '-3px' : '3px'} 0 var(--accent-edge)` : undefined,
                 }}
               >
-                <span className="hint" style={{ width: 20, textAlign: "right" }}>{idx + 1}</span>
-                <strong style={{ fontVariantNumeric: "tabular-nums", minWidth: 96 }}>{fmt(m.start)}-{fmt(m.end)}</strong>
+                <button className="btn btn-ghost btn-sm" disabled={working}
+                  aria-label={`Reorder moment ${idx + 1}`} aria-describedby="moment-order-help"
+                  title="Drag to reorder, or use Alt+Up / Alt+Down" style={{ padding: '4px', cursor: working ? 'default' : 'grab', touchAction: 'none', userSelect: 'none' }}
+                  onPointerDown={e => {
+                    if (working || e.button !== 0 || !e.isPrimary) return;
+                    draggingMoment.current = { id: m.moment_id, startY: e.clientY, moved: false };
+                    e.currentTarget.setPointerCapture(e.pointerId);
+                  }}
+                  onPointerMove={dragMoment}
+                  onPointerUp={e => finishMomentDrag(e)}
+                  onPointerCancel={e => finishMomentDrag(e, true)}
+                  onKeyDown={e => {
+                    if (e.key === 'Escape') { draggingMoment.current = null; setDropTarget(null); }
+                    if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+                      e.preventDefault(); moveMoment(idx, idx + (e.key === 'ArrowUp' ? -1 : 1));
+                    }
+                  }}><GripVertical size={16} /></button>
+                <button className="btn btn-ghost btn-sm" disabled={working} aria-pressed={idx === selected}
+                  aria-label={`Preview moment ${idx + 1}: ${fmt(m.start)} to ${fmt(m.end)}`}
+                  onClick={() => setSelected(idx)} style={{ display: 'flex', gap: 10, padding: '4px' }}>
+                  <span className="hint" style={{ width: 20, textAlign: "right" }}>{idx + 1}</span>
+                  <strong style={{ fontVariantNumeric: "tabular-nums", minWidth: 96 }}>{fmt(m.start)}-{fmt(m.end)}</strong>
+                </button>
                 <span className="pill pill-blue">{m.why}</span>
+                {!m.enabled && <span className="hint">Excluded</span>}
                 {(session.sources?.length ?? 1) > 1 && m.source && (
                   <span className="hint" title={m.source} style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {basename(m.source)}
                   </span>
                 )}
                 <span className="hint" style={{ marginLeft: "auto", fontVariantNumeric: "tabular-nums" }}>{Math.round(m.end - m.start)}s</span>
-                {m.clip_exists && m.clip_path && (
-                  <a className="btn btn-ghost btn-sm" href={download(m.clip_path)} title="Download clip"
-                    onClick={(e) => e.stopPropagation()} style={{ textDecoration: "none", padding: "4px 8px" }}>
+                <button className="btn btn-ghost btn-sm" disabled={working || idx === 0}
+                  aria-label={`Move moment ${idx + 1} up`} title="Move up" onClick={() => moveMoment(idx, idx - 1)} style={{ padding: '4px 6px' }}><ArrowUp size={14} /></button>
+                <button className="btn btn-ghost btn-sm" disabled={working || idx === session.moments.length - 1}
+                  aria-label={`Move moment ${idx + 1} down`} title="Move down" onClick={() => moveMoment(idx, idx + 1)} style={{ padding: '4px 6px' }}><ArrowDown size={14} /></button>
+                  <button className="btn btn-ghost btn-sm" disabled={working} title={`Download ${downloadFormat} clip`} aria-label={`Download moment ${idx + 1} as ${downloadFormat}`}
+                    onClick={(e) => { e.stopPropagation(); exportDownload(idx + 1); }} style={{ padding: "4px 8px" }}>
                     <DownloadIcon size={13} />
-                  </a>
-                )}
+                  </button>
               </div>
             ))}
           </div>
@@ -502,6 +739,7 @@ export default function HighlightsPage() {
                   </div>
                   <div className="meta" style={{ gap: 8 }}>
                     <span className="pill pill-blue">{s.profile}</span>
+                    <span className="hint">Batch {s.batch_number || 1}</span>
                     <span className="hint">{FORMAT_LABEL[s.format as Format] || s.format}</span>
                     <span className="hint">·</span>
                     <span className="hint">{s.enabled_count}/{s.moment_count} moments</span>

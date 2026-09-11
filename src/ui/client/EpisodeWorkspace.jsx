@@ -1,4 +1,7 @@
+import PreviewControls from './PreviewControls';
+import ForegroundCanvas from './ForegroundCanvas';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { LocalPolicyContext } from './ProviderStatus';
 import { createPortal } from 'react-dom';
 import {
   Check,
@@ -40,7 +43,8 @@ import MomentTrim from './MomentTrim';
 import { useDialog } from './useDialog';
 import { PageHeader } from './Page';
 import { buildPreviewChunks, activePreviewChunk, selectPreviewWords } from './captionChunks';
-import { findClipResult, resultBoundsKey, clipKey, buildEnergyMap, dropEnergy, clampClipIndex, resolveAssetName, formatTranscriptText } from './lib';
+import { basename, findClipResult, resultBoundsKey, clipKey, buildEnergyMap, dropEnergy, clampClipIndex, resolveAssetName, formatTranscriptText } from './lib';
+import TranscriptEditor from './TranscriptEditor';
 
 // Mirrors backend/services/formats.py. A horizontal cutdown is minutes long,
 // so a slider capped at 60s could not express one.
@@ -83,7 +87,7 @@ const onKeyActivate = (fn) => (e) => {
       useEffect(() => {
         if (!jobId) { setState(null); return; }
         const es = new EventSource(`/api/job/${jobId}/stream`);
-        es.onmessage = e => { const d = JSON.parse(e.data); setState(d); if (d.status === 'done' || d.status === 'error') es.close(); };
+        es.onmessage = e => { const d = JSON.parse(e.data); setState({ ...d, id: jobId }); if (d.status === 'done' || d.status === 'error') es.close(); };
         es.onerror = () => es.close();
         return () => es.close();
       }, [jobId]);
@@ -441,7 +445,7 @@ const onKeyActivate = (fn) => (e) => {
       return { cfg, usingSample, activeChunk, activeWordInChunk };
     }
 
-    function LivePhonePreview({ videoUrl, videoRef, captionStyle, captionPosition, captionFontScale, logoPosition, activeClip, transcriptWords, logoPreviewUrl, showTikTokFrame, onToggleFrame, clipEnded, onReplay }) {
+    function LivePhonePreview({ format, cropStrategy, foregroundFraming, videoUrl, videoRef, captionStyle, captionPosition, captionFontScale, logoPosition, activeClip, transcriptWords, logoPreviewUrl, showTikTokFrame, onToggleFrame, clipEnded, onReplay }) {
       const { cfg, usingSample, activeChunk, activeWordInChunk } = useLiveCaptionPreview({
         videoUrl, videoRef, captionStyle, activeClip, transcriptWords,
       });
@@ -450,18 +454,20 @@ const onKeyActivate = (fn) => (e) => {
 
       return (
        <>
-        <div className="phone-frame fade-in">
-          <div className="phone-notch" />
+        <div className="phone-frame fade-in" style={{ boxSizing: 'content-box', width: 'calc(100% - 16px)', aspectRatio: format === 'horizontal' ? '16 / 9' : format === 'square' ? '1' : '9 / 16', maxWidth: format === 'vertical' ? 264 : '100%', borderRadius: format === 'vertical' ? 28 : 10 }}>
+          {format === 'vertical' && <div className="phone-notch" />}
           {videoUrl ? (
             <video key={videoUrl} ref={videoRef} src={videoUrl}
-              muted playsInline preload="auto" />
+              muted playsInline preload="auto" style={{ opacity: 0 }} />
+
           ) : (
             <div className="phone-empty">
               <div style={{ opacity: 0.4, display: 'flex' }}><Play size={22} /></div>
               <div>Drop a video to see live caption preview</div>
             </div>
           )}
-          {videoUrl && cfg.gradient && <div className="phone-gradient" />}
+          {videoUrl && <ForegroundCanvas videoRef={videoRef} videoUrl={videoUrl} framing={foregroundFraming} format={format} cropStrategy={cropStrategy} />}
+          {videoUrl && !foregroundFraming && cfg.gradient && <div className="phone-gradient" />}
           {videoUrl && clipEnded && (
             <button onClick={onReplay} aria-label="Replay clip"
               style={{
@@ -509,6 +515,7 @@ const onKeyActivate = (fn) => (e) => {
             <TikTokWireframe activeClip={activeClip} captionStyle={captionStyle} />
           )}
         </div>
+        {videoUrl && <PreviewControls videoRef={videoRef} videoUrl={videoUrl} activeClip={activeClip} />}
         <div className="preview-toggle-row">
           <label>
             <input type="checkbox" checked={!!showTikTokFrame} onChange={onToggleFrame} />
@@ -593,10 +600,10 @@ const onKeyActivate = (fn) => (e) => {
           )}
           <div className="youtube-preview-bar">
             <div>
-              <strong>YouTube full episode</strong>
-              <span>{rendered ? 'Rendered captions' : 'Live caption preview · 16:9'}</span>
+              <strong>Source frame preview</strong>
+              <span>{rendered ? 'Rendered captions' : 'Original framing · live captions'}</span>
             </div>
-            <button className="preview-back" onClick={onBack}>Back to clip preview</button>
+            <button className="preview-back" onClick={onBack}>Back to Studio preview</button>
           </div>
           <div className="preview-toggle-row youtube-toggle-row">
             <label>
@@ -609,19 +616,24 @@ const onKeyActivate = (fn) => (e) => {
     }
 
     /* ── Spec Recap ── re-renders form state as a reviewable card. */
-    function SpecRecap({ captionStyle, captionPosition, captionFontScale, logoPosition, cropStrategy, logoPath, outroPath, activePreset, quality, cleanFillers }) {
+    function SpecRecap({ foregroundFraming, captionStyle, captionPosition, captionFontScale, logoPosition, cropStrategy, logoPath, outroPath, activePreset, quality, cleanFillers }) {
       const cfg = STYLE_CONFIGS[captionStyle] || STYLE_CONFIGS.branded;
       // Sample "color" comes from the active-word style of the caption preset.
       const swatch = (cfg.activeStyle && (cfg.activeStyle.color || cfg.activeStyle.background)) || '#ffffff';
       const rows = [
         ['Caption style', captionStyle],
-        ['Crop', cropStrategy],
+        ['Framing', foregroundFraming?.mode === 'fit' ? 'Fit entire video' : foregroundFraming?.mode === 'manual' ? 'Manual' : foregroundFraming ? 'Larger foreground' : cropStrategy],
         ['Caption size', `${captionFontScale}%`],
         ['Caption position', captionPosition],
         ['Highlight', <span><span className="sr-swatch" style={{ background: swatch }} />{swatch}</span>],
         ['Quality', quality || 'standard'],
         ['Clean fillers', cleanFillers ? 'on' : 'off'],
       ];
+      if (foregroundFraming && (!foregroundFraming.mode || foregroundFraming.mode === 'larger')) {
+        rows.push(['Side trim', `${foregroundFraming.sideTrimPercent}% each side`]);
+        rows.push(['Foreground bottom', `${(foregroundFraming.foregroundBottom * 100).toFixed(1)}%`]);
+      }
+      if (foregroundFraming?.mode === 'manual') rows.push(['Zoom', `${Math.round(foregroundFraming.zoom * 100)}%`]);
       if (logoPath) rows.push(['Logo', `${logoPath.split('/').pop()} · ${logoPosition}`]);
       if (outroPath) rows.push(['Outro', outroPath.split('/').pop()]);
       if (activePreset) rows.push(['Preset', activePreset]);
@@ -706,6 +718,7 @@ const onKeyActivate = (fn) => (e) => {
     }
 
     export default function App() {
+      const localOnly = React.useContext(LocalPolicyContext);
       const { assets } = useAssets();
       const [videoPath, setVideoPath] = useState('');
       const [transcriptMode, setTranscriptMode] = useState('whisper');
@@ -714,10 +727,14 @@ const onKeyActivate = (fn) => (e) => {
       const [transcriptionEngine, setTranscriptionEngine] = useState('whisper');
       const [assemblyAiKey, setAssemblyAiKey] = useState('');
       const [whisperModel, setWhisperModel] = useState('base');
+      useEffect(() => {
+        if (localOnly) { setWhisperModel('base'); setTranscriptionEngine('whisper'); }
+      }, [localOnly, whisperModel, transcriptionEngine]);
       const [captionStyle, setCaptionStyle] = useState('branded');
       const [captionPosition, setCaptionPosition] = useState('auto');
       const [captionFontScale, setCaptionFontScale] = useState(100);
       const [logoPosition, setLogoPosition] = useState('top-left');
+      const [foregroundFraming, setForegroundFraming] = useState(null);
       const [cropStrategy, setCropStrategy] = useState('face');
       const [format, setFormat] = useState('vertical');
       const [showTikTokFrame, setShowTikTokFrame] = useState(false);
@@ -739,6 +756,24 @@ const onKeyActivate = (fn) => (e) => {
       const [transcript, setTranscript] = useState(null);
       const [transcriptOpen, setTranscriptOpen] = useState(true);
       const [transcriptFormat, setTranscriptFormat] = useState('readable');
+      const [editingTranscript, setEditingTranscript] = useState(null);
+      const currentVideoPathRef = useRef(videoPath);
+      currentVideoPathRef.current = videoPath;
+      const [transcriptNotice, setTranscriptNotice] = useState('');
+      useEffect(() => { setEditingTranscript(null); setTranscriptNotice(''); }, [videoPath]);
+      const saveTranscriptEdits = async (edits) => {
+        const vp = videoPath.trim() || file?.file_path;
+        const data = await api('/edit-transcript', { method: 'POST', body: JSON.stringify({
+          video_path: vp, base_words: editingTranscript.words, edits,
+        }) });
+        if (!data.transcript) throw new Error(data.error || 'Transcript was not saved.');
+        if (currentVideoPathRef.current.trim() !== vp) return;
+        prevTranscriptRef.current = data.transcript;
+        setTranscript(data.transcript);
+        setEditingTranscript(null);
+        setTranscriptNotice('Saved. New previews and exports will use these corrections. Export again to update an already rendered video.');
+        setSilencePlan(null); setFullEpisodeResult(null); setPreviewSrc(null);
+      };
       const formattedTranscript = useMemo(
         () => formatTranscriptText(transcript, transcriptFormat),
         [transcript, transcriptFormat],
@@ -749,6 +784,7 @@ const onKeyActivate = (fn) => (e) => {
       const batchStream = useJob(batchJobId);
       const [results, setResults] = useState([]);
       const [fullEpisodeJobId, setFullEpisodeJobId] = useState(null);
+      const [fullEpisodeStarting, setFullEpisodeStarting] = useState(false);
       const fullEpisodeStream = useJob(fullEpisodeJobId);
       const [fullEpisodeResult, setFullEpisodeResult] = useState(null);
       const [silenceOriginal, setSilenceOriginal] = useState(null);
@@ -862,6 +898,7 @@ const onKeyActivate = (fn) => (e) => {
           if (d.caption_position) setCaptionPosition(d.caption_position);
           if (d.caption_font_scale) setCaptionFontScale(Number(d.caption_font_scale));
           if (d.logo_position) setLogoPosition(d.logo_position);
+          setForegroundFraming(d.foreground_framing || null);
           if (d.crop_strategy) setCropStrategy(d.crop_strategy);
           if (d.format) setFormat(d.format);
           if (d.logo_path !== undefined) setLogoPath(d.logo_path || '');
@@ -902,7 +939,7 @@ const onKeyActivate = (fn) => (e) => {
         try {
           await api('/presets', { method: 'POST', body: JSON.stringify({
             action: 'save', name: presetName.trim(),
-            config: { caption_style: captionStyle, caption_position: captionPosition, caption_font_scale: captionFontScale, logo_position: logoPosition, crop_strategy: cropStrategy, format, logo_path: logoPath, outro_path: outroPath, intro_path: introPath, video_path: videoPath.trim(), whisper_model: whisperModel, transcription_engine: transcriptionEngine, time_adjust: timeAdjust, clean_fillers: cleanFillers, quality, top_clips: topClips, min_clip_duration: minDuration, max_clip_duration: maxDuration, energy_boost: energyBoost }
+            config: { caption_style: captionStyle, caption_position: captionPosition, caption_font_scale: captionFontScale, logo_position: logoPosition, crop_strategy: cropStrategy, foreground_framing: foregroundFraming, format, logo_path: logoPath, outro_path: outroPath, intro_path: introPath, video_path: videoPath.trim(), whisper_model: whisperModel, transcription_engine: transcriptionEngine, time_adjust: timeAdjust, clean_fillers: cleanFillers, quality, top_clips: topClips, min_clip_duration: minDuration, max_clip_duration: maxDuration, energy_boost: energyBoost }
           })});
           setActivePreset(presetName.trim());
           setPresetName(''); setShowPresetSave(false);
@@ -1071,7 +1108,7 @@ const onKeyActivate = (fn) => (e) => {
           silencePlan,
           suggestions,
           deselectedIndices: Array.from(deselected),
-          settings: { captionStyle, captionPosition, captionFontScale, logoPosition, cropStrategy, format, logoPath, outroPath, introPath, cleanFillers, silenceThreshold, silenceMinPause, silencePadding },
+          settings: { captionStyle, captionPosition, captionFontScale, logoPosition, cropStrategy, foregroundFraming, format, logoPath, outroPath, introPath, cleanFillers, silenceThreshold, silenceMinPause, silencePadding },
           phase,
           results,
           energyData,
@@ -1091,7 +1128,7 @@ const onKeyActivate = (fn) => (e) => {
         if (key === prevSyncRef.current) return;
         prevSyncRef.current = key;
         fetch('/api/ui-state', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: key }).catch(() => { });
-      }, [stateHydrated, videoPath, file, silenceOriginal, silencePlan, suggestions, deselected, captionStyle, captionPosition, captionFontScale, logoPosition, cropStrategy, format, logoPath, outroPath, introPath, cleanFillers, silenceThreshold, silenceMinPause, silencePadding, phase, results, energyData]);
+      }, [stateHydrated, videoPath, file, silenceOriginal, silencePlan, suggestions, deselected, captionStyle, captionPosition, captionFontScale, logoPosition, cropStrategy, foregroundFraming, format, logoPath, outroPath, introPath, cleanFillers, silenceThreshold, silenceMinPause, silencePadding, phase, results, energyData]);
 
       // Sync transcript separately (large payload)
       const prevTranscriptRef = useRef(null);
@@ -1150,6 +1187,7 @@ const onKeyActivate = (fn) => (e) => {
                 captionFontScale: d.settings?.captionFontScale || 100,
                 logoPosition: d.settings?.logoPosition || 'top-left',
                 cropStrategy: d.settings?.cropStrategy || 'speaker',
+                foregroundFraming: d.settings?.foregroundFraming || null,
                 format: d.settings?.format || 'vertical',
                 logoPath: d.settings?.logoPath || '',
                 outroPath: d.settings?.outroPath || '',
@@ -1185,6 +1223,7 @@ const onKeyActivate = (fn) => (e) => {
             if (d.settings.captionPosition) setCaptionPosition(d.settings.captionPosition);
             if (d.settings.captionFontScale) setCaptionFontScale(Number(d.settings.captionFontScale));
             if (d.settings.logoPosition) setLogoPosition(d.settings.logoPosition);
+            setForegroundFraming(d.settings.foregroundFraming || null);
             if (d.settings.cropStrategy) setCropStrategy(d.settings.cropStrategy);
             if (d.settings.format) setFormat(d.settings.format);
             if (d.settings.logoPath !== undefined) setLogoPath(d.settings.logoPath);
@@ -1226,12 +1265,40 @@ const onKeyActivate = (fn) => (e) => {
       const videoRef = useRef();
       const [activeClipIdx, setActiveClipIdx] = useState(null);
       const [previewSrc, setPreviewSrc] = useState(null); // null=source, string=rendered clip filename
+      const [previewJobId, setPreviewJobId] = useState(null);
+      const [previewStarting, setPreviewStarting] = useState(false);
+      const [previewError, setPreviewError] = useState(null);
+      const previewStream = useJob(previewJobId);
+      const requestedPreviewRef = useRef(null);
       const [previewMode, setPreviewMode] = useState('clips'); // clips | youtube
       const [settingsFlash, setSettingsFlash] = useState(null);
       const [clipEnded, setClipEnded] = useState(false);
       const previewSessionRef = useRef(Date.now().toString(36));
 
       const activeClip = activeClipIdx !== null ? suggestions[activeClipIdx] : null;
+      const previewSettingsKey = JSON.stringify([videoPath, activeClip, foregroundFraming, format, cropStrategy,
+        captionStyle, captionPosition, captionFontScale, logoPosition, logoPath, introPath, outroPath, cleanFillers, transcript?.words]);
+      const currentPreviewKey = useRef(previewSettingsKey);
+      currentPreviewKey.current = previewSettingsKey;
+      useEffect(() => {
+        setPreviewSrc(value => value?.startsWith('job:') ? null : value);
+        setPreviewError(null);
+      }, [previewSettingsKey]);
+      useEffect(() => {
+        if (!previewJobId || previewStream?.id !== previewJobId) return;
+        if (previewStream.status === 'done') {
+          if (requestedPreviewRef.current?.key === currentPreviewKey.current) {
+            setPreviewSrc('job:' + previewJobId);
+            setPreviewMode('clips');
+          } else {
+            setPreviewError('Settings changed during rendering. Render preview again to see the current settings.');
+          }
+          setPreviewJobId(null);
+        } else if (previewStream.status === 'error') {
+          setPreviewError(previewStream.error || 'Preview rendering failed.');
+          setPreviewJobId(null);
+        }
+      }, [previewJobId, previewStream]);
 
       // An agent can delete a clip out from under the cursor, leaving it on a row
       // that no longer exists — space would then deselect an index nobody owns.
@@ -1241,7 +1308,7 @@ const onKeyActivate = (fn) => (e) => {
 
       // Video source URL
       const videoUrl = previewSrc
-        ? `/api/preview/${previewSrc}`
+        ? previewSrc.startsWith('job:') ? `/api/rendered-preview/${previewSrc.slice(4)}` : `/api/preview/${encodeURIComponent(previewSrc)}`
         : videoPath && !isHttpUrl(videoPath)
           ? `/api/stream-source?path=${encodeURIComponent(videoPath)}&preview=${previewSessionRef.current}`
           : null;
@@ -1267,7 +1334,7 @@ const onKeyActivate = (fn) => (e) => {
           if (v.currentTime >= activeClip.end_second) {
             v.pause();
             setClipEnded(true);
-          }
+          } else { setClipEnded(false); }
         };
         v.addEventListener('timeupdate', onTime);
         return () => {
@@ -1292,7 +1359,7 @@ const onKeyActivate = (fn) => (e) => {
 
       const onCaptionChange = (v) => { setCaptionStyle(v); flashSetting('caption'); };
       const onCropChange = (v) => { setCropStrategy(v); flashSetting('crop'); };
-      const onFormatChange = (v) => { setFormat(v); flashSetting('format'); };
+      const onFormatChange = (v) => { if (v !== 'vertical' && foregroundFraming && (!foregroundFraming.mode || foregroundFraming.mode === 'larger')) setForegroundFraming(null); setFormat(v); flashSetting('format'); };
 
       // Click clip row → seek source video
       const onClipClick = (idx) => {
@@ -1309,6 +1376,7 @@ const onKeyActivate = (fn) => (e) => {
       };
 
       const onPreviewFullEpisode = (filename = null) => {
+        if (filename) { setPreviewFile(filename); return; }
         setPreviewMode('youtube');
         setPreviewSrc(filename);
         setActiveClipIdx(null);
@@ -1437,10 +1505,26 @@ const onKeyActivate = (fn) => (e) => {
         caption_position: captionPosition,
         caption_font_scale: captionFontScale,
         logo_position: logoPosition,
-        crop_strategy: cropStrategy,
+        crop_strategy: cropStrategy, foreground_framing: foregroundFraming,
         format,
         ...(Array.isArray(c.segments) && c.segments.length > 0 && { keep_segments: c.segments }),
       });
+
+      const renderExportPreview = async () => {
+        if (!activeClip || previewStarting || previewJobId) return;
+        setPreviewStarting(true); setPreviewError(null);
+        requestedPreviewRef.current = { key: previewSettingsKey };
+        try {
+          const data = await api('/render-preview', { method: 'POST', body: JSON.stringify({
+            ...clipExportPayload(activeClip), video_path: videoPath.trim() || file?.file_path,
+            transcript_words: transcript?.words || [], logo_path: logoPath || undefined,
+            intro_path: introPath || undefined, outro_path: outroPath || undefined, clean_fillers: cleanFillers,
+          }) });
+          if (data.error || !data.job_id) throw new Error(data.error || 'Could not start preview');
+          setPreviewJobId(data.job_id);
+        } catch (error) { setPreviewError(error.message); }
+        finally { setPreviewStarting(false); }
+      };
 
       const startExport = async () => {
         setPhase('exporting'); setResults([]);
@@ -1458,9 +1542,12 @@ const onKeyActivate = (fn) => (e) => {
       };
 
       const startFullEpisodeExport = async () => {
+        if (fullEpisodeStarting || fullEpisodeJobId || editingTranscript) return;
         setError(null);
         setFullEpisodeResult(null);
+        setFullEpisodeStarting(true);
         const vp = videoPath.trim() || file?.file_path;
+        try {
         const data = await api('/export-full-episode', {
           method: 'POST', body: JSON.stringify({
             video_path: vp,
@@ -1469,14 +1556,15 @@ const onKeyActivate = (fn) => (e) => {
             caption_position: captionPosition,
             caption_font_scale: captionFontScale,
             logo_position: logoPosition,
-            logo_path: captionStyle === 'branded' ? logoPath || undefined : undefined,
+            format, crop_strategy: cropStrategy, foreground_framing: foregroundFraming,
+            logo_path: logoPath || undefined, intro_path: introPath || undefined, outro_path: outroPath || undefined,
+            clean_fillers: cleanFillers,
           })
         });
-        if (data.error) {
-          setError(data.error);
-          return;
-        }
+        if (data.error || !data.job_id) throw new Error(data.error || 'Could not start full episode export.');
         setFullEpisodeJobId(data.job_id);
+        } catch (error) { setError('Full episode export failed: ' + error.message); }
+        finally { setFullEpisodeStarting(false); }
       };
 
       useEffect(() => {
@@ -1600,22 +1688,41 @@ const onKeyActivate = (fn) => (e) => {
       }, [batchStream?.status]);
 
       const retryClipRef = useRef(null);
+      const finishRetryError = useCallback((idx, message) => {
+        setError('Retry failed: ' + String(message).split(/\r?\n/)[0]);
+        setResults(prev => prev.map((row, i) => i === idx && row?.status === 'error' ? { ...row, error: message } : row));
+        retryClipRef.current = null;
+        setRetryIdx(null); setRetryJobId(null);
+      }, []);
       const retryClip = async (idx) => {
+        if (retryClipRef.current) return;
         const sc = suggestions.filter((_, i) => !deselected.has(i));
-        const c = sc[idx]; retryClipRef.current = c; setRetryIdx(idx); setRetryJobId(null);
+        const c = sc[idx];
+        if (!c) { setError('This clip is no longer selected. Select it again before retrying.'); return; }
+        retryClipRef.current = c; setRetryIdx(idx); setRetryJobId(null); setError(null);
         const vp = file?.file_path || videoPath.trim();
-        const data = await api('/create-clip', {
-          method: 'POST', body: JSON.stringify({
-            video_path: vp, start_second: c.start_second, end_second: c.end_second,
-            title: c.title, caption_style: captionStyle, caption_position: captionPosition, caption_font_scale: captionFontScale, logo_position: logoPosition, crop_strategy: cropStrategy, format,
-            transcript_words: transcript?.words || [], logo_path: logoPath || undefined, outro_path: outroPath || undefined, intro_path: introPath || undefined, clean_fillers: cleanFillers || undefined,
-            ...(Array.isArray(c.segments) && c.segments.length > 0 && { keep_segments: c.segments }),
-          })
-        });
-        setRetryJobId(data.job_id);
+        try {
+          const data = await api('/create-clip', {
+            method: 'POST', body: JSON.stringify({
+              video_path: vp, start_second: c.start_second, end_second: c.end_second,
+              title: c.title, caption_style: captionStyle, caption_position: captionPosition, caption_font_scale: captionFontScale, logo_position: logoPosition, crop_strategy: cropStrategy, foreground_framing: foregroundFraming, format,
+              transcript_words: transcript?.words || [], logo_path: logoPath || undefined, outro_path: outroPath || undefined, intro_path: introPath || undefined, clean_fillers: cleanFillers,
+              ...(Array.isArray(c.segments) && c.segments.length > 0 && { keep_segments: c.segments }),
+            })
+          });
+          if (data.error || !data.job_id) throw new Error(data.error || 'The server did not start a retry job.');
+          setRetryJobId(data.job_id);
+        } catch (err) {
+          finishRetryError(idx, err.message || 'Could not connect to Clipperz.');
+        }
       };
 
       useEffect(() => {
+        if (!retryJobId || retryStream?.id !== retryJobId) return;
+        if (retryStream.status === 'error') {
+          finishRetryError(retryIdx, retryStream.error || 'Unknown export error');
+          return;
+        }
         if (retryStream?.status !== 'done') return;
         const c = retryClipRef.current;
         const row = {
@@ -1631,8 +1738,9 @@ const onKeyActivate = (fn) => (e) => {
           next[at] = row;
           return next;
         });
+        retryClipRef.current = null;
         setRetryIdx(null); setRetryJobId(null);
-      }, [retryStream?.status]);
+      }, [retryStream, retryJobId, retryIdx, finishRetryError]);
 
       const toggleClip = (i) => setDeselected(prev => { const n = new Set(prev); n.has(i) ? n.delete(i) : n.add(i); return n; });
       const selectedClips = suggestions.filter((_, i) => !deselected.has(i));
@@ -1744,7 +1852,7 @@ const onKeyActivate = (fn) => (e) => {
               _source: 'ui',
               videoPath: videoPath.trim(),
               rawTranscriptText: transcriptText.trim() || undefined,
-              settings: { captionStyle, captionPosition, captionFontScale, logoPosition, cropStrategy, format, logoPath, outroPath, introPath },
+              settings: { captionStyle, captionPosition, captionFontScale, logoPosition, cropStrategy, foregroundFraming, format, logoPath, outroPath, introPath },
             }),
           }).catch(() => { });
         }
@@ -1814,9 +1922,9 @@ const onKeyActivate = (fn) => (e) => {
         }
       };
 
-      const fullEpisodeBusy = fullEpisodeStream?.status === 'running' || !!fullEpisodeJobId;
+      const fullEpisodeBusy = fullEpisodeStarting || fullEpisodeStream?.status === 'running' || !!fullEpisodeJobId;
       const silenceBusy = !!silenceAnalyzeJobId || !!silenceRenderJobId;
-      const isProcessing = phase === 'parsing' || phase === 'suggesting' || phase === 'exporting' || transcribing || downloadingVideo || fullEpisodeBusy || silenceBusy;
+      const isProcessing = phase === 'parsing' || phase === 'suggesting' || phase === 'exporting' || transcribing || downloadingVideo || fullEpisodeBusy || silenceBusy || !!editingTranscript;
       const sourceIsUrl = isHttpUrl(videoPath);
       const exportStats = phase === 'done' ? {
         total: results.length || selectedClips.length,
@@ -1857,14 +1965,14 @@ const onKeyActivate = (fn) => (e) => {
                   {encoderInfo.best === 'libx264' ? 'CPU' : encoderInfo.best.replace('h264_', '').toUpperCase()}
                 </span>
               )}
-              {speakerStatus && !speakerStatus.configured && (
+              {!localOnly && speakerStatus && !speakerStatus.configured && (
                 <span className="pill" style={{ fontSize: 10, letterSpacing: '0.5px', background: 'rgba(250,204,21,0.08)', color: '#facc15', border: '1px solid rgba(250,204,21,0.2)', cursor: 'pointer' }}
                   title="Speaker detection not configured. Click to learn more"
                   onClick={() => window.open('https://huggingface.co/pyannote/speaker-diarization-3.1', '_blank')}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Speakers <X size={11} /></span>
                 </span>
               )}
-              {speakerStatus && speakerStatus.configured && (
+              {!localOnly && speakerStatus && speakerStatus.configured && (
                 <span className="pill" style={{ fontSize: 10, letterSpacing: '0.5px', background: 'var(--green-subtle)', color: 'var(--green)', border: '1px solid var(--green-border)' }}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Speakers <Check size={11} /></span>
                 </span>
@@ -1872,7 +1980,7 @@ const onKeyActivate = (fn) => (e) => {
             </>}
           />
 
-          {speakerStatus && !speakerStatus.configured && !sessionStorage.getItem('dismiss-speaker') && (
+          {!localOnly && speakerStatus && !speakerStatus.configured && !sessionStorage.getItem('dismiss-speaker') && (
             <div className="fade-in" style={{ margin: '0 0 16px', padding: '14px 16px', background: 'rgba(250,204,21,0.06)', border: '1px solid rgba(250,204,21,0.15)', borderRadius: 'var(--radius)', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Set up speaker detection</div>
@@ -1986,13 +2094,13 @@ const onKeyActivate = (fn) => (e) => {
                         <label className="field-label">Engine</label>
                         <select value={transcriptionEngine} onChange={e => { setTranscriptionEngine(e.target.value); setTranscript(null); setCachedTranscript(false); autoTranscribeRef.current = ''; }} disabled={isProcessing || transcribing}>
                           <option value="whisper">Whisper</option>
-                          <option value="assemblyai">AssemblyAI</option>
+                          {!localOnly && <option value="assemblyai">AssemblyAI</option>}
                         </select>
                       </div>
                       {transcriptionEngine === 'whisper' && (
                         <div>
                           <label className="field-label">Model</label>
-                          <select value={whisperModel} onChange={e => setWhisperModel(e.target.value)} disabled={isProcessing || transcribing}>
+                          <select value={whisperModel} onChange={e => setWhisperModel(e.target.value)} disabled={localOnly || isProcessing || transcribing}>
                             <option value="tiny">Tiny (fastest)</option><option value="base">Base</option>
                             <option value="small">Small</option><option value="medium">Medium</option>
                             <option value="large">Large (best)</option>
@@ -2052,7 +2160,7 @@ const onKeyActivate = (fn) => (e) => {
                               onClick={() => setTranscriptOpen(open => !open)} style={{ padding: '4px 10px', fontSize: 11 }}>
                               {transcriptOpen ? 'Hide transcript' : 'View transcript'}
                             </button>
-                            <button className="btn btn-ghost btn-sm" onClick={() => { setTranscript(null); setCachedTranscript(false); autoTranscribeRef.current = ''; }} style={{ padding: '4px 10px', fontSize: 11 }}>Re-transcribe</button>
+                            <button className="btn btn-ghost btn-sm" disabled={isProcessing || !!editingTranscript} onClick={() => { setTranscript(null); setCachedTranscript(false); autoTranscribeRef.current = ''; }} style={{ padding: '4px 10px', fontSize: 11 }}>Re-transcribe</button>
                           </div>
                         </div>
                         {transcriptOpen && formattedTranscript && (
@@ -2060,9 +2168,11 @@ const onKeyActivate = (fn) => (e) => {
                             <div className="full-transcript-head">
                               <div className="full-transcript-title">
                                 <strong>Full transcript</strong>
-                                <span>Clean paragraphs, ready to read or copy</span>
+                                <span>{transcript.edited ? 'Edited transcript · used for captions' : 'Read, copy, or correct the caption text'}</span>
                               </div>
                               <div className="full-transcript-actions">
+                                {!editingTranscript && <button className="btn btn-ghost btn-sm" disabled={isProcessing || previewStarting || !!previewJobId}
+                                  onClick={() => { setEditingTranscript(transcript); setTranscriptNotice(''); }}>Edit transcript</button>}
                                 <div className="transcript-format-tabs" role="tablist" aria-label="Transcript format">
                                   {[['readable', 'Readable'], ['timestamped', 'Timestamps']].map(([value, label]) => (
                                     <button key={value} type="button" role="tab" aria-selected={transcriptFormat === value}
@@ -2074,10 +2184,16 @@ const onKeyActivate = (fn) => (e) => {
                                   className="btn btn-ghost btn-sm transcript-copy-button" />
                               </div>
                             </div>
-                            <div className="transcript-document" role="document" tabIndex={0}
+                            {editingTranscript ? <TranscriptEditor transcript={editingTranscript} onSave={saveTranscriptEdits}
+                              onCancel={() => setEditingTranscript(null)} onSeek={time => {
+                                setPreviewSrc(null); setActiveClipIdx(null); setPreviewMode('clips');
+                                const video = videoRef.current;
+                                if (video) { video.currentTime = time; video.muted = false; video.play().catch(() => {}); }
+                              }} /> : <div className="transcript-document" role="document" tabIndex={0}
                               aria-label={`${transcriptFormat === 'timestamped' ? 'Timestamped' : 'Readable'} full transcript`}>
                               {formattedTranscript}
-                            </div>
+                            </div>}
+                            {transcriptNotice && <p className="hint" role="status" style={{ padding: '0 14px 12px' }}>{transcriptNotice}</p>}
                           </div>
                         )}
                       </>
@@ -2254,6 +2370,51 @@ const onKeyActivate = (fn) => (e) => {
                   </div>
                 )}
 
+                <div className="foreground-settings" style={{ marginBottom: 18 }}>
+                  <label className="field-label">Framing preset</label>
+                  <select aria-label="Framing preset" disabled={isProcessing} value={foregroundFraming ? foregroundFraming.mode || 'larger' : 'standard'} onChange={e => {
+                    const mode = e.target.value;
+                    if (mode === 'standard') { setForegroundFraming(null); return; }
+                    setCropStrategy('center');
+                    if (mode === 'fit' || mode === 'manual') {
+                      setForegroundFraming(mode === 'fit' ? { mode, background: 'blur' } : { mode, zoom: 1, positionX: 50, positionY: 50, background: 'blur' });
+                      return;
+                    }
+                    setForegroundFraming({ sideTrimPercent: 13, foregroundBottom: .658 });
+                    setFormat('vertical'); setCaptionStyle('karaoke'); setCaptionPosition('auto'); setCaptionFontScale(100);
+                  }}>
+                    <option value="standard">Standard crop</option>
+                    <option value="larger">Larger foreground · blurred background</option>
+                    <option value="fit">Fit entire video</option>
+                    <option value="manual">Manual zoom &amp; position</option>
+                  </select>
+                  {foregroundFraming && (!foregroundFraming.mode || foregroundFraming.mode === 'larger') && <>
+                    <label className="field-label" style={{ marginTop: 12 }}>Trim from each side: {foregroundFraming.sideTrimPercent}%</label>
+                    <input aria-label="Trim from each side" type="range" min="0" max="15" step=".5" disabled={isProcessing} value={foregroundFraming.sideTrimPercent} onChange={e => setForegroundFraming({ ...foregroundFraming, sideTrimPercent: Number(e.target.value) })} />
+                    <label className="field-label">Foreground bottom: {(foregroundFraming.foregroundBottom * 100).toFixed(1)}%</label>
+                    <input aria-label="Foreground bottom" type="range" min="50" max="85" step=".1" disabled={isProcessing} value={foregroundFraming.foregroundBottom * 100} onChange={e => setForegroundFraming({ ...foregroundFraming, foregroundBottom: Number(e.target.value) / 100 })} />
+                    <p style={{ fontSize: 12, color: 'var(--muted)' }}>1080 × 1920 · full-source blurred background. Recommended side trim: 10–15%.</p>
+                  </>}
+                  {foregroundFraming?.mode === 'fit' && <p style={{ fontSize: 12 }}>Keeps the entire source visible inside the selected output format.</p>}
+                  {foregroundFraming?.mode === 'manual' && <>
+                    <label className="field-label" style={{ marginTop: 12 }}>Zoom: {Math.round(foregroundFraming.zoom * 100)}%</label>
+                    <input aria-label="Foreground zoom" type="range" min="50" max="400" step="5" disabled={isProcessing} value={foregroundFraming.zoom * 100} onChange={e => setForegroundFraming({ ...foregroundFraming, zoom: Number(e.target.value) / 100 })} />
+                    <label className="field-label">Horizontal position: {foregroundFraming.positionX}%</label>
+                    <input aria-label="Horizontal position" type="range" min="0" max="100" step="1" disabled={isProcessing} value={foregroundFraming.positionX} onChange={e => setForegroundFraming({ ...foregroundFraming, positionX: Number(e.target.value) })} />
+                    <label className="field-label">Vertical position: {foregroundFraming.positionY}%</label>
+                    <input aria-label="Vertical position" type="range" min="0" max="100" step="1" disabled={isProcessing} value={foregroundFraming.positionY} onChange={e => setForegroundFraming({ ...foregroundFraming, positionY: Number(e.target.value) })} />
+                    <button className="btn btn-ghost btn-sm" disabled={isProcessing} onClick={() => setForegroundFraming({ ...foregroundFraming, zoom: 1, positionX: 50, positionY: 50 })}>Reset zoom &amp; position</button>
+                    <p style={{ fontSize: 12 }}>100% fits the whole video. Position 50% centers it. Applies to clips and full-episode export.</p>
+                  </>}
+                  {(foregroundFraming?.mode === 'fit' || foregroundFraming?.mode === 'manual') && <>
+                    <label className="field-label" style={{ marginTop: 12 }}>Background</label>
+                    <select aria-label="Framing background" value={foregroundFraming.background} disabled={isProcessing} onChange={e => setForegroundFraming({ ...foregroundFraming, background: e.target.value })}>
+                      <option value="blur">Blurred source</option><option value="black">Black</option>
+                    </select>
+                  </>}
+                  {foregroundFraming && <p style={{ fontSize: 12, color: 'var(--muted)' }}>Save as preset to reuse these adjustments.</p>}
+                  {foregroundFraming && foregroundFraming.mode !== 'fit' && <p role="status" style={{ fontSize: 12, color: 'var(--orange)' }}>Review the entire clip for people or content cut off at the edges. People are not automatically verified.</p>}
+                </div>
                 <div className="settings-grid">
                   <div>
                     <label className="field-label">Caption style</label>
@@ -2264,7 +2425,7 @@ const onKeyActivate = (fn) => (e) => {
                   </div>
                   <div>
                     <label className="field-label">Crop</label>
-                    <select value={cropStrategy} onChange={e => onCropChange(e.target.value)} disabled={isProcessing}>
+                    <select value={cropStrategy} onChange={e => onCropChange(e.target.value)} disabled={isProcessing || !!foregroundFraming}>
                       <option value="speaker">Speaker aware</option><option value="face">Face detection</option><option value="center">Center</option>
                     </select>
                   </div>
@@ -2378,10 +2539,10 @@ const onKeyActivate = (fn) => (e) => {
                     <div>
                       <div className="section-label" style={{ marginBottom: 5 }}>Full episode</div>
                       <div className="hint" style={{ lineHeight: 1.45 }}>
-                        Export this entire imported video with {captionStyle} captions. Original framing and audio stay intact.
+                        Export this entire video using the format, framing, captions, logo, intro, and outro selected above. No clips needed.
                       </div>
                     </div>
-                    <span className="pill pill-blue" style={{ flexShrink: 0, fontSize: 10 }}>Original frame</span>
+                    <span className="pill pill-blue" style={{ flexShrink: 0, fontSize: 10 }}>{format === 'vertical' ? 'Vertical 9:16' : format === 'square' ? 'Square 1:1' : 'Horizontal 16:9'}</span>
                   </div>
 
                   {fullEpisodeBusy && (
@@ -2405,7 +2566,7 @@ const onKeyActivate = (fn) => (e) => {
                         <Download size={14} /> {fullEpisodeResult ? 'Export another copy' : 'Export full episode'}
                       </button>
                       <button className="btn btn-ghost" onClick={() => onPreviewFullEpisode()}>
-                        <Play size={14} /> Preview for YouTube
+                        <Play size={14} /> Preview source frame
                       </button>
                       {fullEpisodeResult?.filename && (
                         <>
@@ -2415,11 +2576,12 @@ const onKeyActivate = (fn) => (e) => {
                           <a href={`/api/download/${encodeURIComponent(fullEpisodeResult.filename)}`} className="btn btn-ghost" download>
                             <Download size={14} /> Download
                           </a>
-                          <span className="hint-xs">{fullEpisodeResult.file_size_mb}MB</span>
+                          <span className="hint-xs">{fullEpisodeResult.format} · {fullEpisodeResult.file_size_mb}MB</span>
                         </>
                       )}
                     </div>
                   )}
+                  <p className="hint-xs" style={{ marginTop: 10 }}>The full timeline is kept. Clean fillers affects caption text; use Remove silence above to shorten the video. Preview rendered shows the finished export.</p>
                 </div>
               )}
 
@@ -2598,7 +2760,7 @@ const onKeyActivate = (fn) => (e) => {
                     const off = deselected.has(i);
                     const resultIdx = [...suggestions.keys()].filter(k => !deselected.has(k)).indexOf(i);
                     const r = resultFor(clip, resultIdx);
-                    const outputFile = r?.output_path?.split('/').pop();
+                    const outputFile = basename(r?.output_path);
                     const failed = r?.status === 'error';
                     const isRetryingThis = retryIdx === resultIdx;
                     const exportStatus = !off ? getExportStatus(clip, resultIdx) : null;
@@ -2650,8 +2812,12 @@ const onKeyActivate = (fn) => (e) => {
                             )}
                             {r && !failed && <span> {'\u00B7'} {r.file_size_mb}MB</span>}
                             {r && !failed && r.warning && <span className="warn"> {'\u00B7'} {r.warning}</span>}
-                            {failed && <span className="err"> {'\u00B7'} {r.error?.slice(0, 60)}</span>}
+                            {failed && <span className="err"> {'\u00B7'} Export failed</span>}
                           </div>
+                          {failed && <details className="clip-error-details" onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()}>
+                            <summary>Export error details</summary>
+                            <pre>{r.error || 'No error details were returned.'}</pre>
+                          </details>}
                         </div>
 
                         {phase === 'review' && (
@@ -2661,12 +2827,12 @@ const onKeyActivate = (fn) => (e) => {
                         {phase === 'done' && !off && r && !failed && outputFile && (
                           <div className="clip-actions" onClick={e => e.stopPropagation()}>
                             <button className="btn btn-ghost btn-sm" onClick={() => onPlayRendered(outputFile)} title="Preview"><Play size={13} /></button>
-                            <a href={`/api/download/${outputFile}`} className="btn btn-primary btn-sm" download title="Download"><Download size={14} /></a>
-                            <button className="btn btn-ghost btn-sm" disabled={isRetryingThis} onClick={() => retryClip(resultIdx)} title="Retry"><RotateCcw size={13} /></button>
+                            <a href={`/api/download/${encodeURIComponent(outputFile)}`} className="btn btn-primary btn-sm" download title="Download"><Download size={14} /></a>
+                            <button className="btn btn-ghost btn-sm" disabled={retryIdx !== null} onClick={() => retryClip(resultIdx)} title="Retry"><RotateCcw size={13} /></button>
                           </div>
                         )}
                         {phase === 'done' && !off && r && failed && (
-                          <button className="btn btn-ghost btn-sm" onClick={e => { e.stopPropagation(); retryClip(resultIdx); }} disabled={isRetryingThis}>
+                          <button className="btn btn-ghost btn-sm" onClick={e => { e.stopPropagation(); retryClip(resultIdx); }} disabled={retryIdx !== null}>
                             {isRetryingThis ? '\u2026' : 'Retry'}
                           </button>
                         )}
@@ -2678,9 +2844,7 @@ const onKeyActivate = (fn) => (e) => {
                     <div className={`set-note ${exportStats.ok === 0 ? 'err' : ''}`} style={{ marginTop: 14, background: exportStats.ok === 0 ? undefined : 'var(--amber-subtle, rgba(251,191,36,0.1))', color: exportStats.ok === 0 ? undefined : 'var(--amber, #f59e0b)', border: exportStats.ok === 0 ? undefined : '1px solid rgba(251,191,36,0.25)' }}>
                       {exportStats.ok} of {exportStats.total} clip{exportStats.total !== 1 ? 's' : ''} exported
                       {exportStats.failed > 0 && ` — ${exportStats.failed} failed`}
-                      {exportStats.failed > 0 && results.filter(r => r?.status === 'error').slice(0, 3).map((r, i) => (
-                        <span key={i} style={{ display: 'block', marginTop: 4, fontSize: 11, opacity: 0.9 }}>{r.error?.slice(0, 120)}</span>
-                      ))}
+                      {exportStats.failed > 0 && <span style={{ display: 'block', marginTop: 4, fontSize: 11, opacity: 0.9 }}>Open Export error details on a failed clip to read the full message. Use Retry to export that clip again.</span>}
                     </div>
                   )}
 
@@ -2763,12 +2927,13 @@ const onKeyActivate = (fn) => (e) => {
                         const date = new Date(c.created_at);
                         const ago = ((Date.now() - date.getTime()) / 3600000);
                         const timeStr = ago < 1 ? `${Math.round(ago * 60)}m ago` : ago < 24 ? `${Math.round(ago)}h ago` : date.toLocaleDateString();
-                        const fname = c.output_path?.split('/').pop() || c.title;
+                        const outputName = basename(c.output_path);
+                        const fname = outputName || c.title;
                         return (
                           <div key={c.id || i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: 'var(--surface)', borderRadius: 'var(--radius-sm)', fontSize: 12, cursor: 'pointer' }}
                             role="button" tabIndex={0} aria-label={`Preview ${c.title || fname}`}
-                            onClick={() => { const f = c.output_path?.split('/').pop(); if (f) onPlayRendered(f); }}
-                            onKeyDown={onKeyActivate(() => { const f = c.output_path?.split('/').pop(); if (f) onPlayRendered(f); })}>
+                            onClick={() => { if (outputName) onPlayRendered(outputName); }}
+                            onKeyDown={onKeyActivate(() => { if (outputName) onPlayRendered(outputName); })}>
                             <div style={{ width: 6, height: 6, borderRadius: 3, background: 'var(--green)', flexShrink: 0 }} />
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title || fname}</div>
@@ -2788,6 +2953,17 @@ const onKeyActivate = (fn) => (e) => {
             {/* ═══════════ RIGHT COLUMN — PREVIEW ═══════════ */}
             <div className="preview-col">
               <div className="preview-panel">
+                {previewMode === 'clips' && videoUrl && <div style={{ marginBottom: 12 }}>
+                  {activeClip && <button className="btn btn-ghost btn-sm" onClick={renderExportPreview} disabled={isProcessing || previewStarting || !!previewJobId}>
+                    {previewStarting || previewJobId ? `Rendering preview… ${Math.round(previewStream?.progress || 0)}%` : 'Render preview'}
+                  </button>}
+                  <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
+                    {!activeClip ? 'Live full-episode preview. Export full episode to render these settings, then choose Preview rendered.' : !foregroundFraming && cropStrategy !== 'center'
+                      ? 'Live overview: render preview to see speaker/face tracking and final captions.'
+                      : 'Live framing updates immediately. Render preview to check final captions, audio, and edits.'}
+                  </p>
+                  {previewError && <p role="alert" style={{ fontSize: 12, color: 'var(--red)' }}>{previewError}</p>}
+                </div>}
 
                 {previewMode === 'youtube' && (
                   <LiveYouTubePreview
@@ -2817,7 +2993,7 @@ const onKeyActivate = (fn) => (e) => {
                       src={videoUrl}
                       controls
                       preload="auto"
-                      className={previewSrc ? 'vertical' : ''}
+                      style={{ width: '100%', maxHeight: '70vh', objectFit: 'contain', background: '#000' }}
                     />
                     {activeClip && !previewSrc && (
                       <div className="preview-clip-range">
@@ -2827,7 +3003,7 @@ const onKeyActivate = (fn) => (e) => {
                     )}
                     {previewSrc && (
                       <div className="preview-clip-range">
-                        <span className="clip-name">Rendered clip</span>
+                        <span className="clip-name">{previewSrc.startsWith('job:') ? 'Export preview' : 'Rendered clip'}</span>
                         <button className="preview-back" onClick={() => setPreviewSrc(null)}>Back to source</button>
                       </div>
                     )}
@@ -2838,6 +3014,9 @@ const onKeyActivate = (fn) => (e) => {
                     captions are already burned in and whose clock is clip-relative */}
                 {previewMode === 'clips' && !previewSrc && (
                   <LivePhonePreview
+                    format={format}
+                    cropStrategy={cropStrategy}
+                    foregroundFraming={foregroundFraming}
                     videoUrl={videoUrl}
                     videoRef={videoRef}
                     captionStyle={captionStyle}
@@ -2854,6 +3033,7 @@ const onKeyActivate = (fn) => (e) => {
                   />
                 )}
                 <SpecRecap
+                  foregroundFraming={foregroundFraming}
                   captionStyle={captionStyle}
                   captionPosition={captionPosition}
                   captionFontScale={captionFontScale}
@@ -2941,7 +3121,7 @@ const onKeyActivate = (fn) => (e) => {
             <div className="modal-overlay" onClick={() => setPreviewFile(null)}>
               <div ref={previewDialogRef} className="modal-body" role="dialog" aria-modal="true"
                 aria-label="Clip preview" tabIndex={-1} onClick={e => e.stopPropagation()}>
-                <video src={`/api/preview/${previewFile}`} controls autoPlay />
+                <video src={`/api/preview/${encodeURIComponent(previewFile)}`} controls autoPlay />
                 <div style={{ textAlign: 'center', marginTop: 12 }}>
                   <button className="btn btn-ghost btn-sm" onClick={() => setPreviewFile(null)}>Close</button>
                 </div>

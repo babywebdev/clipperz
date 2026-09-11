@@ -158,6 +158,13 @@ def handle_transcribe(task_id: str, params: dict):
     emit_result(task_id, "success", data=result)
 
 
+def handle_export_full_episode(task_id: str, params: dict):
+    from services.full_episode import export_full_episode
+    result = export_full_episode(**params,
+        progress_callback=lambda p, m: emit_progress(task_id, 'rendering', p, m))
+    emit_result(task_id, 'success', data=result)
+
+
 def handle_create_clip(task_id: str, params: dict):
     """Create a single finished short-form clip."""
     from services.clip_generator import generate_clip
@@ -177,6 +184,7 @@ def handle_create_clip(task_id: str, params: dict):
         cards=params.get("cards"),
         brand=params.get("brand"),
         font_family=params.get("font_family"),
+        foreground_framing=params.get("foreground_framing"),
         crop_strategy=params.get("crop_strategy", "face"),
         format=params.get("format", "vertical"),
         crop_keyframes=params.get("crop_keyframes"),
@@ -244,6 +252,7 @@ def handle_batch_clips(task_id: str, params: dict):
             cards=clip.get("cards", params.get("cards")),
             brand=clip.get("brand", params.get("brand")),
             font_family=clip.get("font_family", params.get("font_family")),
+            foreground_framing=clip.get("foreground_framing"),
             crop_strategy=clip.get("crop_strategy", "face"),
             format=clip.get("format", params.get("format", "vertical")),
             transcript_words=params.get("transcript_words", []),
@@ -456,13 +465,14 @@ def handle_manage_reel(task_id: str, params: dict):
     """Create and iterate on a highlights reel — the MCP surface over the reel service.
 
     Actions: new (detect + build), list, show, edit (adjust one moment + rebuild),
-    build, delete.
+    different (append unused moments, or mode=new for a separate batch), reorder, build, delete.
     """
-    import hashlib
+    import uuid
     from dataclasses import asdict
     from services.reel import (
         ReelSession, seed_session, seed_session_pooled, edit_moment, build_reel,
-        list_sessions, delete_session,
+        list_sessions, delete_session, export_download, find_different_session, selection_settings,
+        reorder_moments, check_revision,
     )
 
     action = params.get("action", "show")
@@ -475,9 +485,10 @@ def handle_manage_reel(task_id: str, params: dict):
             d["clip_exists"] = os.path.exists(d["clip_path"])
             moments.append(d)
         reel_file = reel or os.path.join(session.out_dir, "highlights_reel.mp4")
-        sources = sorted({m.source for m in session.moments if m.source}) or [session.source]
+        sources = session.sources or sorted({m.source for m in session.moments if m.source}) or [session.source]
         return {
             "session_id": session.session_id,
+            "revision": session.revision,
             "source": session.source,
             "sources": sources,
             "format": session.format,
@@ -485,38 +496,52 @@ def handle_manage_reel(task_id: str, params: dict):
             "out_dir": session.out_dir,
             "reel_path": reel_file if os.path.exists(reel_file) else None,
             "moments": moments,
+            "batch_number": session.batch_number,
+            "selection_settings": session.selection_settings,
         }
 
     try:
         if action == "new":
-            from services.transcript_packer import compute_cache_hash, load_cached_transcript_for_video
+            from services.transcript_packer import load_cached_transcript_for_video
             video_paths = params.get("video_paths") or []
             # Auto lets the saliency threshold decide how many moments clear the bar,
             # capped for sanity, with a wide length range so windows aren't constrained.
-            auto = bool(params.get("auto"))
+            settings = selection_settings(params)
             from services import asset_store
             common = dict(
                 profile=params.get("profile", "auto"),
                 format=params.get("format", "horizontal"),
-                top_n=50 if auto else int(params.get("top_n", 10)),
-                min_dur=5.0 if auto else float(params.get("min_dur", 15.0)),
-                max_dur=120.0 if auto else float(params.get("max_dur", 60.0)),
+                top_n=settings["top_n"], min_dur=settings["min_dur"], max_dur=settings["max_dur"],
                 logo=params.get("logo") or asset_store.default_logo() or "",
                 progress_callback=lambda p, m: emit_progress(task_id, "detecting", p, m),
             )
+            # A fresh search starts a separate family; earlier reels remain saved.
+            sid = uuid.uuid4().hex[:20]
+            out_dir = params.get("out_dir") or os.path.join(os.getcwd(), f"reel_{sid}")
             if video_paths:
-                sid = hashlib.sha256("\n".join(sorted(video_paths)).encode()).hexdigest()[:16]
-                out_dir = params.get("out_dir") or os.path.join(os.getcwd(), f"reel_{sid[:8]}")
                 session = seed_session_pooled(sid, video_paths, out_dir, **common)
             else:
                 video = params["video_path"]
-                sid = compute_cache_hash(video)
-                out_dir = params.get("out_dir") or os.path.join(os.getcwd(), f"reel_{sid[:8]}")
                 cached = load_cached_transcript_for_video(video)
                 words = cached.get("words") if cached else None
                 session = seed_session(sid, video, out_dir, words=words, **common)
+            session.selection_settings = settings
             reel = build_reel(session, progress_callback=lambda p, m: emit_progress(task_id, "building", p, m))
             emit_result(task_id, "success", data=payload(session, reel))
+        elif action == "different":
+            previous = ReelSession.load(params["session_id"])
+            check_revision(previous, params.get("expected_revision"))
+            settings = selection_settings({**previous.selection_settings, **params})
+            session = find_different_session(previous, settings,
+                mode=params.get("mode", "append"),
+                progress_callback=lambda p, m: emit_progress(task_id, "finding", p, m))
+            emit_result(task_id, "success", data=payload(session))
+        elif action == "reorder":
+            previous = ReelSession.load(params["session_id"])
+            check_revision(previous, params.get("expected_revision"))
+            session = reorder_moments(previous, params.get("order"),
+                progress_callback=lambda p, m: emit_progress(task_id, "building", p, m))
+            emit_result(task_id, "success", data=payload(session))
         elif action == "list":
             emit_result(task_id, "success", data={"sessions": list_sessions()})
         elif action == "delete":
@@ -524,6 +549,13 @@ def handle_manage_reel(task_id: str, params: dict):
             emit_result(task_id, "success", data={"deleted": ok, "session_id": params["session_id"]})
         elif action == "show":
             emit_result(task_id, "success", data=payload(ReelSession.load(params["session_id"])))
+        elif action == "export":
+            data = export_download(
+                ReelSession.load(params["session_id"]), params.get("format"),
+                index=params.get("index"),
+                progress_callback=lambda p, m: emit_progress(task_id, "exporting", p, m),
+            )
+            emit_result(task_id, "success", data=data)
         elif action == "edit":
             session = edit_moment(
                 ReelSession.load(params["session_id"]),
@@ -1007,6 +1039,7 @@ TASK_HANDLERS = {
     "detect_highlights": handle_detect_highlights,
     "manage_reel": handle_manage_reel,
     "pack_transcript": handle_pack_transcript,
+    "export_full_episode": handle_export_full_episode,
     "detect_encoder": handle_detect_encoder,
     "presets": handle_presets,
     "corrections": handle_corrections,
@@ -1049,6 +1082,11 @@ def main():
         task_id = request.get("task_id", "unknown")
         task_type = request.get("task_type", "")
         params = request.get("params", {})
+
+        from config.policy import validate_task, install_network_guard
+        install_network_guard()
+        os.environ["PODCLI_TASK_ID"] = str(task_id)
+        validate_task(task_type, params)
 
         _maybe_auto_migrate_backend(task_type, params)
 

@@ -11,23 +11,23 @@ from backend.utils.proc import ProcError, run
 
 class ProcTests(unittest.TestCase):
     def test_run_captures_stdout(self):
-        result = run(["echo", "hello"], timeout=5)
+        result = run([sys.executable, "-c", "print('hello')"], timeout=5)
         self.assertEqual(result.returncode, 0)
         self.assertIn("hello", result.stdout)
 
     def test_run_raises_on_nonzero_exit(self):
         with self.assertRaises(ProcError) as ctx:
-            run(["sh", "-c", "echo bad 1>&2; exit 7"], timeout=5)
+            run([sys.executable, "-c", "import sys; print('bad', file=sys.stderr); sys.exit(7)"], timeout=5)
         self.assertEqual(ctx.exception.returncode, 7)
         self.assertIn("bad", ctx.exception.stderr)
 
     def test_run_check_false_returns_result(self):
-        result = run(["sh", "-c", "exit 3"], timeout=5, check=False)
+        result = run([sys.executable, "-c", "import sys; sys.exit(3)"], timeout=5, check=False)
         self.assertEqual(result.returncode, 3)
 
     def test_run_timeout_raises_proc_error(self):
         with self.assertRaises(ProcError) as ctx:
-            run(["sh", "-c", "sleep 2"], timeout=0.2)
+            run([sys.executable, "-c", "import time; time.sleep(2)"], timeout=0.2)
         self.assertEqual(ctx.exception.returncode, -1)
         self.assertIn("timeout", str(ctx.exception).lower())
 

@@ -1,4 +1,9 @@
 import React from "react";
+import "@fontsource/dm-sans/400.css";
+import "@fontsource/dm-sans/500.css";
+import "@fontsource/dm-sans/600.css";
+import "@fontsource/dm-sans/700.css";
+import "@fontsource/dm-sans/800.css";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Layout from "./Layout";
@@ -14,6 +19,7 @@ import KnowledgePage from "./KnowledgePage";
 import ConfigPage from "./ConfigPage";
 import IntegrationsPage from "./IntegrationsPage";
 import McpSetupPage from "./McpSetupPage";
+import CleanupPage from './CleanupPage';
 
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
@@ -31,6 +37,7 @@ createRoot(document.getElementById("root")!).render(
           <Route path="/assets" element={<AssetsPage />} />
           <Route path="/knowledge" element={<KnowledgePage />} />
           <Route path="/config" element={<ConfigPage />} />
+          <Route path="/cleanup" element={<CleanupPage />} />
           <Route path="/integrations" element={<IntegrationsPage />} />
           <Route path="/mcp" element={<McpSetupPage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />

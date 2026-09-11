@@ -1,9 +1,10 @@
 import { createHash } from "crypto";
-import { readFile, writeFile, mkdir } from "fs/promises";
+import { readFile, mkdir } from "fs/promises";
 import { existsSync } from "fs";
 import { join } from "path";
 import { paths } from "../config/paths.js";
 import type { TranscriptResult } from "../models/index.js";
+import { writeFileAtomicSync } from '../utils/atomic-file.js';
 
 /**
  * Caches transcripts by file hash so we don't re-transcribe
@@ -119,7 +120,7 @@ export class TranscriptCache {
     await this.ensureDir();
     const hash = await this.getFileHash(filePath);
     const cachePath = join(this.cacheDir, `${hash}${this.engineSuffix(engine)}.json`);
-    await writeFile(cachePath, JSON.stringify(transcript), "utf-8");
+    writeFileAtomicSync(cachePath, JSON.stringify(transcript));
   }
 
   /**

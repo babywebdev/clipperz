@@ -222,12 +222,20 @@ export class ClipsHistory {
       outroPath?: string | null;
       introPath?: string | null;
       cleanFillers?: boolean;
+      foregroundFraming?: import('../services/foreground-framing.js').ForegroundFraming | null;
+      captionPosition?: string;
+      captionFontScale?: number;
+      logoPosition?: string;
       keepSegments?: Array<{ start: number; end: number }>;
     },
   ): Promise<void> {
     const words = sliceWords(ctx.transcriptWords ?? [], rec.start_second, rec.end_second);
     await this.saveWords(rec.id, words);
     await this.saveRecipe(rec.id, {
+      foreground_framing: ctx.foregroundFraming ?? null,
+      caption_position: ctx.captionPosition || "auto",
+      caption_font_scale: ctx.captionFontScale || 100,
+      logo_position: ctx.logoPosition || "top-left",
       caption_style: rec.caption_style,
       crop_strategy: rec.crop_strategy,
       format: rec.format || "vertical",

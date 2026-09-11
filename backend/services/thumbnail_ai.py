@@ -490,6 +490,8 @@ def _extract_json(text: str):
 def _ask_ai_for_json(prompt: str, timeout: int = 30):
     """Run `prompt` through the AI provider chain, returning the first JSON value
     it emits, or None if nothing is available or nothing returns parseable JSON."""
+    from config.policy import require_external
+    require_external("AI thumbnail generation")
     from services import ai_provider
 
     parsed, result = ai_provider.generate_json(prompt, timeout=timeout)

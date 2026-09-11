@@ -4424,6 +4424,8 @@ def _first_run_setup() -> bool:
 
 
 def main():
+    from config.policy import install_network_guard
+    install_network_guard()
     parser = argparse.ArgumentParser(
         prog="podcli",
         description="AI-powered podcast clip generator",

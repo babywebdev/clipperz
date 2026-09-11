@@ -139,13 +139,20 @@ class ConfigBundleTests(unittest.TestCase):
         self._paths_mod = paths_mod
         self._saved_paths = {k: paths_mod.paths.get(k) for k in ("home", "cache", "project_root")}
         self._saved_cwd_env = os.environ.get("PODCLI_CWD")
+        self._saved_env_file = os.environ.get("PODCLI_ENV_FILE")
         paths_mod.paths["home"] = global_home
         paths_mod.paths["cache"] = os.path.join(global_home, "data", "cache")
         # The backend install dir must be ignored by migration; point it elsewhere.
         paths_mod.paths["project_root"] = self.src_home
         os.environ["PODCLI_CWD"] = proj_root
+        # Migration must target this test's home, never an inherited installation.
+        os.environ["PODCLI_ENV_FILE"] = os.path.join(global_home, ".env")
 
     def _exit_migration(self):
+        if self._saved_env_file is None:
+            os.environ.pop("PODCLI_ENV_FILE", None)
+        else:
+            os.environ["PODCLI_ENV_FILE"] = self._saved_env_file
         for key, value in self._saved_paths.items():
             if value is None:
                 self._paths_mod.paths.pop(key, None)

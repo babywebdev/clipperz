@@ -5,6 +5,7 @@ easy to add more."""
 from __future__ import annotations
 
 import os
+from config.policy import local_only, PolicyError
 from typing import Any, Optional
 
 SETTINGS = [
@@ -97,6 +98,8 @@ def list_settings() -> list[dict[str, Any]]:
     pairs = _read_pairs()
     out = []
     for s in SETTINGS:
+        if local_only():
+            continue  # this installation's reviewed profile is edited explicitly
         raw = pairs.get(s["key"], "")
         out.append({
             "key": s["key"],
@@ -156,6 +159,8 @@ def _write_pairs(pairs: dict[str, str]) -> None:
 
 
 def set_setting(key: str, value: str) -> None:
+    if local_only():
+        raise PolicyError("Installation settings are managed in the local profile.")
     if key not in _KEYS:
         raise ValueError(f"unknown setting {key!r} (known: {', '.join(sorted(_KEYS))})")
     value = (value or "").strip()
@@ -171,6 +176,8 @@ def set_setting(key: str, value: str) -> None:
 
 
 def unset_setting(key: str) -> None:
+    if local_only():
+        raise PolicyError("Installation settings are managed in the local profile.")
     if key not in _KEYS:
         raise ValueError(f"unknown setting {key!r} (known: {', '.join(sorted(_KEYS))})")
     _write_pairs({key: None})

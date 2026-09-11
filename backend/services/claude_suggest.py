@@ -25,6 +25,8 @@ from presets import DEFAULT_PRESET, MIN_CLIP_DURATION, MAX_CLIP_DURATION, TARGET
 from services.formats import get_format
 from utils.text import clean_title
 from services import ai_provider, podcli_cloud
+from config.policy import strict_ai
+from services.strict_ai import StrictAIError
 from services.ai_cli import (
     _engine_label,
     _find_ai_cli,
@@ -528,6 +530,43 @@ def _select_top_by_score(clips: list[dict], top_n: int) -> list[dict]:
     return sorted(ranked, key=lambda c: c.get("start_second", 0))
 
 
+def _strict_clip_verdict(text, segments, bounds, excluded):
+    payload = ai_provider.extract_json(text)
+    if not isinstance(payload, dict) or not isinstance(payload.get("clips"), list) or not payload["clips"]:
+        return "Expected a nonempty clips array."
+    maximum = max(float(s.get("end", s.get("start", 0))) for s in segments)
+    ranges = []
+    try:
+        for clip in payload["clips"]:
+            if not isinstance(clip, dict) or not isinstance(clip.get("title"), str) or not clip["title"].strip():
+                return "Each clip needs a title and valid timestamps."
+            for key in ("quote", "why", "content_type", "payoff", "needs", "context_line"):
+                if key in clip and not isinstance(clip[key], str):
+                    return f"Clip {key} must be text."
+            start, end = round(float(clip["start_second"]), 1), round(float(clip["end_second"]), 1)
+            cuts = clip.get("segments") or [{"start": start, "end": end}]
+            duration = 0.0
+            last = -1.0
+            first = None
+            for cut in cuts:
+                a, b = round(float(cut["start"]), 1), round(float(cut["end"]), 1)
+                if not all(math.isfinite(n) for n in (a, b, start, end)) or not (0 <= start <= a < b <= end <= maximum + 0.1) or a < last:
+                    return "Clip timestamps are outside the transcript or out of order."
+                duration += b - a
+                first = a if first is None else first
+                last = b
+            if not bounds.keeps(duration):
+                return "Clip duration does not meet the requested bounds."
+            if not math.isfinite(_total_score(clip)):
+                return "Clip scores must be finite numbers."
+            ranges.append({"start_second": first, "end_second": last})
+        if not _drop_clips_overlapping(ranges, excluded):
+            return "All returned clips were already selected."
+    except (ValueError, TypeError, KeyError, AttributeError):
+        return "Invalid clip structure or timestamps."
+    return True
+
+
 def find_moments_from_text(
     description: str,
     segments: list[dict],
@@ -612,6 +651,7 @@ Transcript:
         data, _result = ai_provider.generate_json(
             prompt, timeout=900, project_dir=project_dir, on_attempt=announce,
             adapt=_codex_adapter(transcript_text),
+            **({"accept": lambda text: _strict_clip_verdict(text, segments, bounds, existing_clips)} if strict_ai() else {}),
         )
         if data:
             found = []
@@ -658,6 +698,8 @@ Transcript:
 
         return []
 
+    except StrictAIError:
+        raise
     except Exception as e:
         print(f"Moment search error: {e}", file=sys.stderr, flush=True)
         return []
@@ -736,6 +778,8 @@ def suggest_with_claude(
     def usable(text: str):
         """Reject a response that parses but has nothing in it, so the next
         engine gets a turn rather than the user getting an empty result."""
+        if strict_ai():
+            return _strict_clip_verdict(text, segments, bounds, exclude_clips or [])
         label = current["label"]
         if progress_callback:
             progress_callback(80, f"Parsing {label}'s suggestions...")
@@ -899,7 +943,7 @@ def suggest_initial_with_claude(
     prompt.
     """
     exclude_clips = exclude_clips or []
-    if not _should_bucket_initial_selection(segments):
+    if strict_ai() or not _should_bucket_initial_selection(segments):
         return suggest_with_claude(
             segments=segments,
             top_n=top_n,
@@ -1159,6 +1203,10 @@ def select_clips_with_signal_scores(
     progress_callback: Optional[Callable[[int, str], None]] = None,
 ) -> list[dict]:
     """Blend the audio signals in, rank against each other, cut to `top_n`."""
+    if strict_ai():
+        # The accepted model response already selected/scored these clips. Keep it;
+        # do not launch a second AI pass or substitute heuristic clip selection.
+        return clips[:top_n]
     blended = blend_signal_scores(clips, energy_data=energy_data, events_data=events_data)
     ranked = rank_clips_with_ai(blended, top_n, progress_callback=progress_callback)
     return _select_top_by_score(ranked, top_n)
@@ -1197,6 +1245,9 @@ def suggest_more_with_claude(
     This prevents the common failure mode where repeated whole-episode prompts
     keep returning the same few obvious moments.
     """
+    if strict_ai():
+        return suggest_with_claude(segments, top_n=top_n, exclude_clips=existing_clips,
+                                   progress_callback=progress_callback, bounds=bounds)
     if not segments:
         return None
 

@@ -18,6 +18,7 @@ type Status = {
   mode: string;
   api_key_set: boolean;
   candidates: Array<{ engine: string; path: string }>;
+  strict?: boolean;
 };
 
 const INSTALL_COMMAND = "npm install -g @anthropic-ai/claude-code";
@@ -59,6 +60,13 @@ export default function AiSetup() {
 
   if (!status) return null;
 
+  if (status.strict) return <div className="section card">
+    <div style={labelStyle}>AI policy</div>
+    <strong>Codex → Claude fallback → stop</strong>
+    <div className="hint">Each request tries Codex once, then Claude if needed. Failures and fallback reasons appear above.
+      Sign in through the official clients. AI inference is remote; transcription and rendering stay local.</div>
+  </div>;
+
   if (status.available) {
     return (
       <div className="section card">
@@ -91,7 +99,7 @@ export default function AiSetup() {
         <Option
           icon={<Terminal className="ico" strokeWidth={1.8} size={15} />}
           title="Use Claude Code"
-          body="Free with a Claude subscription you may already have. Runs on this machine; nothing leaves it."
+          body="Uses your official Claude client sign-in. Prompts are sent to Claude's remote models; subscription limits apply."
           action={
             <button
               className="btn btn-ghost btn-sm"

@@ -3,6 +3,7 @@ import { createReadStream } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { paths } from "../config/paths.js";
+import { strictAI, requireCloud } from "../config/policy.js";
 
 /**
  * Client for podcli Pro's hosted API.
@@ -29,6 +30,7 @@ export function apiUrl(): string {
  * caching bought nothing and cost correctness.
  */
 export async function readToken(): Promise<string | null> {
+  if (strictAI()) return null;
   const fromEnv = (process.env.PODCLI_TOKEN || "").trim();
   if (fromEnv) return fromEnv;
   try {
@@ -44,6 +46,7 @@ export async function signedIn(): Promise<boolean> {
 }
 
 async function request(method: string, path: string, body?: unknown, timeoutMs = 30_000) {
+  requireCloud();
   const token = await readToken();
   if (!token) throw new Error("not signed in");
 

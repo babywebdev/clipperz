@@ -13,6 +13,8 @@ reaction, since the funny thing happens just before people react to it.
 """
 
 from typing import Optional, Callable
+import math
+import os
 
 import numpy as np
 
@@ -158,11 +160,11 @@ def _sentence_window(
     min_dur: float,
     max_dur: float,
 ) -> tuple[float, float]:
-    """Build a clip out of whole segments (sentences) so it never cuts mid-thought.
+    """Prefer whole sentences around a peak; the caller enforces hard limits.
 
     Starts at a sentence boundary, extends back ~back_sec and forward ~fwd_sec (and
-    enough to clear min_dur), always snapping to segment edges and never exceeding
-    max_dur.
+    enough to clear min_dur), preferring segment edges. An oversized sentence or
+    a short transcript edge is adjusted to the hard limits by _window_for_peak.
     """
     idx = _seg_index_at(peak_sec, segments)
     start = segments[idx].get("start", peak_sec)
@@ -179,6 +181,10 @@ def _sentence_window(
     ):
         j += 1
         end = segments[j]["end"]
+    # A late peak may need earlier sentences to reach the minimum.
+    while i > 0 and end - start < min_dur and end - segments[i - 1]["start"] <= max_dur:
+        i -= 1
+        start = segments[i]["start"]
     return start, end
 
 
@@ -195,8 +201,8 @@ def _window_for_peak(
 ) -> tuple[float, float, bool]:
     """Clip window for a peak. A reaction peak expands backwards from the reaction onset.
 
-    With a transcript, boundaries snap to whole sentences so each clip is a complete
-    thought; without one (party footage) they snap to audio lulls instead.
+    Prefer sentence boundaries with a transcript, or audio lulls without one;
+    requested duration limits take precedence when those boundaries do not fit.
     """
     is_reaction = reaction_level >= reaction_threshold
     back = profile.reaction_lookback_sec if is_reaction else min_dur / 2.0
@@ -216,7 +222,32 @@ def _window_for_peak(
             start = end - max_dur if is_reaction else start
             end = start + max_dur
 
-    return round(max(0.0, start), 1), round(min(duration, end), 1), is_reaction
+    # Sentence snapping can return a sentence longer than max_dur or too little
+    # material at an edge. Work in tenths (the reel editor's precision) so rounding
+    # cannot move an otherwise valid cut outside either requested limit.
+    total = max(0, math.floor(duration * 10 + 1e-6))
+    minimum = math.ceil(min_dur * 10 - 1e-6)
+    maximum = math.floor(max_dur * 10 + 1e-6)
+    a, b = max(0, round(start * 10)), min(total, round(end * 10))
+    peak = min(total, max(0, round(peak_sec * 10)))
+    if not (minimum <= b - a <= maximum and a <= peak <= b):
+        length = min(total, max(minimum, min(maximum, b - a)))
+        a = max(0, min(total - length, peak - round(length * back / max(back + fwd, .1))))
+        b = a + length
+    return a / 10, b / 10, is_reaction
+
+
+def validate_limits(top_n: int, min_dur: float, max_dur: float) -> None:
+    if type(top_n) is not int or top_n < 1:
+        raise ValueError("Moments must be a positive whole number.")
+    if not all(isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) for v in (min_dur, max_dur)):
+        raise ValueError("Minimum and maximum lengths must be finite numbers.")
+    if min_dur < 1 or max_dur < min_dur or math.ceil(min_dur * 10 - 1e-6) > math.floor(max_dur * 10 + 1e-6):
+        raise ValueError("Use lengths of at least 1 second, with maximum length at least minimum length.")
+
+
+def overlaps(start: float, end: float, ranges: list[dict]) -> bool:
+    return any(start < r["end"] - 1e-6 and end > r["start"] + 1e-6 for r in ranges)
 
 
 def detect_highlights(
@@ -233,13 +264,14 @@ def detect_highlights(
     energy_data: Optional[list[dict]] = None,
     events_data: Optional[list[dict]] = None,
     wav_path: Optional[str] = None,
+    excluded_ranges: Optional[list[dict]] = None,
 ) -> list[dict]:
     """
     Generate highlight clips from a video's fused signal curve.
 
-    If a transcript is provided, clip boundaries snap to whole sentences so each clip
-    is a complete thought; `words` (with punctuation) gives true sentence edges and is
-    preferred over `segments`. Without any transcript, boundaries snap to audio lulls.
+    If a transcript is provided, clip boundaries prefer whole sentences within the
+    duration limits; `words` (with punctuation) is preferred over `segments`.
+    Without any transcript, boundaries prefer audio lulls.
     `reaction_threshold` is the laughter/cheer level that counts as a reaction — low
     (~0.06) for conversational chuckles, higher for loud belly-laughs/crowds.
     `energy_data`/`events_data` accept the profiles the orchestration layer already
@@ -248,6 +280,7 @@ def detect_highlights(
     Returns clip dicts compatible with the render pipeline:
     {title, start_second, end_second, duration, score, reasons, preview}.
     """
+    validate_limits(top_n, min_dur, max_dur)
     profile = get_profile(profile_name)
     snap_units = sentences_from_words(words) if words else segments
 
@@ -267,6 +300,10 @@ def detect_highlights(
     if not last_times:
         return []
     duration = max(last_times) + 1.0
+    # Audio analysis uses whole-second bins; the final bin may only be partial.
+    if os.path.isfile(video_path):
+        from services.media_probe import get_media_duration_seconds
+        duration = min(duration, get_media_duration_seconds(video_path, default=duration))
     n_bins = int(duration * GRID_HZ) + 1
 
     energy_curve = _energy_curve(energy_data, n_bins)
@@ -302,9 +339,9 @@ def detect_highlights(
         return (1 if is_reaction else 0, val)
 
     candidates.sort(key=rank_key, reverse=True)
-    candidates = candidates[:top_n]
 
     clips = []
+    used = list(excluded_ranges or [])
     for i, val, want_reaction in candidates:
         peak_sec = i / GRID_HZ
         reaction_level = float(reaction_curve[i]) if want_reaction else 0.0
@@ -312,7 +349,7 @@ def detect_highlights(
             peak_sec, reaction_level, profile, duration, energy_curve, min_dur, max_dur,
             snap_units, reaction_threshold,
         )
-        if end - start < min_dur * 0.75:
+        if end - start < min_dur - 1e-6 or end - start > max_dur + 1e-6 or overlaps(start, end, used):
             continue
         kind = "laugh/cheer" if is_reaction else "high energy"
         score = round(10.0 + reaction_level * 10.0, 2) if is_reaction else round(float(val), 2)
@@ -320,12 +357,15 @@ def detect_highlights(
             "title": f"Highlight ({kind}) at {int(peak_sec // 60):d}:{int(peak_sec % 60):02d}",
             "start_second": start,
             "end_second": end,
-            "duration": round(end - start),
+            "duration": round(end - start, 1),
             "score": score,
             "reasons": ["reaction"] if is_reaction else ["energy_peak"],
             "preview": "",
             "content_type": "highlight",
         })
+        used.append({"start": start, "end": end})
+        if len(clips) >= top_n:
+            break
 
     clips.sort(key=lambda c: c["start_second"])
     if progress_callback:
@@ -340,6 +380,8 @@ def detect_highlights_pooled(
     min_dur: float = 8.0,
     max_dur: float = 60.0,
     progress_callback: Optional[Callable] = None,
+    excluded_ranges: Optional[list[dict]] = None,
+    height_z: float = 1.0,
 ) -> list[dict]:
     """
     Detect highlights across many videos and rank them globally — "the best N bits
@@ -348,11 +390,15 @@ def detect_highlights_pooled(
     Each returned clip carries a `source_file`. Ranking is reaction-first, then by
     score, so a genuine laugh in any file outranks a merely loud moment in another.
     """
+    validate_limits(top_n, min_dur, max_dur)
     pooled: list[dict] = []
     n = len(video_paths) or 1
     for idx, path in enumerate(video_paths):
         clips = detect_highlights(
-            path, profile_name=profile_name, top_n=top_n, min_dur=min_dur, max_dur=max_dur
+            path, profile_name=profile_name, top_n=top_n, min_dur=min_dur, max_dur=max_dur,
+            height_z=height_z,
+            excluded_ranges=[r for r in (excluded_ranges or [])
+                if os.path.normcase(os.path.abspath(r.get("source", ""))) == os.path.normcase(os.path.abspath(path))],
         )
         for c in clips:
             c["source_file"] = path

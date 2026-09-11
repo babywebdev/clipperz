@@ -392,6 +392,10 @@ def _discover(_key: tuple) -> list[tuple[str, str]]:
 
 
 def _find_ai_cli_candidates() -> list[tuple[str, str]]:
+    from config.policy import strict_ai
+    if strict_ai():
+        from services.strict_ai import candidates
+        return [(path, engine) for _, path, engine in candidates() if path and os.path.isfile(path)]
     # Each probe shells out to npm, pnpm and yarn, which costs ~3s. Callers ask
     # several times per render and the filesystem does not move underneath them,
     # so the result is cached against the environment it was derived from.
@@ -436,6 +440,10 @@ def _run_ai_command(
     timeout: int,
 ) -> subprocess.CompletedProcess:
     """Execute one AI CLI prompt and return the completed process."""
+    from config.policy import strict_ai
+    if strict_ai():
+        from services.strict_ai import run_client
+        return run_client(cli_path, engine, prompt, timeout)
     if engine == "codex":
         output_file = prompt_file + ".out"
         result = subprocess.run(

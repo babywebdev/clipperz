@@ -28,6 +28,8 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
 from services import ai_cli, podcli_cloud
+from config.policy import STRICT_POLICY, strict_ai, require_cloud
+from services.strict_ai import AICancelled, StrictAIError
 
 ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2023-06-01"
@@ -50,6 +52,8 @@ class AIResult:
 
 
 def _mode() -> str:
+    if strict_ai():
+        return STRICT_POLICY
     mode = (os.environ.get("PODCLI_AI_PROVIDER") or "auto").strip().lower()
     return mode if mode in ("auto", "cloud", "cli", "api") else "auto"
 
@@ -65,6 +69,9 @@ def _api_model() -> str:
 
 def _chain() -> list[tuple[str, str, str]]:
     """Backends to try, in order: (kind, path_or_key, engine)."""
+    if strict_ai():
+        from services.strict_ai import candidates
+        return candidates()
     mode = _mode()
     chain: list[tuple[str, str, str]] = []
     # A signed-in free workspace would otherwise upload the whole transcript on
@@ -96,6 +103,8 @@ def available() -> bool:
 
 def claude_cli_path() -> Optional[str]:
     """The local Claude binary, for the one caller that streams its output."""
+    if strict_ai():
+        return None  # streaming must not bypass the strict provider chain
     for kind, path, engine in _chain():
         if kind == "cli" and engine == "claude":
             return path
@@ -108,9 +117,11 @@ def status() -> dict:
     return {
         **cli_status,
         "mode": _mode(),
-        "api_key_set": bool(_api_key()),
+        "api_key_set": bool(_api_key()) if not strict_ai() else False,
         "api_model": _api_model(),
         "available": bool(chain),
+        "strict": strict_ai(),
+        "remote_inference": True,
         "providers": [
             {"kind": kind, "engine": engine, "label": label_for(kind, engine)}
             for kind, _, engine in chain
@@ -147,6 +158,7 @@ def extract_json(text: str) -> Optional[Any]:
 
 
 def _run_api(key: str, prompt: str, timeout: int) -> AIResult:
+    require_cloud()
     payload = json.dumps({
         "model": _api_model(),
         "max_tokens": DEFAULT_MAX_TOKENS,
@@ -193,6 +205,7 @@ def _run_api(key: str, prompt: str, timeout: int) -> AIResult:
 def _run_cloud(purpose: str, instruction: str, system: Optional[str],
                cached_context: Optional[str], episode_source_hash: Optional[str],
                timeout: int) -> AIResult:
+    require_cloud()
     try:
         payload = podcli_cloud.generate(
             purpose=purpose,
@@ -227,6 +240,8 @@ def _run_cli(cli_path: str, engine: str, prompt: str, prompt_file: str,
             project_dir=project_dir,
             timeout=timeout,
         )
+    except AICancelled:
+        raise
     except Exception as exc:
         timed_out = "timed out" in str(exc).lower() or exc.__class__.__name__ == "TimeoutExpired"
         detail = (
@@ -255,6 +270,7 @@ def generate(
     stable_prefix: Optional[str] = None,
     local_prompt: Optional[str] = None,
     episode_source_hash: Optional[str] = None,
+    cancelled: Optional[Callable[[], bool]] = None,
 ) -> AIResult:
     """Run one prompt through the first backend that answers.
 
@@ -279,6 +295,9 @@ def generate(
     legacy string and local backends send it untouched while the cloud gets the
     split form. Omit it and the prefix is simply prepended.
     """
+    if strict_ai():
+        return _generate_strict(local_prompt or (f"{stable_prefix}\n\n{prompt}" if stable_prefix else prompt),
+                                timeout, on_attempt, accept, cancelled)
     chain = _chain()
     if not chain:
         return AIResult(
@@ -340,6 +359,62 @@ def generate(
                 os.unlink(path)
             except OSError:
                 pass
+
+
+def _publish_strict(state: str, provider: str, attempts: list[str], reason: str = "") -> None:
+    label = {"codex": "Codex", "claude": "Claude"}.get(provider, "AI")
+    message = ("Failed" if state == "failed" else "Cancelled" if state == "cancelled" else
+               f"Claude fallback: {reason}" if provider == "claude" and reason else label)
+    event = {"task_id": os.environ.get("PODCLI_TASK_ID", ""), "stage": "ai-provider",
+             "percent": 100 if state in {"success", "failed", "cancelled"} else 10,
+             "message": message,
+             "ai": {"status": state, "provider": provider, "label": message,
+                    "fallback_reason": reason, "attempts": list(attempts)}}
+    print(json.dumps(event), file=sys.stderr, flush=True)
+
+
+def _generate_strict(prompt, timeout, on_attempt, accept, cancelled) -> AIResult:
+    from services.strict_ai import candidates, run_client
+    cancelled = cancelled or (lambda: bool(os.environ.get("PODCLI_CANCEL_FILE")) and os.path.exists(os.environ["PODCLI_CANCEL_FILE"]))
+    attempts: list[str] = []
+    fallback_reason = ""
+    try:
+        for _kind, target, engine in candidates():
+            if cancelled and cancelled():
+                raise AICancelled("AI request cancelled.")
+            label = label_for("cli", engine)
+            _publish_strict("running", engine, attempts, fallback_reason)
+            if on_attempt:
+                on_attempt(label)
+            try:
+                completed = run_client(target, engine, prompt, timeout, cancelled)
+                text = (completed.stdout or "").strip()
+                if completed.returncode != 0 or not text:
+                    error = (completed.stderr or "").strip()[:350] or "returned no output"
+                    raise StrictAIError(error)
+                if accept:
+                    verdict = accept(text)
+                    if verdict is not True:
+                        raise StrictAIError(verdict if isinstance(verdict, str) else "returned an invalid response")
+                if cancelled and cancelled():
+                    raise AICancelled("AI request cancelled.")
+            except AICancelled:
+                raise
+            except Exception as exc:
+                detail = f"timed out after {timeout}s" if exc.__class__.__name__ == "TimeoutExpired" else str(exc)[:350] or type(exc).__name__
+                error = f"{label}: {detail}"
+                attempts.append(error)
+                if engine == "codex":
+                    fallback_reason = error
+                continue
+            attempts.append(f"{label}: ok")
+            _publish_strict("success", engine, attempts, fallback_reason)
+            return AIResult(ok=True, text=text, provider=engine, label=label, attempts=attempts)
+        _publish_strict("failed", "", attempts, fallback_reason)
+        raise StrictAIError("AI generation failed. " + "; ".join(attempts))
+    except (AICancelled, KeyboardInterrupt):
+        _publish_strict("cancelled", "", attempts)
+        raise AICancelled("AI request cancelled; no fallback was attempted.") from None
 
 
 def generate_json(prompt: str, **kwargs) -> tuple[Optional[Any], AIResult]:

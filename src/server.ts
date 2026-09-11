@@ -1,4 +1,5 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer, type RegisteredTool } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { localOnly, localMcpTools, localRequestError, installLocalNetworkGuard } from "./config/policy.js";
 import { z } from "zod";
 import { readFileSync, writeFileSync } from "fs";
 
@@ -254,10 +255,25 @@ async function getWorkflowGuidance(): Promise<string> {
 }
 
 export function createServer(): McpServer {
+  installLocalNetworkGuard();
   const server = new McpServer({
-    name: "podcli",
+    name: localOnly() ? "clipperz" : "podcli",
     version: podcliVersion(),
   });
+  const register = server.tool.bind(server);
+  server.tool = ((name: string, ...args: unknown[]) => {
+    const callback = args[args.length - 1];
+    if (localOnly() && typeof callback === "function") {
+      args[args.length - 1] = (...input: unknown[]) => {
+        const error = localRequestError("MCP", "", input[0]);
+        if (error) return mcpError(error);
+        return callback(...input);
+      };
+    }
+    const tool = (register as (...params: unknown[]) => RegisteredTool)(name, ...args);
+    if (localOnly() && !localMcpTools.has(name)) tool.disable();
+    return tool;
+  }) as typeof server.tool;
 
   // =============================================
   // Tool: transcribe_podcast
@@ -2123,10 +2139,10 @@ export function createServer(): McpServer {
   // =============================================
   server.tool(
     "manage_reel",
-    "Create and iterate on a highlights reel. Detection runs once with action 'new'; after that, edit individual moments fast (longer/shorter/earlier/later/shift/drop/toggle) and rebuild without re-detecting. Pass video_paths (a list) to pool many videos and rank the best moments across all of them. Actions: 'new' (video_path or video_paths, profile, format, top_n, min_dur, max_dur), 'list', 'show' (session_id), 'edit' (session_id, index, op, seconds), 'build' (session_id), 'delete' (session_id).",
+    "Create and iterate on a highlights reel. Use 'new' to detect from video_path or pooled video_paths. Use 'different' to append unused moments to an existing reel (mode 'new' creates a separate batch). Use 'reorder' with every moment_id in the desired order; downloads follow this order. 'edit' adjusts one moment (longer/shorter/earlier/later/shift/set/drop/toggle). Also supports list, show, build, and delete. Pass expected_revision from show when appending or reordering to detect stale edits.",
     {
       action: z
-        .enum(["new", "list", "show", "edit", "build", "delete"])
+        .enum(["new", "different", "reorder", "list", "show", "edit", "build", "delete"])
         .describe("What to do with the reel"),
       video_path: z
         .string()
@@ -2139,7 +2155,10 @@ export function createServer(): McpServer {
       session_id: z
         .string()
         .optional()
-        .describe("For show/edit/build/delete: the reel session id returned by 'new'"),
+        .describe("For existing reel actions: the reel session id returned by 'new'"),
+      mode: z.enum(["append", "new"]).optional().describe("For different: append to this reel (default), or create a new batch"),
+      order: z.array(z.string()).optional().describe("For reorder: every moment_id exactly once, in playback order"),
+      expected_revision: z.string().optional().describe("Revision from show; detects stale append/reorder requests"),
       profile: z
         .enum(["auto", "party", "action"])
         .optional()
@@ -2474,7 +2493,7 @@ export function createServer(): McpServer {
     },
   );
 
-  registerIntegrationMcpTools(server);
+  if (!localOnly()) registerIntegrationMcpTools(server);
 
   // =============================================
   // MCP Prompt: workflow guide

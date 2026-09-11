@@ -9,7 +9,8 @@
  * source audio.
  */
 
-import { renderMedia, selectComposition } from "@remotion/renderer";
+import { ensureBrowser, renderMedia, selectComposition } from "@remotion/renderer";
+import { restrictLocalRenderBrowser } from './local-browser.mjs';
 import { getCachedBundle } from "./bundle-cache.mjs";
 import { spawnSync } from "node:child_process";
 import crypto from "node:crypto";
@@ -38,6 +39,7 @@ const run = (command, args) => {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
     timeout: STEP_TIMEOUT_MS,
+    windowsHide: true,
   });
   const name = path.basename(command);
   if (result.error) {
@@ -110,6 +112,7 @@ const outputDir = path.dirname(output);
 fs.mkdirSync(outputDir, { recursive: true });
 const workDir = fs.mkdtempSync(path.join(outputDir, ".podcli-full-caption-work-"));
 let server;
+let releaseBrowserPolicy;
 
 const cleanup = () => {
   try { server?.close(); } catch {}
@@ -120,6 +123,11 @@ process.on("SIGINT", () => { cleanup(); process.exit(130); });
 process.on("SIGTERM", () => { cleanup(); process.exit(143); });
 
 try {
+  const browserExecutable = process.env.PODCLI_BROWSER || null;
+  const chromeMode = browserExecutable ? 'chrome-for-testing' : 'headless-shell';
+  releaseBrowserPolicy = process.env.PODCLI_LOCAL_ONLY === '1'
+    ? await restrictLocalRenderBrowser(browserExecutable) : null;
+  await ensureBrowser({ browserExecutable, chromeMode });
   server = http.createServer((request, response) => {
     if (request.url !== "/logo.png" || !logo) {
       response.writeHead(404);
@@ -150,13 +158,13 @@ try {
     captionPosition,
     captionFontScale,
     logoPosition,
-    singleLine: true,
   };
   const composition = await selectComposition({
     serveUrl: bundle,
     id: "CaptionedClip",
     inputProps,
     timeoutInMilliseconds: 120000,
+    browserExecutable, chromeMode,
   });
   const renderComposition = { ...composition, durationInFrames, fps, width, height };
   const chunks = [];
@@ -188,6 +196,7 @@ try {
       frameRange: [startFrame, endFrame],
       concurrency,
       timeoutInMilliseconds: 120000,
+      browserExecutable, chromeMode,
       onProgress: ({ progress: chunkProgress }) => {
         const percent = Math.floor(chunkProgress * 100);
         if (percent >= lastPercent + 10) {
@@ -232,4 +241,5 @@ try {
   progress(100, "Full episode ready");
 } finally {
   cleanup();
+  await releaseBrowserPolicy?.();
 }

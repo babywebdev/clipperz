@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { validateForegroundFraming, type ForegroundFraming } from '../services/foreground-framing.js';
 /**
  * podcli — Web UI Server
  *
@@ -30,9 +31,11 @@ import { tmpdir } from "os";
 import { fileURLToPath } from "url";
 import { v4 as uuidv4 } from "uuid";
 
-import { PythonExecutor, terminateProcessTree } from "../services/python-executor.js";
+import { PythonExecutor, terminateProcessTree, aiEvents, cancelAIRequest } from "../services/python-executor.js";
+import { localOnly, strictAI, localRequestError, installLocalNetworkGuard } from "../config/policy.js";
 import { hasSpeakerLabels, TranscriptCache } from "../services/transcript-cache.js";
 import { FileManager } from "../services/file-manager.js";
+import { StorageCleanup } from '../services/storage-cleanup.js';
 import { AssetManager, inferType, safeName } from "../services/asset-manager.js";
 import { ClipsHistory } from "../services/clips-history.js";
 import { KnowledgeBase } from "../services/knowledge-base.js";
@@ -45,12 +48,12 @@ import { DEMO_ASSETS_DIR } from "./demo-fixtures.js";
 import { registerConfigIntegrationRoutes } from "../handlers/integrations.routes.js";
 import { childLogger } from "../utils/logger.js";
 import { sliceTranscript, sliceWords, findContentType, findSuggestionSegments } from "../utils/transcript.js";
+import { applyTranscriptEdits } from '../utils/transcript-edit.js';
 import { errMsg } from "../utils/errors.js";
 import { resolveByteRange } from "../utils/http-range.js";
 import {
   FULL_EPISODE_CAPTION_STYLES,
   fullEpisodeOutputStem,
-  parseFullEpisodeProgress,
 } from "../utils/full-episode-export.js";
 import { buildYtDlpArgs, isCookieBrowser, ytDlpHint } from "../utils/ytdlp-args.js";
 import type {
@@ -74,6 +77,13 @@ const publicDir = existsSync(join(__dirname, "public", "index.html"))
   : resolve(__dirname, "..", "..", "dist", "ui", "public");
 
 const app = express();
+installLocalNetworkGuard();
+let lastAI: Record<string, unknown> | null = null;
+aiEvents.on("update", (event) => {
+  lastAI = { ...event, updatedAt: Date.now() };
+  log.info("AI provider update", lastAI);
+  broadcastSSE("ai-provider", lastAI);
+});
 const PORT = webServerPort;
 const DEMO = process.env.PODCLI_DEMO === "1";
 
@@ -98,7 +108,7 @@ function safePath(base: string, filename: string): string | null {
 // Track active jobs so the UI can poll progress
 interface JobState {
   id: string;
-  type: "transcribe" | "create_clip" | "batch_clips" | "download_video" | "full_episode" | "silence_analysis" | "silence_render";
+  type: "transcribe" | "create_clip" | "render_preview" | "batch_clips" | "download_video" | "full_episode" | "silence_analysis" | "silence_render" | "reel_export";
   status: "pending" | "running" | "done" | "error";
   progress: number;
   message: string;
@@ -110,6 +120,9 @@ interface JobState {
 }
 
 const jobs = new Map<string, JobState>();
+let activeMutations = 0;
+let cleanupRunning = false;
+let activeReelTasks = 0;
 
 // Sweep terminal jobs so the map doesn't grow forever. Completion isn't
 // stamped at the many done/error sites; the sweeper stamps it on first sight,
@@ -156,6 +169,7 @@ interface UIState {
   suggestions: SuggestedClip[];
   deselectedIndices: number[];
   settings: {
+    foregroundFraming: ForegroundFraming | null;
     captionStyle: string;
     cropStrategy: string;
     format: string;
@@ -203,6 +217,7 @@ function loadPersistedState(): UIState {
         suggestions: saved.suggestions || [],
         deselectedIndices: saved.deselectedIndices || [],
         settings: {
+          foregroundFraming: validateForegroundFraming(saved.settings?.foregroundFraming, saved.settings?.format || 'vertical'),
           captionStyle: saved.settings?.captionStyle || "branded",
           cropStrategy: saved.settings?.cropStrategy || "speaker",
           format: saved.settings?.format || "vertical",
@@ -246,6 +261,7 @@ function loadPersistedState(): UIState {
     deselectedIndices: [],
     settings: {
       captionStyle: "branded",
+      foregroundFraming: null,
       cropStrategy: "speaker",
       format: "vertical",
       logoPath: "",
@@ -268,6 +284,11 @@ function loadPersistedState(): UIState {
 }
 
 const uiState: UIState = loadPersistedState();
+const storageCleanup = new StorageCleanup({
+  home: paths.home, working: paths.working, output: paths.output, cache: paths.cache,
+  temporary: process.env.TMP, runtime: localOnly() ? join(dirname(paths.home), 'venv') : undefined,
+  currentState: () => ({ uiState, activeJobs: [...jobs.values()].filter(j => j.status === 'running' || j.status === 'pending') }),
+});
 
 // Files the server confirmed the user selected; /api/stream-source serves only
 // these, so a forged /api/ui-state can't grant reads of arbitrary files.
@@ -296,16 +317,17 @@ function rememberSource(realPath: string): void {
   } catch {}
 }
 
-function registerSourcePath(p: string | undefined | null): void {
+function registerSourcePath(p: string | undefined | null, remember = true): void {
   if (!p) return;
   try {
     const real = realpathSync(path.resolve(p));
     allowedSourcePaths.add(real);
-    rememberSource(real);
+    if (remember) rememberSource(real);
   } catch {}
 }
-registerSourcePath(uiState.videoPath);
-registerSourcePath(uiState.silenceOriginal?.videoPath);
+// Restoring playback permissions must not repopulate history the user cleared.
+registerSourcePath(uiState.videoPath, false);
+registerSourcePath(uiState.silenceOriginal?.videoPath, false);
 
 // Client-supplied source paths are honoured only after the user uploaded or
 // selected the file this session. existsSync alone would let a forged request
@@ -423,6 +445,10 @@ function createBatchHistoryRecorder({
     start_second: number;
     end_second: number;
     caption_style?: string;
+    foreground_framing?: ForegroundFraming | null;
+    caption_position?: string;
+    caption_font_scale?: number;
+    logo_position?: string;
     crop_strategy?: string;
     format?: Format;
     keep_segments?: Array<{ start: number; end: number }>;
@@ -458,6 +484,10 @@ function createBatchHistoryRecorder({
           outroPath,
           introPath,
           cleanFillers,
+          foregroundFraming: spec?.foreground_framing,
+          captionPosition: spec?.caption_position,
+          captionFontScale: spec?.caption_font_scale,
+          logoPosition: spec?.logo_position,
           keepSegments: spec?.keep_segments,
         });
       } catch (err) {
@@ -496,6 +526,56 @@ function createBatchHistoryRecorder({
 
 // --- Middleware ---
 app.use(express.json({ limit: "50mb" }));
+app.use((req, res, next) => {
+  if (localOnly()) {
+    res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; object-src 'none'; frame-ancestors 'none'");
+    const allowedHosts = [`127.0.0.1:${PORT}`, `localhost:${PORT}`, `[::1]:${PORT}`];
+    if (!allowedHosts.includes(req.headers.host || "")) {
+      res.status(403).json({ error: "Use the loopback studio address." }); return;
+    }
+    if (req.headers.origin && !allowedHosts.some(host => req.headers.origin === `http://${host}`)) {
+      res.status(403).json({ error: "Cross-origin requests are disabled." }); return;
+    }
+  }
+  const error = localRequestError(req.method, req.path, { ...req.query, ...req.body });
+  if (error) { res.status(403).json({ error }); return; }
+  next();
+});
+app.get("/api/local-policy", (_req, res) => res.json({ localOnly: localOnly(), strict: strictAI(), lastAI }));
+app.get('/api/health', (_req, res) => res.json({ service: 'clipperz-studio', pid: process.pid, home: paths.home }));
+app.use((req, res, next) => {
+  const mutating = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) && req.path.startsWith('/api/');
+  if (mutating && !req.path.startsWith('/api/cleanup')) {
+    if (cleanupRunning) { res.status(409).json({ error: 'Storage cleanup is running. Please wait before editing or rendering.' }); return; }
+    activeMutations++;
+    let finished = false;
+    const done = () => { if (!finished) { finished = true; activeMutations--; } };
+    res.once('finish', done); res.once('close', done);
+  }
+  next();
+});
+app.get('/api/cleanup', (_req, res) => {
+  try { res.setHeader('Cache-Control', 'no-store'); res.json(storageCleanup.scan()); }
+  catch (error) { res.status(500).json({ error: `Could not scan storage: ${errMsg(error)}` }); }
+});
+app.post('/api/cleanup/delete', async (req, res) => {
+  if (DEMO) { res.status(403).json({ error: 'Cleanup is disabled in demo mode.' }); return; }
+  if (cleanupRunning || activeMutations > 0 || activeReelTasks > 0 || [...jobs.values()].some(j => j.status === 'running' || j.status === 'pending')) {
+    res.status(409).json({ error: 'Wait for current uploads, edits, and renders to finish before cleanup.' }); return;
+  }
+  cleanupRunning = true;
+  try {
+    const result = await storageCleanup.remove(req.body?.scan_id, req.body?.item_ids);
+    recentSources = recentSources.filter(p => existsSync(p));
+    try { writeFileAtomicSync(sourcesFile, JSON.stringify(recentSources, null, 2)); } catch {}
+    res.json(result);
+  } catch (error) { res.status(400).json({ error: errMsg(error) }); }
+  finally { cleanupRunning = false; }
+});
+app.post("/api/ai/cancel", (req, res) => {
+  const cancelled = cancelAIRequest(String(req.body?.task_id || ""));
+  res.status(cancelled ? 200 : 404).json({ cancelled });
+});
 
 // Serve static frontend. redirect:false so the /assets page route isn't shadowed
 // by a 301 to the Vite bundle's assets/ directory; it falls through to the SPA.
@@ -564,7 +644,7 @@ function activeBlockingJobs(): JobState[] {
   return [...jobs.values()].filter(
     (job) =>
       job.status === "running" &&
-      ["transcribe", "create_clip", "batch_clips", "silence_analysis", "silence_render"].includes(job.type),
+      ["transcribe", "create_clip", "render_preview", "batch_clips", "silence_analysis", "silence_render"].includes(job.type),
   );
 }
 
@@ -949,6 +1029,47 @@ app.post("/api/import-transcript", (req, res) => {
   });
 });
 
+const transcriptSaves = new Set<string>();
+app.post('/api/edit-transcript', async (req, res) => {
+  const sourcePath = resolveAllowedSource(req.body?.video_path);
+  if (!sourcePath || sourcePath !== resolveAllowedSource(uiState.videoPath)) {
+    res.status(409).json({ error: 'The current video changed. Reopen its transcript before editing.' }); return;
+  }
+  const original = uiState.transcript;
+  if (!original?.words?.length || JSON.stringify(req.body.base_words) !== JSON.stringify(original.words)) {
+    res.status(409).json({ error: 'The transcript changed. Cancel and reopen the editor to load the latest words.' }); return;
+  }
+  if (transcriptSaves.has(sourcePath)) {
+    res.status(409).json({ error: 'This transcript is already being saved. Try again in a moment.' }); return;
+  }
+  transcriptSaves.add(sourcePath);
+  try {
+    const edited = { ...applyTranscriptEdits(original, req.body.edits), edited: true, edited_at: new Date().toISOString() };
+    const hash = await cache.getFileHashForEngine(sourcePath, original.engine);
+    await mkdir(paths.transcripts, { recursive: true });
+    const backup = join(paths.transcripts, `${hash}.original.json`);
+    if (!existsSync(backup)) writeFileAtomicSync(backup, JSON.stringify(original));
+    await cache.set(sourcePath, edited, original.engine);
+    // Never leave an old packed transcript available to moment search or MCP.
+    try { await unlink(join(paths.packed, `${hash}.md`)); } catch { /* no prior packed view */ }
+    try {
+      await executor.execute('pack_transcript', { transcript: edited, cache_hash: hash, source_label: basename(sourcePath) });
+    } catch (error) { log.warn('Edited transcript saved; packed view can be regenerated', { err: errMsg(error) }); }
+    sessionTranscripts.set(sourcePath, edited);
+    if (resolveAllowedSource(uiState.videoPath) === sourcePath && JSON.stringify(uiState.transcript?.words) === JSON.stringify(original.words)) {
+      uiState.transcript = edited;
+      uiState.rawTranscriptText = '';
+      uiState.silencePlan = null;
+      uiState.lastUpdated = Date.now();
+      persistState();
+      broadcastSSE('state-sync', { transcript: edited, silencePlan: null, lastUpdated: uiState.lastUpdated });
+    }
+    res.json({ transcript: edited });
+  } catch (error) {
+    res.status(400).json({ error: errMsg(error) });
+  } finally { transcriptSaves.delete(sourcePath); }
+});
+
 /**
  * POST /api/parse-transcript — Parse a speaker-labeled plain text transcript
  * Format: "Speaker (MM:SS)\ntext...\n\nSpeaker2 (MM:SS)\ntext..."
@@ -1105,7 +1226,14 @@ function sessionWords(): unknown[] {
 /**
  * POST /api/create-clip — Start clip creation job
  */
-app.post("/api/create-clip", async (req, res) => {
+app.post(['/api/create-clip', '/api/render-preview'], async (req, res) => {
+  const previewOnly = req.path === '/api/render-preview';
+  if (previewOnly && [...jobs.values()].some(job => job.type === 'render_preview' && job.status === 'running')) {
+    res.status(409).json({ error: 'A preview is already rendering. Wait for it to finish.' }); return;
+  }
+  let foreground_framing: ForegroundFraming | null;
+  try { foreground_framing = validateForegroundFraming(req.body?.foreground_framing, req.body?.format || 'vertical'); }
+  catch (error) { res.status(400).json({ error: (error as Error).message }); return; }
   const {
     video_path,
     start_second,
@@ -1124,7 +1252,7 @@ app.post("/api/create-clip", async (req, res) => {
     logo_position = "top-left",
   } = req.body;
 
-  if (!video_path || !existsSync(video_path)) {
+  if (!video_path || !existsSync(video_path) || (previewOnly && !resolveAllowedSource(video_path))) {
     res.status(400).json({ error: "Video file not found" });
     return;
   }
@@ -1146,7 +1274,7 @@ app.post("/api/create-clip", async (req, res) => {
   }
 
   // Validate clip params before spawning Python
-  if (typeof start_second !== "number" || typeof end_second !== "number") {
+  if (!Number.isFinite(start_second) || !Number.isFinite(end_second) || start_second < 0) {
     res
       .status(400)
       .json({ error: "start_second and end_second must be numbers" });
@@ -1206,7 +1334,7 @@ app.post("/api/create-clip", async (req, res) => {
   const jobId = uuidv4();
   const job: JobState = {
     id: jobId,
-    type: "create_clip",
+    type: previewOnly ? "render_preview" : "create_clip",
     status: "running",
     progress: 0,
     message: "Preparing clip...",
@@ -1221,6 +1349,7 @@ app.post("/api/create-clip", async (req, res) => {
       "create_clip",
       {
         video_path,
+        foreground_framing,
         start_second: enriched.start_second,
         end_second: enriched.end_second,
         caption_style,
@@ -1228,7 +1357,8 @@ app.post("/api/create-clip", async (req, res) => {
         format,
         transcript_words,
         title,
-        output_dir: paths.output,
+        output_dir: previewOnly ? join(paths.working, 'previews', jobId) : paths.output,
+        face_map: uiState.transcript?.face_map,
         logo_path,
         outro_path,
         intro_path,
@@ -1249,6 +1379,7 @@ app.post("/api/create-clip", async (req, res) => {
       job.progress = 100;
       job.message = "Clip created!";
       job.result = result.data;
+      if (previewOnly) return;
       // Record to history
       try {
         const d = result.data;
@@ -1275,6 +1406,10 @@ app.post("/api/create-clip", async (req, res) => {
           outroPath: outro_path,
           introPath: intro_path,
           cleanFillers: clean_fillers,
+          foregroundFraming: foreground_framing,
+          captionPosition: caption_position,
+          captionFontScale: normalizedFontScale,
+          logoPosition: logo_position,
           keepSegments: enriched.keep_segments,
         });
         broadcastHistoryUpdated(jobId, [rec]);
@@ -1290,7 +1425,10 @@ app.post("/api/create-clip", async (req, res) => {
       job.status = "error";
       job.error = err.message;
       job.message = `Error: ${err.message}`;
-      broadcastSSE("job-error", { jobId, error: err.message });
+      if (previewOnly) {
+        job.error = String(err.message).split(/\r?\n/)[0];
+        job.message = 'Preview rendering failed';
+      } else broadcastSSE("job-error", { jobId, error: err.message });
     });
 });
 
@@ -1342,6 +1480,8 @@ app.post("/api/batch-clips", async (req, res) => {
   // Validate each clip's timing
   for (let i = 0; i < clips.length; i++) {
     const c = clips[i];
+    try { c.foreground_framing = validateForegroundFraming(c.foreground_framing, c.format || format); }
+    catch (error) { res.status(400).json({ error: 'Clip ' + (i + 1) + ': ' + (error as Error).message }); return; }
     const dur = (c.end_second || 0) - (c.start_second || 0);
     if (dur <= 0) {
       res.status(400).json({ error: `Clip ${i + 1}: end must be after start` });
@@ -1457,23 +1597,6 @@ app.post("/api/batch-clips", async (req, res) => {
       broadcastSSE("job-error", { jobId, error: err.message });
     });
 });
-
-function findFullEpisodeRenderer(): string | null {
-  const candidates = [
-    join(paths.projectRoot, "remotion", "render-full-episode.mjs"),
-    join(paths.projectRoot, "runtime", "remotion", "render-full-episode.mjs"),
-  ];
-  return candidates.find((candidate) => existsSync(candidate)) || null;
-}
-
-function reserveFullEpisodeOutput(videoPath: string): string {
-  const stem = fullEpisodeOutputStem(videoPath);
-  let candidate = join(paths.output, `${stem}.mp4`);
-  for (let suffix = 2; existsSync(candidate); suffix++) {
-    candidate = join(paths.output, `${stem}-${suffix}.mp4`);
-  }
-  return candidate;
-}
 
 /** Analyze spoken sections locally. The first run downloads a verified 1.3 MB VAD model. */
 app.post("/api/analyze-silence", async (req, res) => {
@@ -1606,153 +1729,59 @@ app.post("/api/render-silence-removed", async (req, res) => {
   });
 });
 
-/**
- * POST /api/export-full-episode — Burn captions into the complete current source.
- *
- * Full episodes bypass clip duration limits and retain the source dimensions.
- * The renderer chunks its temporary alpha overlay to keep disk use bounded.
- */
+/** Export the complete source with the same framing and caption settings as Studio. */
 app.post("/api/export-full-episode", async (req, res) => {
-  const {
-    video_path,
-    transcript_words = [],
-    caption_style = "branded",
-    caption_position = "auto",
-    caption_font_scale = 100,
-    logo_position = "top-left",
-  } = req.body || {};
-
-  const sourcePath = resolveAllowedSource(video_path);
-  if (!sourcePath) {
-    res.status(400).json({ error: "Video file not found" });
-    return;
-  }
-  if (!Array.isArray(transcript_words) || transcript_words.length === 0) {
-    res.status(400).json({ error: "Transcribe the episode before exporting it with captions" });
-    return;
-  }
-  if (!FULL_EPISODE_CAPTION_STYLES.includes(caption_style)) {
-    res.status(400).json({ error: `Invalid caption style. Use: ${FULL_EPISODE_CAPTION_STYLES.join(", ")}` });
-    return;
-  }
-  if (!["auto", "upper", "center", "lower"].includes(caption_position) ||
-      !["top-left", "top-center", "top-right", "bottom-left", "bottom-center", "bottom-right"].includes(logo_position)) {
-    res.status(400).json({ error: "Invalid caption or logo position" });
-    return;
-  }
-  const normalizedFontScale = Math.max(60, Math.min(160, Number(caption_font_scale) || 100));
-
-  let logoPath: string | null = null;
-  if (req.body.logo_path) {
-    logoPath = await assetManager.resolve(req.body.logo_path);
-    if (!logoPath) {
-      res.status(400).json({ error: `logo not found: ${req.body.logo_path}` });
-      return;
+  try {
+    const body = req.body || {};
+    const sourcePath = resolveAllowedSource(body.video_path);
+    if (!sourcePath) { res.status(400).json({ error: 'Video file not found' }); return; }
+    const words = body.transcript_words ?? sessionWords();
+    if (!Array.isArray(words) || !words.length || words.some(w => typeof w.word !== 'string' ||
+        !Number.isFinite(w.start) || !Number.isFinite(w.end) || w.start < 0 || w.end < w.start)) {
+      res.status(400).json({ error: 'Transcribe the episode before exporting it with captions' }); return;
     }
-  }
-
-  const renderer = findFullEpisodeRenderer();
-  if (!renderer) {
-    res.status(500).json({ error: "Full-episode renderer is not installed" });
-    return;
-  }
-
-  await fileManager.ensureDirectories();
-  const outputPath = reserveFullEpisodeOutput(sourcePath);
-  const wordsPath = join(paths.working, `full-episode-${uuidv4()}.words.json`);
-  writeFileSync(wordsPath, JSON.stringify({ words: transcript_words }), "utf-8");
-
-  const jobId = uuidv4();
-  const job: JobState = {
-    id: jobId,
-    type: "full_episode",
-    status: "running",
-    progress: 0,
-    message: "Preparing full episode...",
-    createdAt: Date.now(),
-  };
-  jobs.set(jobId, job);
-  res.json({ job_id: jobId, status: "running" });
-
-  const args = [
-    renderer,
-    "--video", sourcePath,
-    "--words", wordsPath,
-    "--style", caption_style,
-    "--output", outputPath,
-    "--ffmpeg", paths.ffmpegPath,
-    "--ffprobe", paths.ffprobePath,
-    "--caption-position", caption_position,
-    "--caption-font-scale", String(normalizedFontScale),
-    "--logo-position", logo_position,
-  ];
-  if (caption_style === "branded" && logoPath) args.push("--logo", logoPath);
-
-  const child = spawn(process.execPath, args, {
-    cwd: dirname(renderer),
-    env: {
-      ...process.env,
-      PODCLI_CACHE_DIR: join(dirname(renderer), ".bundle-cache"),
-    },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-
-  let stdoutCarry = "";
-  let stderrTail = "";
-  const consumeStdout = (text: string, flush = false) => {
-    stdoutCarry += text;
-    const lines = stdoutCarry.split(/\r?\n/);
-    stdoutCarry = flush ? "" : lines.pop() || "";
-    for (const line of lines) {
-      const update = parseFullEpisodeProgress(line);
-      if (!update) continue;
-      job.progress = Math.max(job.progress, update.percent);
-      job.message = update.message;
+    const format = body.format || uiState.settings.format || 'vertical';
+    const cropStrategy = body.crop_strategy || 'center';
+    const captionStyle = body.caption_style || 'branded';
+    const captionPosition = body.caption_position || 'auto';
+    const logoPosition = body.logo_position || 'top-left';
+    if (!['vertical', 'horizontal', 'square'].includes(format) ||
+        !['center', 'face', 'speaker', 'speaker-hardcut'].includes(cropStrategy) ||
+        !FULL_EPISODE_CAPTION_STYLES.includes(captionStyle) ||
+        !['auto', 'upper', 'center', 'lower'].includes(captionPosition) ||
+        !['top-left', 'top-center', 'top-right', 'bottom-left', 'bottom-center', 'bottom-right'].includes(logoPosition)) {
+      res.status(400).json({ error: 'Invalid episode format, framing, or caption settings.' }); return;
     }
-    if (flush && stdoutCarry) {
-      const update = parseFullEpisodeProgress(stdoutCarry);
-      if (update) {
-        job.progress = Math.max(job.progress, update.percent);
-        job.message = update.message;
-      }
+    const framing = validateForegroundFraming(body.foreground_framing, format);
+    const assets: Record<string, string | null> = {};
+    for (const key of ['logo_path', 'intro_path', 'outro_path']) {
+      assets[key] = body[key] ? await assetManager.resolve(body[key]) : null;
+      if (body[key] && !assets[key]) { res.status(400).json({ error: `Asset not found: ${body[key]}` }); return; }
     }
-  };
-
-  child.stdout.on("data", (chunk) => consumeStdout(chunk.toString()));
-  child.stderr.on("data", (chunk) => {
-    stderrTail = (stderrTail + chunk.toString()).slice(-4000);
-  });
-  child.on("error", async (err) => {
-    job.status = "error";
-    job.error = err.message;
-    job.message = `Error: ${err.message}`;
-    try { await unlink(wordsPath); } catch { /* best effort */ }
-  });
-  child.on("close", async (code) => {
-    consumeStdout("", true);
-    try { await unlink(wordsPath); } catch { /* best effort */ }
-    if (job.status === "error") return;
-    if (code !== 0 || !existsSync(outputPath)) {
-      const detail = stderrTail.trim().split(/\r?\n/).slice(-4).join("\n");
-      job.status = "error";
-      job.error = detail || `Renderer exited with code ${code}`;
-      job.message = `Error: ${job.error}`;
-      return;
-    }
-
-    const stat = statSync(outputPath);
-    job.status = "done";
-    job.progress = 100;
-    job.message = "Full episode ready";
-    job.result = {
-      output_path: outputPath,
-      filename: basename(outputPath),
-      file_size_mb: Math.round((stat.size / (1024 * 1024)) * 100) / 100,
-      caption_style,
-    };
-  });
+    await fileManager.ensureDirectories();
+    const outputPath = join(paths.output, `${fullEpisodeOutputStem(sourcePath)}_${format}_${uuidv4().slice(0, 8)}.mp4`);
+    const jobId = uuidv4();
+    const job: JobState = { id: jobId, type: 'full_episode', status: 'running', progress: 0,
+      message: 'Preparing full episode...', createdAt: Date.now() };
+    jobs.set(jobId, job);
+    res.json({ job_id: jobId, status: 'running' });
+    executor.execute('export_full_episode', {
+      video_path: sourcePath, output_path: outputPath, transcript_words: words,
+      format, crop_strategy: cropStrategy, foreground_framing: framing,
+      caption_style: captionStyle, caption_position: captionPosition,
+      caption_font_scale: Math.max(60, Math.min(160, Number(body.caption_font_scale) || 100)),
+      logo_position: logoPosition, ...assets, clean_fillers: body.clean_fillers !== false,
+      face_map: uiState.transcript?.face_map,
+    }, event => {
+      job.progress = Math.max(job.progress, event.percent); job.message = event.message;
+    }).then(result => {
+      job.status = 'done'; job.progress = 100; job.message = 'Full episode ready'; job.result = result.data;
+      registerSourcePath(outputPath);
+    }).catch(error => {
+      job.status = 'error'; job.error = error.message; job.message = 'Full episode export failed';
+    });
+  } catch (error) { res.status(400).json({ error: errMsg(error) }); }
 });
-
 /**
  * GET /api/job/:id — Poll job status + progress
  */
@@ -1898,6 +1927,15 @@ app.get("/api/download/:filename", (req, res) => {
 /**
  * GET /api/preview/:filename — Stream a video clip for in-browser playback
  */
+app.get('/api/rendered-preview/:jobId', (req, res) => {
+  const job = jobs.get(req.params.jobId);
+  const output = (job?.result as ClipResult | undefined)?.output_path;
+  if (!job || job.type !== 'render_preview' || job.status !== 'done' || !output || !existsSync(output)) {
+    res.status(404).json({ error: 'Rendered preview not found' }); return;
+  }
+  streamVideo(req, res, output);
+});
+
 app.get("/api/preview/:filename", (req, res) => {
   const filePath = safePath(paths.output, req.params.filename);
   if (!filePath) {
@@ -2162,6 +2200,7 @@ app.post("/api/analyze-energy", async (req, res) => {
 
 // --- Highlight reel: detect once, then iterate on moments ---
 app.post("/api/reel", async (req, res) => {
+  activeReelTasks++;
   try {
     const result = await executor.execute("manage_reel", req.body || {});
     const data = (result.data || {}) as any;
@@ -2178,7 +2217,35 @@ app.post("/api/reel", async (req, res) => {
     res.json(data);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
+  } finally { activeReelTasks--; }
+});
+
+// Download variants use the original sources and leave the saved reel intact.
+app.post("/api/reel-export", (req, res) => {
+  const { session_id, format, index } = req.body || {};
+  if (typeof session_id !== 'string' || !/^[a-zA-Z0-9_-]{1,80}$/.test(session_id)
+      || !['vertical', 'horizontal', 'square'].includes(format)
+      || (index !== undefined && (!Number.isInteger(index) || index < 1))) {
+    res.status(400).json({ error: 'Choose a valid highlights session, format, and moment.' }); return;
   }
+  if ([...jobs.values()].some(job => job.type === 'reel_export' && job.status === 'running')) {
+    res.status(409).json({ error: 'A highlights download is already being prepared. Wait for it to finish.' }); return;
+  }
+  const jobId = uuidv4();
+  const job: JobState = { id: jobId, type: 'reel_export', status: 'running', progress: 0,
+    message: `Preparing ${format} download…`, createdAt: Date.now() };
+  jobs.set(jobId, job);
+  res.json({ job_id: jobId });
+  executor.execute<{ file_path: string; format: string; cached: boolean }>('manage_reel',
+    { action: 'export', session_id, format, ...(index !== undefined && { index }) },
+    event => { job.progress = event.percent; job.message = event.message; },
+  ).then(result => {
+    if (!result.data?.file_path || !existsSync(result.data.file_path)) throw new Error('Export returned no video file.');
+    registerSourcePath(result.data.file_path);
+    job.result = result.data; job.status = 'done'; job.progress = 100; job.message = 'Download ready';
+  }).catch(error => {
+    job.status = 'error'; job.error = errMsg(error).split(/\r?\n/)[0]; job.message = 'Download failed';
+  });
 });
 
 app.get("/api/reel-download", (req, res) => {
@@ -2411,7 +2478,23 @@ app.get("/api/sources", (_req, res) => {
   const items = recentSources
     .map((p) => ({ path: p, name: basename(p), exists: existsSync(p) }))
     .filter((s) => s.exists);
+  if (items.length !== recentSources.length) {
+    recentSources = items.map(s => s.path);
+    try { writeFileAtomicSync(sourcesFile, JSON.stringify(recentSources, null, 2)); } catch {}
+  }
+  res.setHeader("Cache-Control", "no-store");
   res.json(items);
+});
+
+app.delete("/api/sources", (_req, res) => {
+  try {
+    writeFileAtomicSync(sourcesFile, "[]\n");
+    recentSources = [];
+    // Keep allowedSourcePaths: clearing history must not interrupt current playback.
+    res.json({ ok: true });
+  } catch (err: unknown) {
+    res.status(500).json({ error: `Could not clear recent sources: ${errMsg(err)}` });
+  }
 });
 
 // --- Clip History ---
@@ -3113,6 +3196,11 @@ app.post("/api/clips/:id/rerender", async (req, res) => {
       end_second: endSecond,
       caption_style: req.body?.caption_style || (recipe.caption_style as string) || clip.caption_style,
       crop_strategy: trimOnly ? (recipe.crop_strategy as string) || clip.crop_strategy || "face" : "manual",
+      foreground_framing: trimOnly ? recipe.foreground_framing : null,
+      format: recipe.format || clip.format || 'vertical',
+      caption_position: recipe.caption_position || 'auto',
+      caption_font_scale: recipe.caption_font_scale || 100,
+      logo_position: recipe.logo_position || 'top-left',
       ...(trimOnly ? {} : { crop_keyframes: keyframes }),
       transcript_words: words,
       logo_path: recipeAsset("logo_path") ?? clip.logo_path ?? null,
@@ -3980,6 +4068,17 @@ app.get("/api/ui-state", (_req, res) => {
  */
 app.post("/api/ui-state", (req, res) => {
   const body = req.body;
+  let foregroundFraming = uiState.settings.foregroundFraming;
+  try {
+    if (body.settings?.foregroundFraming !== undefined) {
+      foregroundFraming = validateForegroundFraming(body.settings.foregroundFraming, body.settings.format || uiState.settings.format);
+    } else if (body.settings?.format && body.settings.format !== 'vertical' && foregroundFraming && (!foregroundFraming.mode || foregroundFraming.mode === 'larger')) {
+      foregroundFraming = null;
+    }
+  } catch (error) {
+    res.status(400).json({ error: (error as Error).message });
+    return;
+  }
   // Track which fields changed for targeted SSE broadcasts
   const source = body._source || "mcp"; // UI sends _source:'ui'
 
@@ -4050,6 +4149,7 @@ app.post("/api/ui-state", (req, res) => {
   if (body.settings) {
     if (body.settings.captionStyle !== undefined)
       uiState.settings.captionStyle = body.settings.captionStyle;
+    uiState.settings.foregroundFraming = foregroundFraming;
     if (body.settings.cropStrategy !== undefined)
       uiState.settings.cropStrategy = body.settings.cropStrategy;
     if (body.settings.format !== undefined)
@@ -4366,15 +4466,9 @@ async function main() {
   await knowledgeBase.ensureDir();
   await mkdir(uploadDir, { recursive: true });
 
-  // Cleanup old temp files on startup (>48h)
-  try {
-    const cleaned = await fileManager.cleanupOldTasks(48);
-    if (cleaned > 0) log.info(`Cleaned up ${cleaned} old temp files`);
-  } catch (err) {
-    log.warn("Startup temp-file cleanup failed", { err: errMsg(err) });
-  }
-
-  try {
+  // Cleanup is reviewed in Workspace > Cleanup. Directory age alone cannot
+  // tell whether an uploaded source is still needed by a saved episode or reel.
+  if (!localOnly()) try {
     const status = await executor.execute<{
       legacy_cache_pending?: boolean;
       legacy_presets_pending?: boolean;
@@ -4400,6 +4494,7 @@ async function main() {
   // Bind to loopback by default — the studio serves local files (clips, assets,
   // source video) with no auth. Set PODCLI_HOST=0.0.0.0 to expose it on the LAN.
   const HOST = process.env.PODCLI_HOST || "127.0.0.1";
+  if (localOnly() && HOST !== "127.0.0.1") throw new Error("The local profile must bind to 127.0.0.1.");
   const server = app.listen(PORT, HOST, () => {
     log.info(`podcli running at http://localhost:${PORT}`);
   });

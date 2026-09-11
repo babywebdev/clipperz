@@ -499,6 +499,7 @@ def _run_streaming(
     timeout: float,
     cwd: str,
     env: dict,
+    on_stdout: Optional[Callable[[str], None]] = None,
 ) -> subprocess.CompletedProcess:
     proc = subprocess.Popen(
         cmd,
@@ -514,6 +515,8 @@ def _run_streaming(
     def pump(stream, label: str) -> None:
         for line in iter(stream.readline, ""):
             captured[label].append(line)
+            if label == 'out' and on_stdout:
+                on_stdout(line)
             text = line.rstrip()
             if text:
                 print(f"  Remotion: {text[:200]}", file=sys.stderr, flush=True)
@@ -600,6 +603,8 @@ def _render_with_remotion(
     brand: Optional[dict] = None,
     font_family: Optional[str] = None,
     captions: bool = True,
+    chunked: bool = False,
+    progress_callback: Optional[Callable[[int, str], None]] = None,
 ) -> tuple[bool, Optional[str]]:
     """
     Render captions using Remotion. Returns (success, optional_prores_overlay_path).
@@ -626,11 +631,10 @@ def _render_with_remotion(
         _remotion_available = False
         return False, None
 
-    # Cache the compiled bundle next to the render script. The compositions are
-    # project-independent, so a single global bundle (in the managed runtime dir
-    # for native installs) is reused across every project instead of rebuilt per
-    # data/cache.
-    bundle_cache_root = os.path.join(os.path.dirname(render_script), ".bundle-cache")
+    # Honor an explicitly isolated cache; otherwise retain the shared runtime cache.
+    bundle_cache_root = os.environ.get("PODCLI_CACHE_DIR") or os.path.join(
+        os.path.dirname(render_script), ".bundle-cache"
+    )
     remotion_env = {**os.environ, "PODCLI_CACHE_DIR": bundle_cache_root}
 
     cache_dir = os.path.join(bundle_cache_root, "remotion-bundle")
@@ -654,6 +658,11 @@ def _render_with_remotion(
             print(f"  Remotion bundling: {type(exc).__name__}: {exc}",
                   file=sys.stderr, flush=True)
             return False, None
+
+    if chunked:
+        render_script = os.path.join(project_root, 'remotion', 'render-full-episode.mjs')
+        if not os.path.exists(render_script):
+            raise RuntimeError('Full-episode caption renderer is missing.')
 
     # Prepare words JSON (adjust timestamps by offset)
     #
@@ -768,6 +777,17 @@ def _render_with_remotion(
             cmd.extend(["--font-family", str(font_family)])
         if keep_caption_overlay:
             cmd.append("--keep-overlay")
+        if chunked:
+            cmd.extend(['--ffmpeg', os.environ.get('FFMPEG_PATH') or shutil.which('ffmpeg') or 'ffmpeg',
+                        '--ffprobe', os.environ.get('FFPROBE_PATH') or shutil.which('ffprobe') or 'ffprobe'])
+
+        def caption_progress(line):
+            if progress_callback and line.startswith('PODCLI_PROGRESS='):
+                try:
+                    event = json.loads(line.split('=', 1)[1])
+                    progress_callback(int(event['percent']), str(event['message']))
+                except (ValueError, KeyError, TypeError):
+                    pass
 
         # Both pipes are captured. subprocess.run drains them together, so the
         # deadlock the old code avoided by pointing stderr at /dev/null could
@@ -776,9 +796,10 @@ def _render_with_remotion(
         # for months and the reason went to /dev/null with the rest of it.
         result = _run_streaming(
             cmd,
-            timeout=2 * 50 * 60 + 300,
+            timeout=24 * 3600 if chunked else 2 * 50 * 60 + 300,
             cwd=project_root,
             env=remotion_env,
+            **({'on_stdout': caption_progress} if chunked else {}),
         )
 
         if result.returncode == 0 and os.path.exists(output_path):
@@ -791,10 +812,14 @@ def _render_with_remotion(
             return True, overlay_path
 
         _report_remotion_failure("render", result.stdout, result.stderr)
+        if chunked:
+            raise RuntimeError('Full-episode caption renderer failed: ' + (result.stderr or result.stdout or 'unknown error')[-3000:])
         print("  Remotion: falling back to ASS for this clip", file=sys.stderr, flush=True)
         return False, None
 
     except subprocess.TimeoutExpired as exc:
+        if chunked:
+            raise RuntimeError('Full-episode caption rendering timed out.') from exc
         # Whatever the render said before it was killed, which is the half of a
         # hang worth having: a browser that never came up looks the same from
         # out here as a composition that took too long to draw.
@@ -802,6 +827,8 @@ def _render_with_remotion(
         print("  Remotion: timed out, using ASS for this clip", file=sys.stderr, flush=True)
         return False, None
     except Exception as exc:
+        if chunked:
+            raise
         print(f"  Remotion: {type(exc).__name__}: {exc}", file=sys.stderr, flush=True)
         print("  Remotion: render error, using ASS for this clip", file=sys.stderr, flush=True)
         return False, None
@@ -848,6 +875,7 @@ def generate_clip(
     font_family: Optional[str] = None,
     captions: bool = True,
     progress_callback: Optional[Callable[[int, str], None]] = None,
+    foreground_framing: Optional[dict] = None,
 ) -> dict:
     """
     Generate a complete short-form video clip.
@@ -888,6 +916,10 @@ def generate_clip(
     if end_second <= start_second:
         raise ValueError("end_second must be greater than start_second")
 
+    from services.foreground_framing import normalize_framing, render_foreground
+    foreground_framing = normalize_framing(foreground_framing)
+    if foreground_framing is not None and foreground_framing.get("mode", "larger") == "larger" and format != "vertical":
+        raise ValueError("Larger foreground requires vertical 1080x1920 output")
     spec = get_format(format)
 
     # An episode that was never filmed takes the other road entirely. Branching
@@ -1076,7 +1108,9 @@ def generate_clip(
 
         cropped_path = os.path.join(work_dir, "cropped.mp4")
         with timed("render", "crop", strategy=crop_strategy if spec.reframe else "fit"):
-            if spec.reframe:
+            if foreground_framing is not None:
+                render_foreground(segment_path, cropped_path, foreground_framing, target_dims=spec.dims)
+            elif spec.reframe:
                 crop_to_vertical(
                     segment_path, cropped_path,
                     strategy=crop_strategy,
@@ -1310,7 +1344,7 @@ def generate_clip(
         # Hard-capped to avoid any infinite rerender loop.
         max_autofix_passes = _render_transition_autofix_passes(
             preserve_timing=preserve_timing,
-            reframe=spec.reframe,
+            reframe=spec.reframe and foreground_framing is None,
             crop_strategy=crop_strategy,
             crop_keyframes=crop_keyframes,
             keep_segments=keep_segments,
@@ -1335,6 +1369,7 @@ def generate_clip(
             "start_second": start_second,
             "end_second": end_second,
             "caption_style": caption_style,
+            "foreground_framing": foreground_framing,
             "crop_strategy": crop_strategy,
             "format": spec.name,
         }

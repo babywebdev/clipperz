@@ -576,7 +576,8 @@ def _build_html(
     grad_bot_fade = cfg.get("gradient_bottom_fade_point", "70%")
 
     font_family = cfg.get("font_family", "'Inter', sans-serif")
-    font_url = cfg.get("font_import_url", "")
+    from config.policy import local_only
+    font_url = "" if local_only() else cfg.get("font_import_url", "")
     font_import = f"@import url('{font_url}');" if font_url else ""
 
     return f"""<!DOCTYPE html>

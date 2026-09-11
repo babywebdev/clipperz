@@ -1,9 +1,21 @@
 import { spawn, type ChildProcess } from "child_process";
+import { EventEmitter } from "node:events";
+import { writeFileSync, unlinkSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { v4 as uuidv4 } from "uuid";
 import { paths, pythonEnv } from "../config/paths.js";
 import type { TaskRequest, TaskResult, ProgressEvent } from "../models/index.js";
 
 type ProgressCallback = (event: ProgressEvent) => void;
+export const aiEvents = new EventEmitter();
+const activeAI = new Map<string, () => void>();
+export function cancelAIRequest(taskId: string): boolean {
+  const cancel = activeAI.get(taskId);
+  if (!cancel) return false;
+  cancel();
+  return true;
+}
 
 const isWindows = process.platform === "win32";
 
@@ -112,9 +124,13 @@ export class PythonExecutor {
   async execute<T = Record<string, unknown>>(
     taskType: TaskRequest["task_type"],
     params: Record<string, unknown>,
-    onProgress?: ProgressCallback
+    onProgress?: ProgressCallback,
+    signal?: AbortSignal,
   ): Promise<TaskResult<T>> {
+    if (signal?.aborted) throw new Error("AI request cancelled.");
     const taskId = uuidv4();
+    const isAI = ["suggest_clips", "find_moment", "generate_content", "generate_custom"].includes(taskType);
+    const cancelFile = join(tmpdir(), `clipperz-cancel-${taskId}`);
 
     const request: TaskRequest = {
       task_id: taskId,
@@ -126,9 +142,11 @@ export class PythonExecutor {
       const proc = spawn(paths.pythonPath, [paths.pythonBackend], {
         stdio: ["pipe", "pipe", "pipe"],
         detached: !isWindows,
+        windowsHide: true,
         env: pythonEnv({
           PODCLI_HOME: paths.home,
           PODCLI_DATA: paths.dataDir,
+          ...(isAI ? { PODCLI_CANCEL_FILE: cancelFile } : {}),
         }),
       });
 
@@ -136,11 +154,24 @@ export class PythonExecutor {
       let stderr = "";
       let settled = false;
       let timer: NodeJS.Timeout | undefined;
+      const markCancelled = (): void => {
+        // Tree termination must still happen if the temporary directory became unavailable.
+        if (isAI) { try { writeFileSync(cancelFile, "cancelled\n"); } catch {} }
+      };
+      const abort = (): void => {
+        if (settled) return;
+        markCancelled();
+        terminateProcessTree(proc);
+        aiEvents.emit("update", { task_id: taskId, status: "cancelled", label: "Cancelled", provider: "", fallback_reason: "", attempts: [] });
+        finish(() => reject(new Error("AI request cancelled.")));
+      };
 
       const finish = (action: () => void): void => {
         if (settled) return;
         settled = true;
         if (timer) clearTimeout(timer);
+        activeAI.delete(taskId);
+        signal?.removeEventListener("abort", abort);
         action();
       };
 
@@ -152,6 +183,7 @@ export class PythonExecutor {
       // isn't dropped.
       let stderrBuffer = "";
       proc.stderr.on("data", (chunk: Buffer) => {
+        if (settled) return;
         const raw = chunk.toString();
         stderr += raw;
         stderrBuffer += raw;
@@ -164,6 +196,7 @@ export class PythonExecutor {
           if (!trimmed || !trimmed.startsWith("{")) continue;
           try {
             const event = JSON.parse(trimmed) as ProgressEvent;
+            if (event.task_id === taskId && event.ai) aiEvents.emit("update", { task_id: taskId, ...event.ai });
             if (event.task_id === taskId && onProgress) {
               onProgress(event);
             }
@@ -182,6 +215,7 @@ export class PythonExecutor {
       proc.stdin.on("error", () => {});
 
       proc.on("close", (code) => {
+        if (isAI) { try { unlinkSync(cancelFile); } catch {} }
         finish(() => {
           const result = parseResultLine<T>(stdout);
           if (!result) {
@@ -203,13 +237,18 @@ export class PythonExecutor {
         });
       });
 
+      signal?.addEventListener("abort", abort, { once: true });
+      if (isAI) activeAI.set(taskId, abort);
+      if (signal?.aborted) { abort(); return; }
       try {
         proc.stdin.write(JSON.stringify(request) + "\n");
         proc.stdin.end();
       } catch {}
 
       timer = setTimeout(() => {
+        markCancelled();
         terminateProcessTree(proc);
+        if (isAI) aiEvents.emit("update", { task_id: taskId, status: "failed", label: "AI request timed out", provider: "", fallback_reason: "", attempts: [`Task timed out after ${this.timeoutMs / 1000}s`] });
         finish(() => reject(new Error(`Task timed out after ${this.timeoutMs / 1000}s`)));
       }, this.timeoutMs);
     });
