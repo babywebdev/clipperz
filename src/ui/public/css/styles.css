@@ -1,4 +1,4 @@
-/* ─── podcli — Shared Styles ─── */
+/* ─── Clipperz — Shared Styles ─── */
 
 :root {
   --bg: #0f0e0d;
@@ -1400,7 +1400,7 @@ input[type="range"]::-webkit-slider-thumb {
   display: flex; flex-direction: column; gap: 2px; overflow-y: auto;
 }
 .sidebar-logo { display: flex; align-items: center; padding: 4px 8px 18px; }
-.sidebar-logo img { height: 22px; }
+.sidebar-logo img { display: block; width: 180px; max-width: 100%; height: auto; }
 .sidebar-section { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--text3); padding: 16px 12px 6px; }
 .sidebar-link {
   display: flex; align-items: center; gap: 10px; padding: 9px 12px;

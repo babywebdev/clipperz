@@ -50,7 +50,7 @@ export function loadRuntime(parentEnv = process.env) {
     throw new Error('This installation requires the strict AI policy and local-only controls');
   }
 
-  // Override configured names case-insensitively on Windows. Drop ambient PODCLI
+  // Override configured names case-insensitively on Windows. Drop ambient Clipperz
   // settings so a different installation cannot silently select a home or token.
   // AI children receive the narrower environment in strict_ai.py. Neither loader
   // is itself a filesystem sandbox.

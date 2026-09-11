@@ -33,7 +33,7 @@ func writeHealthyPython(t *testing.T) string {
 }
 
 // An installed runtime must not depend on the network. Resolving the upstream release
-// on every run made podcli unusable offline, spent a rate-limited GitHub API call per
+// on every run made Clipperz unusable offline, spent a rate-limited GitHub API call per
 // invocation, and re-provisioned whenever upstream published a new build.
 func TestEnsurePythonSkipsNetworkForInstalledRuntime(t *testing.T) {
 	var hits atomic.Int32

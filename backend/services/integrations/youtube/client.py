@@ -4,7 +4,7 @@ Two ways to get per-video performance into podcli:
   1. OAuth (bring-your-own Google Cloud creds) — full, live metrics.
   2. CSV export from YouTube Studio — no auth, works offline.
 
-The google-api libraries are imported lazily so the rest of podcli runs
+The google-api libraries are imported lazily so the rest of Clipperz runs
 without them; OAuth paths raise a clear, actionable error when they're absent.
 """
 from __future__ import annotations

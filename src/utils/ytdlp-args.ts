@@ -47,7 +47,7 @@ export function buildYtDlpArgs(opts: YtDlpOptions): string[] {
   }
 
   // A user's own ~/.config/yt-dlp/config can carry --extract-audio or a narrower
-  // --format, which would hand podcli an audio-only or 360p file and call it the
+  // --format, which would hand Clipperz an audio-only or 360p file and call it the
   // episode. Plugin dirs are a separate switch that --ignore-config does not cover.
   args.push("--ignore-config", "--no-config-locations", "--no-plugin-dirs");
 

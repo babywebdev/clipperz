@@ -95,7 +95,7 @@ def emit(project: Project, out_path: Path) -> Path:
 
     library = fx.make_project_library(
         project_name=project.name,
-        event_name="podcli",
+        event_name="Clipperz",
         format_id=fmt_id,
         fps=project.fps,
         compounds=compounds,

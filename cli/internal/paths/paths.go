@@ -1,4 +1,4 @@
-// Package paths resolves the global managed directory where podcli keeps its
+// Package paths resolves the global managed directory where Clipperz keeps its
 // hermetic runtimes, models, binaries, and config. Per-project working data
 // (.podcli/) stays in the user's current directory and is not handled here.
 package paths

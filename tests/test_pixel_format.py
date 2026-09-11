@@ -5,7 +5,7 @@ command does not say, and some filters answer with 4:4:4 even when every input
 is 4:2:0. xfade is one: the mixed-layout crop stitched its runs together and
 wrote High 4:4:4 Predictive from yuv420p parts. Everything downstream asks for
 profile high, which is 4:2:0 only, so the caption burn aborted with "high
-profile doesn't support 4:4:4" and every clip in the render was lost. podcli
+profile doesn't support 4:4:4" and every clip in the render was lost. Clipperz
 carries on past a failed clip, so the run exited 0 with an empty output folder.
 
 The commands are spread across five modules and the next one added will not

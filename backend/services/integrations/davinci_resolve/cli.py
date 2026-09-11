@@ -2,7 +2,7 @@
 
 Usage:
     python -m services.integrations.davinci_resolve.cli \
-        --title "podcli spike" \
+        --title "Clipperz spike" \
         --source path/to/short.mp4 \
         [--captions path/to/short_captions.mov] \
         [--out path/to/project.fcpxml]
@@ -52,7 +52,7 @@ def _build_short(title: str, source: Path, captions: Path | None) -> Short:
 
 def main() -> int:
     p = argparse.ArgumentParser()
-    p.add_argument("--title", default="podcli spike")
+    p.add_argument("--title", default="Clipperz spike")
     p.add_argument("--source", required=True, type=Path)
     p.add_argument("--captions", type=Path, default=None)
     p.add_argument("--out", type=Path, default=None)

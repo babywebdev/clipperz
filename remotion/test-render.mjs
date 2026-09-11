@@ -45,7 +45,7 @@ const outputPath = path.join(
   `remotion-test-${styleName}.mp4`,
 );
 
-// Try to load logo from podcli asset registry
+// Try to load logo from Clipperz asset registry
 let logoPath = "";
 try {
   const home = process.env.PODCLI_HOME

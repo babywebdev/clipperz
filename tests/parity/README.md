@@ -3,7 +3,7 @@
 This harness is the safety net for `plans/native-cli.md` (Go launcher, hermetic
 runtimes, **whisper.cpp** replacing openai-whisper/PyTorch). Its job: prove that
 swapping the transcription engine and relocating the runtime does **not** change
-what podcli produces.
+what Clipperz produces.
 
 ## The correctness model: two layers split by a contract that already exists
 

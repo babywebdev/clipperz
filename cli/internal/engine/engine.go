@@ -1,4 +1,4 @@
-// Package engine routes podcli subcommands to the Python backend.
+// Package engine routes Clipperz subcommands to the Python backend.
 package engine
 
 import (
@@ -159,7 +159,7 @@ func SyncScript() string {
 	return ""
 }
 
-// RunSync reconciles this machine with the podcli Pro workspace. Ships with the
+// RunSync reconciles this machine with the upstream Pro workspace. Ships with the
 // studio bundle because the sync logic lives on the TypeScript side, alongside
 // the clip history and asset registry it reconciles.
 func RunSync() (int, error) {

@@ -360,7 +360,7 @@ class MixedLayoutDetectionTests(unittest.TestCase):
     be recognised from its own frames.
 
     The layout used to be read only from the episode-wide face_map, and
-    face_maps cached by a podcli older than the mixed-layout work carry no
+    face_maps cached by a Clipperz older than the mixed-layout work carry no
     is_mixed_layout key at all. `.get(..., False)` turned those into "not
     mixed", which sent the clip down the keyframe path. That path holds one
     camera position across a layout change, so on a Riverside recording every

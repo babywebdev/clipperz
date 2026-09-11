@@ -3,7 +3,7 @@ import { Cloud, Terminal, Key } from "lucide-react";
 import { labelStyle } from "./lib";
 
 /**
- * What podcli will use for AI, and what to do when the answer is "nothing".
+ * What Clipperz will use for AI, and what to do when the answer is "nothing".
  *
  * Two real options are offered side by side and neither is dressed up as the
  * only one: install a CLI you already pay for, or let us run it. A user who
@@ -79,7 +79,7 @@ export default function AiSetup() {
         </div>
         {status.providers.length > 1 && (
           <div className="hint" style={{ marginTop: 8 }}>
-            podcli tries these in order, so a failure falls through to the next one
+            Clipperz tries these in order, so a failure falls through to the next one
             rather than stopping.
           </div>
         )}
@@ -91,7 +91,7 @@ export default function AiSetup() {
     <div className="section card">
       <div style={labelStyle}>AI is not set up</div>
       <div className="hint" style={{ marginBottom: 16 }}>
-        podcli transcribes, cuts, and renders without any of this. Picking moments,
+        Clipperz transcribes, cuts, and renders without any of this. Picking moments,
         titles, and descriptions needs a model. Two ways to get one:
       </div>
 
@@ -117,12 +117,12 @@ export default function AiSetup() {
 
         <Option
           icon={<Cloud className="ico" strokeWidth={1.8} size={15} />}
-          title="Use podcli Pro"
+          title="Use upstream Pro"
           body="Nothing to install. Faster, and picks moments using what has actually performed on your channel."
           action={
             <a className="btn btn-primary btn-sm" href="https://podcli.com/pro"
                target="_blank" rel="noreferrer">
-              See podcli Pro
+              See upstream Pro
             </a>
           }
         />
@@ -130,7 +130,7 @@ export default function AiSetup() {
         <Option
           icon={<Key className="ico" strokeWidth={1.8} size={15} />}
           title="Use your own API key"
-          body="Set ANTHROPIC_API_KEY and podcli calls the API directly. You pay per token."
+          body="Set ANTHROPIC_API_KEY and Clipperz calls the API directly. You pay per token."
           action={
             <a className="btn btn-ghost btn-sm" href="/config">Open config</a>
           }

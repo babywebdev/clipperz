@@ -78,7 +78,7 @@ func TestSelfUpdateFailureOmitsPackageManagerFallback(t *testing.T) {
 			t.Fatalf("failure output contains %q:\n%s", unwanted, got)
 		}
 	}
-	if !strings.Contains(got, "Your installed podcli was left unchanged.") {
+	if !strings.Contains(got, "Your installed Clipperz was left unchanged.") {
 		t.Fatalf("failure output should say the install is unchanged:\n%s", got)
 	}
 }

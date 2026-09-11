@@ -11,7 +11,7 @@ import * as cloud from "./podcli-cloud.js";
  * thumbnail rules. A new editor joining a team should inherit all of it by
  * signing in, rather than being sent a folder over Slack.
  *
- * Free podcli keeps these files local and fully effective, as it always will.
+ * Free Clipperz keeps these files local and fully effective, as it always will.
  */
 
 const STATE_FILE = "knowledge-sync.json";
@@ -52,7 +52,7 @@ function insideKnowledge(path: string): string | null {
  * Every .md under the knowledge folder, as workspace-style relative paths.
  *
  * Walked by hand rather than with `readdir({ recursive })`: that option needs
- * Node 20.1 and `dirent.parentPath` needs 20.12, while podcli supports 18. CI
+ * Node 20.1 and `dirent.parentPath` needs 20.12, while Clipperz supports 18. CI
  * runs 20, so the crash would have reached Node 18 users rather than the build.
  *
  * Recursive at all because the workspace accepts nested paths: a flat listing
@@ -96,7 +96,7 @@ export async function sync(): Promise<KnowledgeSyncReport> {
   const local = await localFiles();
   const localSet = new Set(local);
 
-  // Reconciled before anything is pushed. podcli ships default knowledge files,
+  // Reconciled before anything is pushed. Clipperz ships default knowledge files,
   // so a machine that has never synced has a full set of boilerplate that would
   // otherwise be pushed straight over the workspace's real one — the server
   // skips its conflict check when no expectedVersion is sent.

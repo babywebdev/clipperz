@@ -257,7 +257,7 @@ async function getWorkflowGuidance(): Promise<string> {
 export function createServer(): McpServer {
   installLocalNetworkGuard();
   const server = new McpServer({
-    name: localOnly() ? "clipperz" : "podcli",
+    name: "clipperz",
     version: podcliVersion(),
   });
   const register = server.tool.bind(server);
@@ -998,7 +998,7 @@ export function createServer(): McpServer {
   // =============================================
   server.tool(
     "knowledge_base",
-    "Read or manage the podcli knowledge base. These are .md files that provide context about the podcast (hosts, style, audience, etc). Always read the knowledge base before suggesting or creating clips.",
+    "Read or manage the Clipperz knowledge base. These are .md files that provide context about the podcast (hosts, style, audience, etc). Always read the knowledge base before suggesting or creating clips.",
     {
       action: z
         .enum(["read_all", "list", "read", "write", "delete"])
@@ -1355,7 +1355,7 @@ export function createServer(): McpServer {
   // =============================================
   server.tool(
     "get_ui_state",
-    "Read the current podcli session state and get guidance on what to do next. " +
+    "Read the current Clipperz session state and get guidance on what to do next. " +
       "Returns: video path, transcript status, clip suggestions, settings, and workflow next steps.\n\n" +
       "IMPORTANT: Call this FIRST when starting a new conversation to understand the current state.\n" +
       "Clips are numbered #1, #2, etc. Use these numbers with create_clip(clip_number), " +
@@ -1987,7 +1987,7 @@ export function createServer(): McpServer {
   // =============================================
   server.tool(
     "manage_thumbnail_config",
-    "Show, export, import, or reset the thumbnail template (colors, fonts, frame, box, layout) podcli uses to generate thumbnails. 'show' returns the effective config; 'export' writes it to a file path; 'import' replaces it from a file path; 'reset' reverts to the generic default.",
+    "Show, export, import, or reset the thumbnail template (colors, fonts, frame, box, layout) Clipperz uses to generate thumbnails. 'show' returns the effective config; 'export' writes it to a file path; 'import' replaces it from a file path; 'reset' reverts to the generic default.",
     {
       action: z.enum(["show", "export", "import", "reset"]).describe("Config action"),
       path: z.string().optional().describe("File path for export (destination) or import (source)"),
@@ -2500,7 +2500,7 @@ export function createServer(): McpServer {
   // =============================================
   server.prompt(
     "workflow",
-    "Complete podcli workflow guide — from podcast file to finished clips",
+    "Complete Clipperz workflow guide — from podcast file to finished clips",
     async () => ({
       messages: [
         {
@@ -2508,7 +2508,7 @@ export function createServer(): McpServer {
           content: {
             type: "text" as const,
             text: [
-              "You are a podcast clip extraction assistant using podcli MCP tools.",
+              "You are a podcast clip extraction assistant using Clipperz MCP tools.",
               "Follow this workflow to create viral short-form clips from podcasts:",
               "",
               "## Step 1: Check current state",

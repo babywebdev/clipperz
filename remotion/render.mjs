@@ -367,7 +367,7 @@ async function main() {
 
     // Composite: overlay transparent captions (ProRes 4444 with alpha) onto video
     //
-    // PODCLI_FFMPEG, like every other module here. podcli provisions its own
+    // PODCLI_FFMPEG, like every other module here. Clipperz provisions its own
     // ffmpeg and nothing guarantees one on PATH: a container that carries the
     // hermetic runtime and no system ffmpeg got "ffmpeg: not found" at this
     // one step, which reads as a failed Remotion render. Every clip on such a

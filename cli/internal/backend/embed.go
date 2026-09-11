@@ -1,5 +1,5 @@
 // Package backend ships the Python processing backend inside the launcher
-// binary so an installed podcli runs without the source repo. The files/ tree is
+// binary so an installed Clipperz runs without the source repo. The files/ tree is
 // synced from the repo backend/ at build time (`go generate ./...` or CI) and is
 // gitignored — never edit files/ by hand.
 package backend

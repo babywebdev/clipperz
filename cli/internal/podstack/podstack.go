@@ -1,6 +1,6 @@
 // Package podstack forwards PodStack workflow commands (auto, generate-titles,
 // …) to an AI agent CLI (Claude Code or Codex), porting the old bash launcher.
-// The commands are Claude Code slash commands driving the podcli MCP tools, so
+// The commands are Claude Code slash commands driving the Clipperz MCP tools, so
 // they run inside the agent, not the terminal. The slash-command files are
 // embedded and installed into the working project on demand.
 package podstack

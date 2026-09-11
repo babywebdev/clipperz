@@ -8,7 +8,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: podcli version
+      label: Clipperz version
       description: Output of `podcli --version`.
       placeholder: e.g. 2.4.5
     validations:

@@ -96,14 +96,14 @@ func Fetch(url, dest, label string) error { return fetch(url, dest, label, downl
 
 // FetchGuarded is Fetch with a caller-supplied redirect allowlist. Self-update
 // passes its GitHub-only allowlist: provisioning also trusts the model and
-// ffmpeg CDNs, and the podcli binary must not be redirectable to any of them.
+// ffmpeg CDNs, and the Clipperz binary must not be redirectable to any of them.
 func FetchGuarded(url, dest, label string, allowHost func(string) bool) error {
 	return fetch(url, dest, label, guardedHTTPClient(allowHost, 60*time.Second))
 }
 
 // fetch resumes via HTTP Range across transient stalls rather than restarting,
 // writing to dest atomically. A per-destination lock file serializes concurrent
-// podcli processes so they don't append to the same .part file.
+// Clipperz processes so they don't append to the same .part file.
 func fetch(url, dest, label string, client *http.Client) error {
 	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 		return err
@@ -190,7 +190,7 @@ func acquireLock(dest string) (func(), error) {
 	for {
 		if _, err := os.Stat(lock + ".takeover"); err == nil {
 			if time.Now().After(deadline) {
-				return nil, fmt.Errorf("timed out waiting for %s (another podcli may be provisioning; delete the file if not)", lock)
+				return nil, fmt.Errorf("timed out waiting for %s (another Clipperz may be provisioning; delete the file if not)", lock)
 			}
 			time.Sleep(lockPoll)
 			continue
@@ -237,7 +237,7 @@ func acquireLock(dest string) (func(), error) {
 			}
 		}
 		if time.Now().After(deadline) {
-			return nil, fmt.Errorf("timed out waiting for %s (another podcli may be provisioning; delete the file if not)", lock)
+			return nil, fmt.Errorf("timed out waiting for %s (another Clipperz may be provisioning; delete the file if not)", lock)
 		}
 		time.Sleep(lockPoll)
 	}
@@ -1228,7 +1228,7 @@ func EnsurePython(requirements string) (string, error) {
 		key := name + "|" + want
 		if !pythonHealthy(bin) || !artifactAt(root, key, bin) {
 			if err := os.RemoveAll(root); err != nil {
-				return "", fmt.Errorf("remove corrupted Python runtime %s: %w (close any running podcli or Python subprocesses)", root, err)
+				return "", fmt.Errorf("remove corrupted Python runtime %s: %w (close any running Clipperz or Python subprocesses)", root, err)
 			}
 			archive, err := downloadPath(url, "cpython.tar.gz")
 			if err != nil {

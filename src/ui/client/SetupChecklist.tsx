@@ -60,7 +60,7 @@ export default function SetupChecklist() {
   const steps: Step[] = [
     {
       title: "Create the knowledge base",
-      desc: "The files podcli reads before it picks a single clip.",
+      desc: "The files Clipperz reads before it picks a single clip.",
       done: state.knowledge.total > 0 && state.knowledge.present === state.knowledge.total,
       action: (
         <button className="btn btn-primary btn-sm" onClick={createKnowledge} disabled={creating}>

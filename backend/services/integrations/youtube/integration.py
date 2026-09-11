@@ -12,8 +12,8 @@ class YouTubeIntegration(IntegrationBase):
     category = "ai_helper"
     description = (
         "Performance feedback, not publishing. Links rendered clips to your published "
-        "videos and pulls views, retention, and CTR so podcli learns what works and "
-        "Claude picks better shorts. Read-only — podcli never uploads. Bring your own "
+        "videos and pulls views, retention, and CTR so Clipperz learns what works and "
+        "Claude picks better shorts. Read-only — Clipperz never uploads. Bring your own "
         "Google OAuth client, or import a YouTube Studio analytics CSV."
     )
     default_enabled = False

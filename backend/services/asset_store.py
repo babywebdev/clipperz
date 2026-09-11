@@ -336,7 +336,7 @@ def _download_yt_dlp(url: str, dest_dir: str, name: str) -> str:
     cmd = [
         sys.executable, "-m", "yt_dlp",
         # A user's own yt-dlp config can carry --extract-audio or a narrower
-        # --format and hand podcli an audio-only or 360p file as the episode.
+        # --format and hand Clipperz an audio-only or 360p file as the episode.
         "--ignore-config", "--no-config-locations", "--no-plugin-dirs",
         "--no-playlist",
         "--format", "bv*[height<=1080]+ba/b[height<=1080]/bv*+ba/b",

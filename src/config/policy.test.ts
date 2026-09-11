@@ -28,6 +28,18 @@ describe("local installation policy", () => {
     expect(localRequestError("POST", "/api/content-studio/custom", { transcript_text: "A quote about https://example.com" })).toBeNull();
     expect(localRequestError("GET", "/api/settings", {})).toBeNull();
   });
+  it("allows only the local Library thumbnail picker and renderer", () => {
+    vi.stubEnv("PODCLI_LOCAL_ONLY", "1");
+    expect(localRequestError("GET", "/api/clips/id/thumbnail/options", { texts: "6", frames: "6" })).toBeNull();
+    expect(localRequestError("POST", "/api/clips/id/thumbnail/render", { frame_path: "C:/Clipperz/frames/frame.jpg" })).toBeNull();
+    for (const [method, path] of [["POST", "/api/clips/id/thumbnail/options"], ["GET", "/api/clips/id/thumbnail/render"],
+      ["POST", "/api/clips/id/thumbnail/select"], ["GET", "/api/clips/id/thumbnail/options/extra"], ["POST", "/api/clips/id/davinci"]]) {
+      expect(localRequestError(method, path, {})).toMatch(/disabled/);
+    }
+    for (const frame_path of ["https://example.com/image.png", "\\\\server\\share\\image.png", "//server/share/image.png"]) {
+      expect(localRequestError("POST", "/api/clips/id/thumbnail/render", { frame_path })).toBeTruthy();
+    }
+  });
   it("restricts MCP to the initial local editing workflow", () => {
     for (const name of ["transcribe_podcast", "suggest_clips", "create_clip", "batch_create_clips", "get_ui_state"]) expect(localMcpTools.has(name)).toBe(true);
     for (const name of ["manage_assets", "knowledge_base", "manage_thumbnail_config", "publish", "youtube_upload"]) expect(localMcpTools.has(name)).toBe(false);

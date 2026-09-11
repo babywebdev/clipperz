@@ -1,4 +1,4 @@
-# podcli installer for Windows - downloads the prebuilt native binary (no Go,
+# Clipperz installer for Windows - downloads the prebuilt native binary (no Go,
 # Node, Python, or ffmpeg needed; the binary provisions those on first run).
 # Usage: irm https://raw.githubusercontent.com/nmbrthirteen/podcli/main/install.ps1 | iex
 # Uninstall: & ([scriptblock]::Create((irm https://raw.githubusercontent.com/nmbrthirteen/podcli/main/install.ps1))) -Uninstall
@@ -49,7 +49,7 @@ public static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint Msg, UIntPtr wP
 }
 
 if ($Uninstall) {
-  Write-Host "Uninstalling podcli..."
+  Write-Host "Uninstalling Clipperz..."
   if ($Purge) {
     $targets = @($homeDir)
   } else {
@@ -76,9 +76,9 @@ if ($Uninstall) {
     }
   }
   if ($Purge) {
-    Write-Host "  removed podcli and user data."
+    Write-Host "  removed Clipperz and user data."
   } else {
-    Write-Host "  removed podcli runtime files. User data preserved; pass -Purge to remove it."
+    Write-Host "  removed Clipperz runtime files. User data preserved; pass -Purge to remove it."
   }
   exit 0
 }
@@ -93,7 +93,7 @@ if (-not $version) {
 
 $asset = "podcli-$target.exe"
 $base = "https://github.com/$repo/releases/download/v$version"
-Write-Host "Installing podcli v$version ($target)..."
+Write-Host "Installing Clipperz v$version ($target)..."
 
 $dest = Join-Path $binDir 'podcli.exe'
 Invoke-WebRequest "$base/$asset" -OutFile $dest -UseBasicParsing

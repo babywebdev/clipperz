@@ -40,7 +40,7 @@ export default function McpSetupPage() {
   const desktopJson = JSON.stringify(
     {
       mcpServers: {
-        podcli: {
+        clipperz: {
           command: "node",
           args: [serverPath],
         },

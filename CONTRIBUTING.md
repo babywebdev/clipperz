@@ -1,10 +1,10 @@
-# Contributing to podcli
+# Contributing to Clipperz
 
-Thank you for helping improve podcli. This project is AGPL-3.0 — contributions are welcome under the same license.
+Thank you for helping improve Clipperz. This project is AGPL-3.0 — contributions are welcome under the same license.
 
 ## Architecture
 
-podcli ships as a native Go launcher (`cli/`) that provisions hermetic runtimes
+Clipperz ships as a native Go launcher (`cli/`) that provisions hermetic runtimes
 and routes commands to the Python backend (`backend/`) and the Node studio/MCP
 server (`src/`). End users install a prebuilt binary; the source trees below are
 for development.

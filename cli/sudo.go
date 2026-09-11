@@ -22,11 +22,11 @@ func sudoRefusalMessage(sudoUser, home string, rootOwned bool) string {
 		return ""
 	}
 	var b strings.Builder
-	b.WriteString("podcli: refusing to run under sudo.\n\n")
+	b.WriteString("Clipperz: refusing to run under sudo.\n\n")
 	b.WriteString("  Sudo keeps your HOME, so everything installed lands in\n")
 	b.WriteString("    " + home + "\n")
 	b.WriteString("  owned by root, and you lose access to your own install.\n")
-	b.WriteString("  podcli needs no elevated privileges. Run it as " + sudoUser + ".\n")
+	b.WriteString("  Clipperz needs no elevated privileges. Run it as " + sudoUser + ".\n")
 	if rootOwned {
 		b.WriteString("\n  An earlier sudo run already left root-owned files there. Repair with:\n")
 		b.WriteString(fmt.Sprintf("    sudo chown -R %s %s\n", shellQuote(sudoUser), shellQuote(home)))
@@ -41,7 +41,7 @@ func shellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
-// refuseSudo prints and exits when podcli was invoked through sudo.
+// refuseSudo prints and exits when Clipperz was invoked through sudo.
 //
 // uninstall is exempt: once a previous sudo run has taken the directory, root
 // is the only thing that can remove it, and refusing there would trap the user

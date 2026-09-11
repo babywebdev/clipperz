@@ -8,8 +8,13 @@ export function requireCloud(): void {
 
 export function localRequestError(method: string, path: string, body: unknown): string | null {
   if (!localOnly()) return null;
+  // The Library picker extracts local frames and uses the configured editorial
+  // AI chain. Other thumbnail endpoints remain outside this local workflow.
+  const localThumbnail = (method === "GET" && /^\/api\/clips\/[^/]+\/thumbnail\/options\/?$/.test(path))
+    || (method === "POST" && /^\/api\/clips\/[^/]+\/thumbnail\/render\/?$/.test(path));
   if (/^\/api\/(download-video|assets\/url|youtube(?:\/|$)|analytics|thumbnail-studio|thumbnail-config|knowledge\/init)/.test(path)
-      || /^\/api\/clips\/[^/]+\/(thumbnail|davinci)/.test(path)
+      || /^\/api\/clips\/[^/]+\/davinci/.test(path)
+      || (/^\/api\/clips\/[^/]+\/thumbnail/.test(path) && !localThumbnail)
       || (path === "/api/settings" && method !== "GET")) {
     return "This feature is disabled in the local installation.";
   }
@@ -17,7 +22,7 @@ export function localRequestError(method: string, path: string, body: unknown): 
     if (Array.isArray(value)) return value.some(inspect);
     if (value && typeof value === "object") return Object.entries(value).some(([key, item]) => {
       if (["url", "video_url", "source_url"].includes(key) && item) return true;
-      if (/^(file_path|video_path|audio_path|logo_path|intro_path|outro_path|image_path|videoPath|filePath|logoPath|introPath|outroPath)$/.test(key)
+      if (/^(file_path|video_path|audio_path|logo_path|intro_path|outro_path|image_path|frame_path|videoPath|filePath|logoPath|introPath|outroPath)$/.test(key)
           && typeof item === "string" && (item.includes("://") || item.startsWith("\\\\") || item.startsWith("//"))) return true;
       if (key === "engine" && item && item !== "whisper-py") return true;
       return inspect(item);

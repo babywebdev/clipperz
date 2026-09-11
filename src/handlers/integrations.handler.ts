@@ -25,7 +25,7 @@ interface SetResult { name: string; enabled: boolean }
 export const manageIntegrationsToolDef = {
   name: "manage_integrations",
   description:
-    "List, enable, or disable podcli integrations (editor exporters, platform uploads, productivity tools, AI helpers).\n\n" +
+    "List, enable, or disable Clipperz integrations (editor exporters, platform uploads, productivity tools, AI helpers).\n\n" +
     "Actions:\n" +
     "  • list    — return all installed integrations with their enabled state (default)\n" +
     "  • enable  — turn an integration on (its tools become callable)\n" +
@@ -65,7 +65,7 @@ interface DvExportInput {
 export const exportToDaVinciResolveToolDef = {
   name: "export_to_davinci_resolve",
   description:
-    "Export podcli shorts as a DaVinci Resolve FCPXML project.\n\n" +
+    "Export Clipperz shorts as a DaVinci Resolve FCPXML project.\n\n" +
     "Each short becomes a compound clip with V1 source + V2 ProRes 4444 alpha caption overlay — " +
     "fully editable in free or Studio Resolve 20.x.\n\n" +
     "Requires the davinci_resolve integration to be enabled (manage_integrations action=enable name=davinci_resolve).",
@@ -132,7 +132,7 @@ interface AiCliStatus {
 export const manageEnvToolDef = {
   name: "manage_env",
   description:
-    "List, set, or unset global podcli settings stored in .env.\n\n" +
+    "List, set, or unset global Clipperz settings stored in .env.\n\n" +
     "Keys:\n" +
     "  • HF_TOKEN — HuggingFace token for speaker detection\n" +
     "  • PODCLI_CLAUDE_PATH — manual path to Claude Code CLI when auto-discovery fails\n" +

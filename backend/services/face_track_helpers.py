@@ -264,7 +264,7 @@ def clip_layout_is_mixed(
     """Does this clip switch between a split screen and a fullscreen shot?
 
     Judged on the clip's own frames first. The layout used to be read only
-    from the episode-wide face_map, and a face_map cached by a podcli older
+    from the episode-wide face_map, and a face_map cached by a Clipperz older
     than the mixed-layout work carries no is_mixed_layout key at all, so the
     default turned those into "not mixed". That sent Riverside recordings down
     a path that holds one camera position across a layout change, and every

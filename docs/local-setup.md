@@ -189,6 +189,23 @@ cleanup using disposable files only. Finally test Studio AI after mocked routing
 tests pass. Synthetic success does not establish long-recording performance,
 face tracking quality, or exact loudness compliance.
 
+## Library thumbnails
+
+Open a Library clip and choose **Thumbnail → Get options** for headline suggestions
+and candidate face frames from that clip's source interval. Headline text uses the
+same strict Codex → Claude → error provider chain as clip suggestions; it sends
+the title and thumbnail/brand instructions, not video or images. Frame extraction
+and image rendering run locally. Rendering uses the configured `PODCLI_BROWSER`
+with external browser requests blocked and never downloads a replacement browser.
+
+Choose a headline and frame, or enter your own text and use **Upload frame**.
+Screen recordings and small multi-person layouts may have no suitable face frames;
+uploading a frame works in that case. **Generate** saves the thumbnail and adds a
+1.5-second opening card to the rendered clip. Regenerating replaces the previous
+card. Keep a separate copy if you also need the clip without the opening card.
+Standalone thumbnail studio and thumbnail configuration endpoints remain disabled
+in this local profile.
+
 ## Transcript corrections and full-episode export
 
 In **New episode → Full transcript → Edit transcript**, correct the timed passages
@@ -286,6 +303,17 @@ separate saved batches, append preserving edits, manual order in all three downl
 formats, duration bounds, stale edits, and error cases on an isolated Studio on port 3896.
 
 ## Migration record
+
+The app is branded **Clipperz**. The original `PODCLI_*` environment settings,
+`.podcli` paths, browser storage keys, and native `podcli` commands are retained
+for compatibility with existing installations and saved work. Upstream URLs and
+module identifiers still refer to their original locations.
+
+The supplied logo and icon live in `public/clipperz-badge.png` and
+`public/clipperz-icon.png`. Vite serves these same files during development and
+copies them into the built Studio, including the favicon and touch icon. Run the
+normal build after replacing either asset. No image generation or conversion is
+needed.
 
 Reusable setup code and dependency inputs were promoted from `_local` into these
 tracked folders. Historical machine-specific completion reports, downloaded

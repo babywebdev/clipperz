@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * podcli — MCP Server
+ * Clipperz — MCP Server
  *
  * Entry point — starts the MCP server over stdio transport.
  * Connect this to Claude Desktop, Claude Code, or any MCP client.
@@ -23,7 +23,7 @@ async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
 
-  logger.info("podcli MCP server running on stdio");
+  logger.info("Clipperz MCP server running on stdio");
 }
 
 main().catch((err) => {

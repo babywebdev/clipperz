@@ -14,6 +14,11 @@ from services import thumbnail_html as th
 
 
 class ThumbnailHtmlTests(unittest.TestCase):
+    def test_local_render_does_not_discover_or_install_another_browser(self):
+        with mock.patch.dict(os.environ, {"PODCLI_LOCAL_ONLY": "1"}), mock.patch.object(th.shutil, "which") as which:
+            self.assertEqual(th._playwright_cli_candidates(), [])
+            which.assert_not_called()
+
     def test_prepare_thumbnail_lines_compacts_long_sentence_title(self):
         line1, line2 = th._prepare_thumbnail_lines(
             "We build 10 megawatt data centers in 200 days — everyone is shocked",

@@ -20,7 +20,7 @@ export interface NameCardProps {
  * The lower third that says who this is.
  *
  * A clip lifted out of an hour of conversation opens on a stranger. Every
- * show solves it the same way and podcli had no answer at all, so the name
+ * show solves it the same way and Clipperz had no answer at all, so the name
  * card was drawn somewhere else and burned in by hand.
  *
  * Anchored to the bottom rather than centred, sized off the composition the

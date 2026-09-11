@@ -9,7 +9,7 @@ The reference-study principles are to study behavior and failure cases, write in
 
 The recommendations below apply those principles without running the skill's enumeration, approval, or spec-generation workflow. No reference project was installed or executed. Public documentation and license files were reviewed alongside sampled Clipperz source. Documented capabilities are distinguished from proposed questions: a question does not imply that the reference already solves it.
 
-Keep podcli as the foundation. Extract selected mechanisms into Clipperz's existing local processing, MCP, studio, and Remotion workflow. Installing five complete applications or combining their entire pipelines would create unnecessary maintenance.
+Keep Clipperz as the foundation. Extract selected mechanisms into Clipperz's existing local processing, MCP, studio, and Remotion workflow. Installing five complete applications or combining their entire pipelines would create unnecessary maintenance.
 
 ## Existing Clipperz baseline
 
@@ -128,7 +128,7 @@ Reference: [lucianodiisouza/PrimeClip](https://github.com/lucianodiisouza/PrimeC
 
 ### Worth extracting
 
-- **Local delivery and lifecycle.** Study packaging choices and backend startup/shutdown if you later want a simpler launcher. Compare against podcli's existing native provisioning work before assuming a new desktop wrapper is needed.
+- **Local delivery and lifecycle.** Study packaging choices and backend startup/shutdown if you later want a simpler launcher. Compare against Clipperz's existing native provisioning work before assuming a new desktop wrapper is needed.
 - **A stable processing interface.** Compare its separation of upload, job creation, progress, and output retrieval with Clipperz's existing studio server. This could inform a future Clips dashboard connection without coupling every operation to a particular UI.
 - **Actionable setup status.** Study how dependency health is presented. For Clipperz, the desired result is a clear explanation of what is missing and which processing stages are available.
 

@@ -17,7 +17,7 @@ func TestParseChecksums(t *testing.T) {
 		"malformed-line\n")
 	got := ParseChecksums(in)
 	if got["podcli-darwin-arm64"] != "abc123" {
-		t.Fatalf("podcli hash = %q", got["podcli-darwin-arm64"])
+		t.Fatalf("Clipperz hash = %q", got["podcli-darwin-arm64"])
 	}
 	if got["whisper-cli-linux-amd64"] != "deadbeef" {
 		t.Fatalf("whisper hash = %q (want lowercased, basename-keyed)", got["whisper-cli-linux-amd64"])

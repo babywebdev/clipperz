@@ -1,12 +1,21 @@
-# podcli + PodStack: AI podcast content studio
+# Clipperz + PodStack: AI podcast content studio
 
 > Transcribe, clip, and publish from one place.
 
-This file is the primary instruction document. `CLAUDE.podstack.md` (persona and protocols), `AGENTS.podstack.md` (cross-tool usage), and `ETHOS.podstack.md` (content philosophy) build on it; the tables below are the single source of truth.
+This file owns shared project facts and conventions for Clipperz. Workflow roles
+and procedures live in `docs/workflow/`; read its README and the role selected by
+the tool entrypoint or explicit assignment. Reading this context does not activate
+a content persona or change that assignment.
+
+PodStack is an optional content-production workflow. Only for explicitly requested
+PodStack/content-production work, read `docs/project/references/podstack.md` and
+the relevant command. Its content roles are task lenses, not replacements for the
+software Project Lead or Worker. Do not automatically activate PodStack because a
+software task mentions titles, transcripts, thumbnails, or publishing.
 
 You have two systems working together:
 
-1. **podcli**: video processing engine (transcription, clip detection, rendering)
+1. **Clipperz**: video processing engine (transcription, clip detection, rendering)
 2. **PodStack**: content workflow (titles, descriptions, thumbnails, publishing)
 
 Both share the same knowledge base at `.podcli/knowledge/`.
@@ -29,9 +38,9 @@ Both share the same knowledge base at `.podcli/knowledge/`.
 
 ---
 
-## MCP tools (podcli engine)
+## MCP tools (Clipperz engine)
 
-All 26 tools registered by the MCP server.
+The catalog below describes the full 26-tool engine. The current local installation exposes only the allowlisted tools in `src/config/policy.ts` (14 at installation); this catalog does not enable blocked tools or cloud integrations. See `docs/local-setup.md` for the supported profile.
 
 **Transcription and input**
 
@@ -73,10 +82,10 @@ All 26 tools registered by the MCP server.
 
 | Tool | What it does |
 |------|-------------|
-| `manage_integrations` | List, enable, or disable podcli integrations |
+| `manage_integrations` | List, enable, or disable Clipperz integrations |
 | `export_to_davinci_resolve` | Export shorts as a DaVinci Resolve FCPXML project |
 | `manage_config` | Manage portable config profiles and legacy path migration |
-| `manage_env` | List, set, or unset global podcli settings stored in `.env` |
+| `manage_env` | List, set, or unset global Clipperz settings stored in `.env` |
 | `ai_cli_status` | Show whether Claude Code / Codex CLIs are available for AI features |
 
 ---
@@ -119,36 +128,10 @@ All slash commands read from `.podcli/knowledge/`. This is where your show's bra
 
 ---
 
-## Quality gate (always active)
-
-Before outputting ANY content:
-
-1. **Would I click this?** If no, rewrite
-2. **Does it earn attention in 5 seconds?** If no, find better hook
-3. **Does it deliver on the promise?** If no, it's clickbait, fix it
-4. **Is it standalone?** If context needed, unusable for shorts
-5. **Zero banned words**: check `02-voice-and-tone.md`
-6. **The Coffee Test**: sounds like a person, not a press release
-
----
-
-## Auto-detection
-
-When input is provided without a specific command:
-
-- **Transcript text or file** → Run `/process-transcript`
-- **Asks for titles** → Run `/generate-titles`
-- **Asks for thumbnails** → Run `/plan-thumbnails`
-- **Asks for descriptions** → Run `/generate-descriptions`
-- **Says "process episode"** → Run `/produce-shorts`
-- **Asks to review content** → Run `/review-content`
-
----
-
 ## Project layout
 
 ```
-├── CLAUDE.md                     ← primary instructions (this file)
+├── CLAUDE.md                     ← shared project context (this file)
 ├── .claude/commands/             ← PodStack slash commands
 ├── cli/                          ← Go launcher (install, update, provisioning)
 ├── src/                          ← TypeScript (MCP server, web studio, services)
@@ -162,3 +145,30 @@ When input is provided without a specific command:
 ├── podcli-clips/                 ← rendered clips (gitignored; PODCLI_OUTPUT overrides)
 └── episodes/                     ← content packages from PodStack (gitignored output)
 ```
+
+## Local development and workflow context
+
+- The web UI uses React/Vite, with a TypeScript Express server and MCP handlers;
+  Python handles media processing with Whisper, FFmpeg, and Remotion rendering.
+  `cli/` contains the Go launcher. Manifests and lockfiles own dependency versions.
+- The supported Windows runtime, storage layout, setup, and checks are documented
+  in `docs/local-setup.md`. Launch Studio with `node scripts/local/launch.mjs studio`.
+  Its default local address is `http://localhost:3847`.
+- Use the configured local runtime for verification: `node scripts/verification/run-tests.mjs node`
+  and `node scripts/verification/run-tests.mjs python`; build with
+  `node scripts/installation/run.mjs npm build run build`. Choose checks relevant
+  to the change. Do not infer runtime correctness from a build alone.
+- Local media processing uses the pinned executables and strict Codex → Claude →
+  error AI routing. Preserve existing `PODCLI_*` settings and saved-data paths.
+  AI requests can send text to the configured official providers; local mode does
+  not mean AI inference is offline. Keep credentials out of project records.
+- Original media and saved work must survive changes. Use disposable fixtures for
+  rendering/deletion checks; do not overwrite user videos during verification.
+- Branding assets live in `public/`. Existing PodStack commands and `.podcli/`
+  conventions are preserved; the configured installation uses its own paths as
+  described in `docs/local-setup.md`.
+- There is no installed LucentDev phase pipeline or phase-status tracker here.
+  Future substantial task status belongs in `docs/project/tasks/[task]/spec.md`.
+  `docs/writing-studio-plan.md` is a discussion draft, not an approved implementation
+  spec. Existing `plans/` and `_local/project/` records remain in place; reassess
+  relevant historical inputs before relying on them.

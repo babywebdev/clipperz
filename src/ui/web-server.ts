@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { validateForegroundFraming, type ForegroundFraming } from '../services/foreground-framing.js';
 /**
- * podcli — Web UI Server
+ * Clipperz — Web UI Server
  *
  * Express server that provides:
  * - File upload endpoint for podcast videos
@@ -1951,7 +1951,7 @@ app.get("/api/preview/:filename", (req, res) => {
 
 // Clips now render into the user's working dir, not a single output root, so the
 // library streams them by history id from wherever they live. The output_path
-// recorded in clips.json IS the allowlist: only files podcli itself logged are
+// recorded in clips.json IS the allowlist: only files Clipperz itself logged are
 // servable, and only as regular files (symlinks resolved, extension checked).
 async function serveClipById(
   req: Request,
@@ -2743,7 +2743,7 @@ app.post("/api/clips/:id/thumbnail/render", async (req, res) => {
   const tc = clip.thumbnail_config || {};
   const { line1, line2, frame_path, frame_info } = req.body || {};
   if (!frame_path) { res.status(400).json({ error: "select a frame first" }); return; }
-  // Only allow frames podcli itself produced (candidate frames) or the user uploaded —
+  // Only allow frames Clipperz itself produced (candidate frames) or the user uploaded —
   // never an arbitrary server path passed through to the renderer.
   const resolvedFrame = resolveFrameInRoots(frame_path, [join(paths.output, "thumbnails", String(clip.id)), uploadDir]);
   if (!resolvedFrame) { res.status(400).json({ error: "invalid frame" }); return; }
@@ -4496,7 +4496,7 @@ async function main() {
   const HOST = process.env.PODCLI_HOST || "127.0.0.1";
   if (localOnly() && HOST !== "127.0.0.1") throw new Error("The local profile must bind to 127.0.0.1.");
   const server = app.listen(PORT, HOST, () => {
-    log.info(`podcli running at http://localhost:${PORT}`);
+    log.info(`Clipperz running at http://localhost:${PORT}`);
   });
   server.on("error", (err: NodeJS.ErrnoException) => {
     if (err.code === "EADDRINUSE") {

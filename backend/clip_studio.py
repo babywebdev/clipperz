@@ -4,7 +4,7 @@ clip_studio — cut a precise fragment from a video and wrap it with a Remotion
 intro + "Follow for more" outro (with social icons).
 
 Cut a fragment by TIMESTAMP or by PARAGRAPH text (matched against the
-transcript). The fragment is rendered through podcli's existing face-crop +
+transcript). The fragment is rendered through Clipperz's existing face-crop +
 caption pipeline, then an intro card and an outro card are stitched on:
 
     [ intro ]  →  [ captioned fragment ]  →  [ outro: Follow for more + icons ]

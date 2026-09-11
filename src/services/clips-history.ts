@@ -315,7 +315,7 @@ export class ClipsHistory {
     });
     if (!changed) return null;
 
-    // A human rewriting a generated title is the clearest taste signal podcli
+    // A human rewriting a generated title is the clearest taste signal Clipperz
     // gets — it says what the model produced and what a person preferred
     // instead. Reported only when the title actually changed, so the sync
     // bookkeeping in syncToCloud can't trigger it.
@@ -378,7 +378,7 @@ export class ClipsHistory {
     return { synced, failed };
   }
 
-  // Remove a clip and the artifacts podcli rendered for it (output video,
+  // Remove a clip and the artifacts Clipperz rendered for it (output video,
   // word/recipe/reframe sidecars, thumbnail dir). The source video is never touched.
   // Accepts a full id or an unambiguous prefix (MCP convenience).
   async remove(idOrPrefix: string): Promise<ClipHistoryEntry | null> {

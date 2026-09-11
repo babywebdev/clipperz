@@ -15,6 +15,7 @@ import re
 import shutil
 import subprocess
 from config.paths import paths
+from config.policy import local_only
 from utils.proc import run as proc_run, ProcError
 import sys
 import tempfile
@@ -127,6 +128,8 @@ def _load_config() -> dict:
 
 def _playwright_cli_candidates() -> list[list[str]]:
     """Return Playwright CLI commands in preference order."""
+    if local_only():
+        return []  # Local rendering uses only the installed, pinned browser.
     repo_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
     # On Windows the runnable shim is playwright.cmd; the extensionless file is a POSIX script.
     local_name = "playwright.cmd" if sys.platform == "win32" else "playwright"
@@ -711,7 +714,7 @@ def generate_thumbnail(
     html = _build_html(line1, line2, photo_path, logo_path, cfg, variation, face_info=face_info)
 
     # Write HTML to temp file
-    tmp_html = tempfile.NamedTemporaryFile(suffix=".html", delete=False, mode="w")
+    tmp_html = tempfile.NamedTemporaryFile(suffix=".html", delete=False, mode="w", encoding="utf-8")
     tmp_html.write(html)
     tmp_html.close()
 
@@ -763,7 +766,8 @@ def generate_thumbnail(
                     timeout=timeout_s,
                     cwd=screenshot_cwd,
                     # .cmd/npx shims need cmd.exe on Windows; shell=True with a list breaks on POSIX.
-                    shell=sys.platform == "win32",
+                    shell=sys.platform == "win32" and not local_only(),
+                    creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" and local_only() else 0,
                 )
             except subprocess.TimeoutExpired:
                 errors.append(f"{cmd_label} timed out after {timeout_s} seconds")

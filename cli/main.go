@@ -1,4 +1,4 @@
-// podcli - native launcher. Reserved verbs are handled here; everything else
+// Clipperz - native launcher. Reserved verbs are handled here; everything else
 // routes to the Python engine.
 package main
 
@@ -31,7 +31,7 @@ func main() {
 
 	switch args[0] {
 	case "version", "--version", "-v":
-		fmt.Printf("podcli %s\n", Version)
+		fmt.Printf("Clipperz %s\n", Version)
 	case "doctor":
 		doctor()
 	case "update":
@@ -47,18 +47,18 @@ func main() {
 		// Safe on this path despite stdout being the JSON-RPC channel: it only writes
 		// to stderr. Skipping it would strand MCP-only clients on a stale backend.
 		if err := refreshBackend(); err != nil {
-			fmt.Fprintln(os.Stderr, "podcli:", err)
+			fmt.Fprintln(os.Stderr, "Clipperz:", err)
 			os.Exit(1)
 		}
 		code, err := engine.RunMCP()
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "podcli:", err)
+			fmt.Fprintln(os.Stderr, "Clipperz:", err)
 		}
 		os.Exit(code)
 	case "sync":
 		code, err := engine.RunSync()
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "podcli:", err)
+			fmt.Fprintln(os.Stderr, "Clipperz:", err)
 		}
 		os.Exit(code)
 	case "config":
@@ -114,7 +114,7 @@ func refreshStudioBundles() {
 // that path calls refreshBackend directly, which only writes to stderr.
 func ensureRuntime() error {
 	if _, ok := engine.BackendRoot(); !ok {
-		fmt.Fprintln(os.Stderr, "First run - setting up podcli (one-time download)...")
+		fmt.Fprintln(os.Stderr, "First run - setting up Clipperz (one-time download)...")
 		if setup(nil) != 0 {
 			return fmt.Errorf("first-run setup failed (see errors above) - run `podcli setup` to retry")
 		}
@@ -137,7 +137,7 @@ func refreshBackend() error {
 	if backend.IsCurrent(managed, Version) {
 		return nil
 	}
-	fmt.Fprintf(os.Stderr, "Updating backend to podcli %s...\n", Version)
+	fmt.Fprintf(os.Stderr, "Updating backend to Clipperz %s...\n", Version)
 	if err := backend.Extract(managed, Version); err != nil {
 		return fmt.Errorf("could not update the Python backend: %w\n  run `podcli setup --refresh` to retry", err)
 	}
@@ -166,11 +166,11 @@ func runEngine(args []string) int {
 	update.NotifyIfOutdated(Version)
 	if wantsRuntime(args) {
 		if err := ensureRuntime(); err != nil {
-			fmt.Fprintln(os.Stderr, "podcli:", err)
+			fmt.Fprintln(os.Stderr, "Clipperz:", err)
 			return 1
 		}
 	} else if err := refreshBackend(); err != nil {
-		fmt.Fprintln(os.Stderr, "podcli:", err)
+		fmt.Fprintln(os.Stderr, "Clipperz:", err)
 		return 1
 	}
 	if wantsStudio(args) {
@@ -179,7 +179,7 @@ func runEngine(args []string) int {
 	if transcribeEngine(args) == "whispercpp" {
 		model, err := provision.EnsureModel(transcribeModel(args))
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "podcli: provisioning model:", err)
+			fmt.Fprintln(os.Stderr, "Clipperz: provisioning model:", err)
 			return 1
 		}
 		os.Setenv("PODCLI_ENGINE", "whispercpp")
@@ -187,7 +187,7 @@ func runEngine(args []string) int {
 	}
 	code, err := engine.Run(args)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "podcli:", err)
+		fmt.Fprintln(os.Stderr, "Clipperz:", err)
 		return 1
 	}
 	return code
@@ -207,13 +207,13 @@ func configCmd(args []string) int {
 	case args[0] == "get" && len(args) == 2:
 		v, err := config.Get(args[1])
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "podcli:", err)
+			fmt.Fprintln(os.Stderr, "Clipperz:", err)
 			return 1
 		}
 		fmt.Println(v)
 	case args[0] == "set" && len(args) == 3:
 		if err := config.Set(args[1], args[2]); err != nil {
-			fmt.Fprintln(os.Stderr, "podcli:", err)
+			fmt.Fprintln(os.Stderr, "Clipperz:", err)
 			return 1
 		}
 		fmt.Printf("%s = %s\n", args[1], args[2])
@@ -290,7 +290,7 @@ func setup(args []string) int {
 		_ = os.RemoveAll(backendDir)
 		fallback, ok := engine.BackendRoot()
 		if !ok {
-			fmt.Fprintln(os.Stderr, "podcli: setup: no backend available after extract failure")
+			fmt.Fprintln(os.Stderr, "Clipperz: setup: no backend available after extract failure")
 			return 1
 		}
 		backendDir = fallback
@@ -304,14 +304,14 @@ func setup(args []string) int {
 	if !refresh {
 		p, err := provision.EnsureModel(size)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "podcli: setup:", err)
+			fmt.Fprintln(os.Stderr, "Clipperz: setup:", err)
 			return 1
 		}
 		fmt.Printf("  model:  %s\n", p)
 		if vad {
 			vp, err := provision.EnsureVADModel()
 			if err != nil {
-				fmt.Fprintln(os.Stderr, "podcli: setup:", err)
+				fmt.Fprintln(os.Stderr, "Clipperz: setup:", err)
 				return 1
 			}
 			fmt.Printf("  vad:    %s\n", vp)
@@ -416,11 +416,11 @@ func mcpRegisteredToSelf() bool {
 func mcpInstall() int {
 	if err := registerMCPServer(); err != nil {
 		self, _ := os.Executable()
-		fmt.Fprintf(os.Stderr, "podcli: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Clipperz: %v\n", err)
 		fmt.Fprintf(os.Stderr, "Register manually:  claude mcp add podcli -- %s mcp\n", self)
 		return 1
 	}
-	fmt.Println("Registered podcli MCP server with Claude Code.")
+	fmt.Println("Registered Clipperz MCP server with Claude Code.")
 	return 0
 }
 
@@ -438,7 +438,7 @@ func uninstall(args []string) int {
 			printUninstallHelp()
 			return 0
 		default:
-			fmt.Fprintf(os.Stderr, "podcli: unknown uninstall option %q\n", a)
+			fmt.Fprintf(os.Stderr, "Clipperz: unknown uninstall option %q\n", a)
 			printUninstallHelp()
 			return 2
 		}
@@ -455,9 +455,9 @@ func uninstall(args []string) int {
 
 	fmt.Println("podcli uninstall")
 	if purge {
-		fmt.Printf("  This will remove podcli and all managed data under: %s\n", home)
+		fmt.Printf("  This will remove Clipperz and all managed data under: %s\n", home)
 	} else {
-		fmt.Printf("  This will remove podcli app files under: %s\n", home)
+		fmt.Printf("  This will remove Clipperz app files under: %s\n", home)
 		fmt.Println("  User data (config, knowledge, presets, assets, history, cache) is kept - pass --purge to remove it too.")
 	}
 	for _, p := range targets {
@@ -508,9 +508,9 @@ func uninstall(args []string) int {
 		fmt.Fprintln(os.Stderr, "        Delete it after this command exits, or run the installer script with --uninstall.")
 	}
 	if purge {
-		fmt.Println("Done - podcli and all managed data were removed.")
+		fmt.Println("Done - Clipperz and all managed data were removed.")
 	} else {
-		fmt.Println("Done - podcli app files were removed (user data kept).")
+		fmt.Println("Done - Clipperz app files were removed (user data kept).")
 	}
 	return 0
 }
@@ -631,13 +631,13 @@ func confirm(prompt string) bool {
 func printUninstallHelp() {
 	fmt.Println(`Usage: podcli uninstall [--yes] [--dry-run] [--purge]
 
-Removes podcli's app files (bin, runtime, models) and installer-created links.
+Removes Clipperz's app files (bin, runtime, models) and installer-created links.
 User data (config, knowledge, presets, assets, history, cache) is kept.
 
 Options:
   -y, --yes     Do not prompt for confirmation
   --dry-run     Show what would be removed without deleting anything
-  --purge       Also remove user data (deletes the entire podcli folder)`)
+  --purge       Also remove user data (deletes the entire Clipperz folder)`)
 }
 
 // backendStamp annotates an unmanaged or out-of-date backend, the drift the
@@ -672,7 +672,7 @@ func backendStamp(root string) string {
 }
 
 func doctor() {
-	fmt.Printf("podcli %s\n\n", Version)
+	fmt.Printf("Clipperz %s\n\n", Version)
 	fmt.Println("Paths")
 	fmt.Printf("  home:     %s\n", paths.Home())
 	fmt.Printf("  runtime:  %s\n", paths.RuntimeDir())
@@ -759,7 +759,7 @@ func humanBytes(n int64) string {
 }
 
 func printHelp() {
-	fmt.Printf(`podcli %s - AI podcast clip generator
+	fmt.Printf(`Clipperz %s - AI podcast clip generator
 
 Usage:
   podcli <command> [args]
@@ -780,12 +780,12 @@ PodStack commands (run inside Claude Code / Codex):
 
 Launcher commands:
   login | logout | whoami
-                       podcli Pro account on this machine
+                       upstream Pro account on this machine
   sync                 Reconcile clips, assets, and knowledge with your workspace
   doctor               Show resolved paths, interpreter, backend, ffmpeg, models
   version              Print version
   update               Check for and apply a newer release
-  uninstall            Remove podcli app files (keeps user data unless --purge)
+  uninstall            Remove Clipperz app files (keeps user data unless --purge)
   setup [--model base] [--vad] [--speakers]
                        Provision runtimes + models (--speakers adds pyannote+torch, ~2GB)
   setup --refresh      Re-provision runtimes for this launcher version, skipping models

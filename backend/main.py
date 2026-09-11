@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-podcli — Python Backend Entry Point
+Clipperz — Python Backend Entry Point
 
 Reads a JSON task request from stdin, dispatches to the appropriate service,
 and writes a JSON result to stdout. Progress events go to stderr.
@@ -812,7 +812,7 @@ def handle_ai_cli_status(task_id: str, params: dict):
 
 
 def handle_ai_provider_status(task_id: str, params: dict):
-    """Everything podcli can use for AI, not just local binaries — so the studio
+    """Everything Clipperz can use for AI, not just local binaries — so the studio
     can tell "nothing installed" apart from "signed in, nothing needed"."""
     from services import ai_provider
 
@@ -911,7 +911,7 @@ def handle_generate_custom(task_id: str, params: dict):
         # The gate above admits a workspace session or an API key as well as a
         # local binary, so naming only the binary sends cloud users to install
         # something they will never use.
-        emit_result(task_id, "error", error="No AI provider available — sign in to podcli Pro, install Claude Code or Codex, or set ANTHROPIC_API_KEY")
+        emit_result(task_id, "error", error="No AI provider available — sign in to upstream Pro, install Claude Code or Codex, or set ANTHROPIC_API_KEY")
         return
 
     emit_result(task_id, "success", data=result)

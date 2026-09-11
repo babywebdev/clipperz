@@ -1,4 +1,4 @@
-"""Client for podcli Pro's hosted API.
+"""Client for upstream Pro's hosted API.
 
 This module is the whole of Pro that lives in the open source app: where the
 token is kept, how it is sent, and what shape the request takes. There is no
@@ -188,9 +188,9 @@ def _describe(exc: urllib.error.HTTPError) -> tuple[str, bool]:
         detail = "; ".join(str(item.get("message", item)) for item in detail)
 
     if exc.code == 401:
-        return ("podcli Pro session expired — run `podcli login` again", False)
+        return ("upstream Pro session expired — run `podcli login` again", False)
     if exc.code == 402:
-        return ("this workspace has no active podcli Pro subscription", False)
+        return ("this workspace has no active upstream Pro subscription", False)
     if exc.code == 403:
         return (detail or "your role does not allow this", False)
     if exc.code == 429:
@@ -199,8 +199,8 @@ def _describe(exc: urllib.error.HTTPError) -> tuple[str, bool]:
             return (f"monthly limit reached ({used}/{cap} episodes)", False)
         return (detail or "rate limited, try again shortly", True)
     if exc.code >= 500 or exc.code == 503:
-        return (detail or "podcli Pro is temporarily unavailable", True)
-    return (detail or f"podcli Pro returned HTTP {exc.code}", False)
+        return (detail or "upstream Pro is temporarily unavailable", True)
+    return (detail or f"upstream Pro returned HTTP {exc.code}", False)
 
 
 def generate(purpose: str, instruction: str, *, system: Optional[str] = None,

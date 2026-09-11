@@ -55,7 +55,7 @@ export default function WorkspaceInsights() {
         <div style={labelStyle}>Workspace</div>
         <div className="hint">
           {insights.sampleSize === 0
-            ? "Connect YouTube and publish a few clips. Once performance data arrives, podcli starts picking moments based on what works for this channel."
+            ? "Connect YouTube and publish a few clips. Once performance data arrives, Clipperz starts picking moments based on what works for this channel."
             : `Tracking ${insights.sampleSize} published clip${insights.sampleSize === 1 ? "" : "s"}. A few more and patterns become reliable enough to act on.`}
         </div>
       </div>
@@ -70,7 +70,7 @@ export default function WorkspaceInsights() {
             <Users className="ico" strokeWidth={1.8} size={13} /> What works on this channel
           </div>
           <div className="hint" style={{ marginBottom: 14 }}>
-            From {insights.sampleSize} published clips across your workspace. podcli uses this
+            From {insights.sampleSize} published clips across your workspace. Clipperz uses this
             when picking moments.
           </div>
           {insights.guidance.map((line) => (

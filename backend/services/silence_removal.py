@@ -3,7 +3,7 @@
 Silero VAD (MIT, https://github.com/snakers4/silero-vad) finds speech without
 uploading media. Transcript word ranges are
 unioned with VAD output before cuts are planned, so known words are never cut.
-The derived video and remapped transcript keep every downstream Podcli feature
+The derived video and remapped transcript keep every downstream Clipperz feature
 on one compact timeline while the original source remains untouched.
 """
 

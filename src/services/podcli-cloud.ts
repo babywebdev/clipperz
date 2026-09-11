@@ -6,7 +6,7 @@ import { paths } from "../config/paths.js";
 import { strictAI, requireCloud } from "../config/policy.js";
 
 /**
- * Client for podcli Pro's hosted API.
+ * Client for upstream Pro's hosted API.
  *
  * The Python backend has its own copy of this because the two runtimes cannot
  * share one — deliberate duplication of about eighty lines, not an accident.

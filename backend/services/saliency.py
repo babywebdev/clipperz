@@ -2,7 +2,7 @@
 
 For profiles whose candidate source is "saliency" (party, action), moments are
 generated from a fused interestingness curve instead of from an LLM reading the
-transcript. This is what lets podcli auto-cut highlights from footage with no useful
+transcript. This is what lets Clipperz auto-cut highlights from footage with no useful
 transcript (party videos, action).
 
 Each channel is normalized against THIS video's own distribution (never a global

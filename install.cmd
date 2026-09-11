@@ -2,7 +2,7 @@
 setlocal
 cd /d "%~dp0"
 
-echo Installing podcli - downloads the prebuilt binary (runtimes are provisioned on first run)...
+echo Installing Clipperz - downloads the prebuilt binary (runtimes are provisioned on first run)...
 echo.
 
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0install.ps1"

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-podcli — CLI entry point.
+Clipperz — CLI entry point.
 
 One-command processing:
     python cli.py process video.mp4 --top 5 --transcript transcript.txt
@@ -25,7 +25,7 @@ import questionary
 from questionary import Style
 from version import VERSION
 
-# Windows streams default to cp1252, which can't encode chars like '→'; podcli is UTF-8.
+# Windows streams default to cp1252, which can't encode chars like '→'; Clipperz is UTF-8.
 for _stream in (sys.stdin, sys.stdout, sys.stderr):
     if hasattr(_stream, "reconfigure"):
         try:
@@ -855,7 +855,7 @@ def cmd_process(args):
         return
 
     enc_info = get_encoder_info()
-    print(f"\n  podcli — processing")
+    print(f"\n  Clipperz — processing")
     print(f"  Encoder: {enc_info['best']} ({enc_info['system']})")
     print(f"  Quality: {quality}")
     if config.get("fast_mode"):
@@ -1234,7 +1234,7 @@ def cmd_process(args):
     _thumb_intro_duration = 0.8
     _tc_path = paths["thumbnailConfig"]
 
-    # Opt-in: a brand config must exist before podcli generates thumbnails.
+    # Opt-in: a brand config must exist before Clipperz generates thumbnails.
     # New users get no auto-thumbnails until they run `podcli init-thumbnail`
     # (or write their own .podcli/thumbnail-config.json). Existing users who
     # already have the file keep working - the file is the opt-in signal.
@@ -1261,7 +1261,7 @@ def cmd_process(args):
     _thumb_intro_duration = max(0.5, min(_thumb_intro_duration, 1.0))
 
     # Where the picture goes in the video, which is a separate question from
-    # whether one is drawn at all. "start" keeps what podcli has always done.
+    # whether one is drawn at all. "start" keeps what Clipperz has always done.
     _thumb_placement = config.get("thumbnail_placement", "start")
     _thumb_style = config.get("thumbnail_style") or None
 
@@ -2640,7 +2640,7 @@ def cmd_init_thumbnail(args):
     """Scaffold .podcli/thumbnail-config.json from the example template.
 
     Opting in to thumbnail generation means having this file exist. Until
-    then podcli skips the thumbnail step entirely (see crop_to_vertical
+    then Clipperz skips the thumbnail step entirely (see crop_to_vertical
     in cli.py (opt-in is gated on file existence).
     """
     accent = "\033[38;2;212;135;74m"
@@ -3721,7 +3721,7 @@ def cmd_info(args):
             except Exception:
                 pass
 
-    print(f"\n  podcli system info\n")
+    print(f"\n  Clipperz system info\n")
     print(f"    Platform:     {info['system']}")
     print(f"    Encoder:      {info['best']}")
     print(f"    Available:    {', '.join(info['available'])}")
@@ -3811,7 +3811,7 @@ def print_banner():
         _diarization_ok = False
     speakers_ok = bool(hf_token) and _diarization_ok
 
-    # `info` should report what AI podcli will actually use, which for a
+    # `info` should report what AI Clipperz will actually use, which for a
     # signed-in user is the workspace rather than any local binary.
     from services import ai_provider
     # Every other lookup in this banner is guarded. This one reads and parses
@@ -3821,7 +3821,7 @@ def print_banner():
     except Exception:
         _providers = []
 
-    print(f"  {bold}podcli{reset} v{VERSION}")
+    print(f"  {bold}Clipperz{reset} v{VERSION}")
 
     # Cache info
     cache_dir = paths["cache"]
@@ -3901,7 +3901,7 @@ def print_help():
     ul = "\033[4m"
 
     print(BANNER)
-    print(f"  {bold}podcli{reset} v{VERSION} — AI-powered podcast clip generator")
+    print(f"  {bold}Clipperz{reset} v{VERSION} — AI-powered podcast clip generator")
     print()
     print(f"  {bold}Usage:{reset}  podcli {accent}<command>{reset} [options]")
     print(f"          podcli {dim}(interactive mode){reset}")
@@ -3969,7 +3969,7 @@ def cmd_templates(args):
     reset = "\033[0m"
 
     if not podcli_cloud.signed_in():
-        print(f"\n  Templates come with podcli Pro.")
+        print(f"\n  Templates come with upstream Pro.")
         print(f"  {gray}Sign in with{reset} {accent}podcli login{reset}"
               f"{gray}, or set the look with flags:{reset}")
         print(f"  {gray}--caption-style --crop --format --logo --name-card --motion{reset}\n")
@@ -4012,7 +4012,7 @@ def _apply_template(config: dict, name_or_id: str) -> None:
     from services import podcli_cloud
 
     if not podcli_cloud.signed_in():
-        print("  Templates come with podcli Pro. Sign in with `podcli login`, "
+        print("  Templates come with upstream Pro. Sign in with `podcli login`, "
               "or set the look with flags.", file=sys.stderr)
         sys.exit(1)
 
@@ -4135,7 +4135,7 @@ def cmd_login(args):
     print(f"  Signed in to {workspace.get('name', 'your workspace')} "
           f"({account.get('plan', 'free')} plan, {account.get('role', 'member')}).")
     if account.get("plan") == "free":
-        print("  This workspace has no active subscription — podcli will keep using "
+        print("  This workspace has no active subscription — Clipperz will keep using "
               "your local AI CLI until one starts.")
 
     # Everything already rendered on this machine belongs in the workspace too,
@@ -4163,14 +4163,14 @@ def cmd_logout(args):
     except podcli_cloud.CloudError as exc:
         print(f"Signed out here, but the session may still be live: {exc}")
     podcli_cloud.clear_token()
-    print("Signed out. podcli will use your local AI CLI from now on.")
+    print("Signed out. Clipperz will use your local AI CLI from now on.")
 
 
 def cmd_whoami(args):
     from services import ai_provider, podcli_cloud
 
     if not podcli_cloud.signed_in():
-        print("Not signed in to podcli Pro. Run `podcli login`.")
+        print("Not signed in to upstream Pro. Run `podcli login`.")
     else:
         try:
             account = podcli_cloud.me()
@@ -4195,7 +4195,7 @@ def cmd_workspace(args):
     from services import podcli_cloud
 
     if not podcli_cloud.signed_in():
-        print("Not signed in to podcli Pro. Run `podcli login`.")
+        print("Not signed in to upstream Pro. Run `podcli login`.")
         sys.exit(1)
 
     action = getattr(args, "workspace_action", None) or "list"
@@ -4227,7 +4227,7 @@ def cmd_workspace(args):
             marker = "*" if w.get("current") else " "
             print(f" {marker} {w['name']}  ({w['plan']}, {w['role']})")
     except podcli_cloud.CloudError as exc:
-        print(f"Could not reach podcli Pro: {exc}")
+        print(f"Could not reach upstream Pro: {exc}")
         sys.exit(1)
 
 
@@ -4356,8 +4356,8 @@ def _first_run_setup() -> bool:
         return True
 
     print()
-    print(f"  {bold}Welcome to podcli{reset}")
-    print(f"  {gray}Six questions, then podcli scores clips against your show instead of a generic template.{reset}")
+    print(f"  {bold}Welcome to Clipperz{reset}")
+    print(f"  {gray}Six questions, then Clipperz scores clips against your show instead of a generic template.{reset}")
     print()
 
     start = _wizard_ask(questionary.confirm("Set it up now?", default=True, style=qstyle), on_eof=False)
@@ -4432,17 +4432,17 @@ def main():
         add_help=False,
     )
     parser.add_argument("-h", "--help", action="store_true", dest="show_help")
-    parser.add_argument("--version", action="version", version=f"podcli {VERSION}")
+    parser.add_argument("--version", action="version", version=f"Clipperz {VERSION}")
     parser.add_argument("--no-banner", action="store_true", help=argparse.SUPPRESS)
     sub = parser.add_subparsers(dest="command")
 
-    # ── podcli Pro account ──
-    login_p = sub.add_parser("login", help="Sign in to podcli Pro through your browser")
+    # ── upstream Pro account ──
+    login_p = sub.add_parser("login", help="Sign in to upstream Pro through your browser")
     login_p.add_argument("--no-browser", action="store_true",
                          help="Print the link instead of opening it, for SSH sessions")
-    sub.add_parser("logout", help="Sign out of podcli Pro on this machine")
-    sub.add_parser("whoami", help="Show the signed-in podcli Pro account")
-    ws_p = sub.add_parser("workspace", help="Switch between shows in podcli Pro")
+    sub.add_parser("logout", help="Sign out of upstream Pro on this machine")
+    sub.add_parser("whoami", help="Show the signed-in upstream Pro account")
+    ws_p = sub.add_parser("workspace", help="Switch between shows in upstream Pro")
     ws_sub = ws_p.add_subparsers(dest="workspace_action")
     ws_sub.add_parser("list", help="List your workspaces")
     ws_new = ws_sub.add_parser("new", help="Create a workspace for another show")
@@ -4471,7 +4471,7 @@ def main():
                       choices=["off", "start"],
                       help="Where the thumbnail goes in the video itself. "
                            "off keeps the pictures and leaves the video alone (default: start)")
-    proc.add_argument("--template", help="Cut in a saved look (podcli Pro). Name or id.")
+    proc.add_argument("--template", help="Cut in a saved look (upstream Pro). Name or id.")
     proc.add_argument("--caption-style", choices=["branded", "hormozi", "karaoke", "subtle"])
     proc.add_argument("--caption-position", choices=["auto", "upper", "center", "lower"],
                       help="Caption placement (default: follows the chosen style)")
@@ -4576,7 +4576,7 @@ def main():
                         help="Hand-placed crop positions, as JSON. Used by --crop manual.")
     studio.add_argument("--format", choices=["vertical", "horizontal", "square"], default="vertical",
                         help="Output aspect ratio (default: vertical)")
-    studio.add_argument("--template", help="Cut in a saved look (podcli Pro). Name or id.")
+    studio.add_argument("--template", help="Cut in a saved look (upstream Pro). Name or id.")
     studio.add_argument("--logo", help="Logo image (asset name or path)")
     studio.add_argument("--logo-position", choices=["top-left", "top-center", "top-right", "bottom-left", "bottom-center", "bottom-right"], default="top-left")
     studio.add_argument("--logo-scale", type=float, default=1.0)
@@ -4754,7 +4754,7 @@ def main():
     st.add_argument("--thumb-duration", type=float, default=1.5, help="Duration of thumbnail end card (default 1.5s)")
 
     # ── templates ──
-    sub.add_parser("templates", help="List the saved looks on this account (podcli Pro)")
+    sub.add_parser("templates", help="List the saved looks on this account (upstream Pro)")
 
     # ── corrections ──
     corr = sub.add_parser("corrections", help="Manage transcript word corrections (Whisper fixes)")
@@ -4858,7 +4858,7 @@ def main():
 
     init_thumb = sub.add_parser(
         "init-thumbnail",
-        help="Scaffold .podcli/thumbnail-config.json so podcli generates thumbnails for you",
+        help="Scaffold .podcli/thumbnail-config.json so Clipperz generates thumbnails for you",
     )
     init_thumb.add_argument(
         "--force",

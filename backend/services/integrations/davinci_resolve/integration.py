@@ -14,7 +14,7 @@ class DaVinciResolveIntegration(IntegrationBase):
     name = "davinci_resolve"
     category = "editor_export"
     description = (
-        "Export podcli shorts as a DaVinci Resolve FCPXML — each short becomes an "
+        "Export Clipperz shorts as a DaVinci Resolve FCPXML — each short becomes an "
         "editable compound clip (source on V1, ProRes 4444 alpha captions on V2). "
         "Works in free + Studio Resolve 20.x."
     )
@@ -25,7 +25,7 @@ class DaVinciResolveIntegration(IntegrationBase):
             ToolSpec(
                 name="export_to_davinci_resolve",
                 description=(
-                    "Export podcli shorts as a DaVinci Resolve FCPXML project. "
+                    "Export Clipperz shorts as a DaVinci Resolve FCPXML project. "
                     "Each short becomes a compound clip on the master timeline; "
                     "source video and ProRes 4444 alpha caption overlay land on "
                     "separate layers inside the compound so they remain editable. "

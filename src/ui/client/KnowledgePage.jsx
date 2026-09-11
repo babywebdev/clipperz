@@ -154,7 +154,7 @@ export default function KnowledgePage() {
             <div className="section card" style={{ marginTop: 16 }}>
               <div className="section-label">Start here</div>
               <div className="meta" style={{ marginBottom: 14 }}>
-                podcli reads 14 numbered files when it picks clips and writes titles. Create the starter set, then fill in the [brackets].
+                Clipperz reads 14 numbered files when it picks clips and writes titles. Create the starter set, then fill in the [brackets].
               </div>
               <button className="btn btn-primary" onClick={createStarterFiles} disabled={creating}>
                 {creating ? <div className="spinner sm" /> : 'Create starter templates'}

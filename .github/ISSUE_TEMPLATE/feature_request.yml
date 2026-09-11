@@ -1,12 +1,12 @@
 name: Feature request
-description: Suggest something podcli should do.
+description: Suggest something Clipperz should do.
 labels: ["enhancement"]
 body:
   - type: textarea
     id: problem
     attributes:
       label: The problem
-      description: What are you trying to do that podcli makes hard or can't do yet?
+      description: What are you trying to do that Clipperz makes hard or can't do yet?
     validations:
       required: true
   - type: textarea

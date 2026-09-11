@@ -1,4 +1,4 @@
-// Package update checks GitHub Releases for a newer podcli and applies the
+// Package update checks GitHub Releases for a newer Clipperz and applies the
 // release binary for this platform.
 package update
 
@@ -51,7 +51,7 @@ func exeExt() string {
 	return ""
 }
 
-// managedBin is the binary direct installs exec, so replacing it updates podcli.
+// managedBin is the binary direct installs exec, so replacing it updates Clipperz.
 func managedBin() string {
 	return filepath.Join(paths.BinDir(), "podcli"+exeExt())
 }
@@ -155,7 +155,7 @@ func NotifyIfOutdated(current string) {
 		config.RecordUpdateCheck(tag)
 	}
 	if newer(tag, current) {
-		fmt.Fprintf(os.Stderr, "  podcli %s available (you have %s) - run `podcli update`\n", tag, current)
+		fmt.Fprintf(os.Stderr, "  Clipperz %s available (you have %s) - run `podcli update`\n", tag, current)
 	}
 }
 
@@ -172,25 +172,25 @@ func CleanupOldBinary() {
 func Run(current string) int {
 	tag, err := latestTag(10 * time.Second)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "podcli: update check failed: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Clipperz: update check failed: %v\n", err)
 		return 1
 	}
 	config.RecordUpdateCheck(tag)
 	if !newer(tag, current) {
-		fmt.Printf("podcli %s is up to date.\n", current)
+		fmt.Printf("Clipperz %s is up to date.\n", current)
 		return 0
 	}
-	fmt.Printf("Updating podcli %s -> %s ...\n", current, tag)
+	fmt.Printf("Updating Clipperz %s -> %s ...\n", current, tag)
 	if err := apply(tag); err != nil {
 		printSelfUpdateFailure(os.Stderr, err)
 		return 1
 	}
 	if err := refreshRuntime(managedBin()); err != nil {
-		fmt.Fprintf(os.Stderr, "podcli: binary updated, but refreshing the runtime failed (%v).\n", err)
+		fmt.Fprintf(os.Stderr, "Clipperz: binary updated, but refreshing the runtime failed (%v).\n", err)
 		fmt.Fprintln(os.Stderr, "The next `podcli` run will retry, or run `podcli setup --refresh` now.")
 		return 1
 	}
-	fmt.Printf("Updated to podcli %s.\n", tag)
+	fmt.Printf("Updated to Clipperz %s.\n", tag)
 	return 0
 }
 
@@ -204,8 +204,8 @@ func refreshRuntime(bin string) error {
 }
 
 func printSelfUpdateFailure(w io.Writer, err error) {
-	fmt.Fprintf(w, "podcli: self-update failed (%v).\n", err)
-	fmt.Fprintln(w, "Your installed podcli was left unchanged.")
+	fmt.Fprintf(w, "Clipperz: self-update failed (%v).\n", err)
+	fmt.Fprintln(w, "Your installed Clipperz was left unchanged.")
 
 	if phaseOf(err) == phaseDownload {
 		fmt.Fprintln(w, "Download failed. Check your network connection, then run `podcli update` again.")
@@ -305,7 +305,7 @@ func swap(staged, dest string) error {
 
 // downloadFile reuses provisioning's resumable download, but keeps this path's
 // narrower redirect allowlist: provisioning also trusts the model and ffmpeg
-// CDNs, and nothing outside GitHub may serve the podcli binary.
+// CDNs, and nothing outside GitHub may serve the Clipperz binary.
 func downloadFile(url, dest string) error {
 	os.Remove(dest) // a stale staged binary must not satisfy Fetch's have() check
 	return provision.FetchGuarded(url, dest, "podcli", allowedHost)

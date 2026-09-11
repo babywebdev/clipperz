@@ -1,5 +1,5 @@
 """
-Preset/template system for podcli.
+Preset/template system for Clipperz.
 
 Save and load named configurations so you don't reconfigure settings
 for every episode. Stored as JSON in .podcli/presets/

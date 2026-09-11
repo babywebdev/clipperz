@@ -72,7 +72,7 @@ console.log(JSON.stringify({
   checks: [
     'Node and Python share all 11 storage paths',
     'Explicit Python and environment file paths',
-    'Ambient PODCLI settings do not override this profile',
+    'Ambient Clipperz settings do not override this profile',
     ...(expectEmpty ? ['Knowledge and exports directories are empty'] : ['Existing knowledge and exports are preserved']),
     'Legacy migration has no pending import',
     'Python temporary files resolve to the designated tmp directory',

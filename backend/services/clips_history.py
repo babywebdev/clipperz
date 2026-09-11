@@ -92,7 +92,7 @@ def delete_clip(clip_id: str) -> Optional[dict]:
     """Remove a clip from history along with its rendered output and sidecars.
 
     Returns the removed entry, or None if no clip matched. The source video is
-    never touched — only artifacts podcli rendered for this clip.
+    never touched — only artifacts Clipperz rendered for this clip.
     """
     target = find_clip(clip_id)
     if target is None:

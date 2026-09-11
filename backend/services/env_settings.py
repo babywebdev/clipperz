@@ -30,7 +30,7 @@ SETTINGS = [
     {
         "key": "ANTHROPIC_API_KEY",
         "label": "Anthropic API key",
-        "help": "The last resort in the AI chain, after a podcli Pro session and "
+        "help": "The last resort in the AI chain, after an upstream Pro session and "
         "a locally installed Claude Code or Codex. Only needed if you have "
         "neither.",
         "url": "https://console.anthropic.com/settings/keys",

@@ -1,7 +1,7 @@
-For this fork's Windows local installation, use the [local setup guide](docs/local-setup.md) and [example clip prompt](docs/clip-test-prompt.md).
+Clipperz is a local fork of the [upstream project](https://github.com/nmbrthirteen/podcli). For this Windows installation, use the [local setup guide](docs/local-setup.md) and [example clip prompt](docs/clip-test-prompt.md). Legacy command names, `PODCLI_*` settings, and data paths remain compatible; the installer links below belong to the upstream distribution.
 
 <p align="center">
-  <img src="public/podcli-badge.png" height="72" alt="podcli" />
+  <img src="public/clipperz-badge.png" height="72" alt="Clipperz" />
 </p>
 
 <p align="center">
@@ -10,8 +10,8 @@ For this fork's Windows local installation, use the [local setup guide](docs/loc
 </p>
 
 <p align="center">
-  <a href="https://podcli.com"><strong>podcli.com</strong></a> ·
-  <a href="https://podcli.com/docs">Docs</a> ·
+  <a href="https://podcli.com"><strong>Upstream project</strong></a> ·
+  <a href="docs/local-setup.md">Clipperz docs</a> ·
   <a href="#install">Install</a> ·
   <a href="#use-it-from-your-agent">MCP</a>
 </p>
@@ -20,13 +20,6 @@ For this fork's Windows local installation, use the [local setup guide](docs/loc
   <a href="https://github.com/nmbrthirteen/podcli/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue" alt="license: AGPL-3.0" /></a>
   <a href="https://github.com/nmbrthirteen/podcli/stargazers"><img src="https://img.shields.io/github/stars/nmbrthirteen/podcli?style=social" alt="stars" /></a>
 </p>
-
-<p align="center">
-  <a href="https://x.com/nikasiradze_/status/2056061654664708570">
-    <img src="public/promo.gif" alt="Podcli demo" width="720" />
-  </a>
-</p>
-<p align="center"><sub>▶ <a href="https://x.com/nikasiradze_/status/2056061654664708570">Watch with sound on X</a></sub></p>
 
 ```bash
 podcli process episode.mp4
@@ -94,9 +87,9 @@ Clips land in `podcli-clips/` in the directory you ran it from, so each show kee
 - DaVinci Resolve export as FCPXML when you want to finish by hand
 - Presets, clip history with duplicate detection, and a transcript cache
 
-## Why podcli
+## Why Clipperz
 
-If you are weighing podcli against the cloud clippers, this is the difference:
+If you are weighing Clipperz against the cloud clippers, this is the difference:
 
 - Runs locally. Transcription and rendering happen on your machine by default, so episodes stay there. Only the optional cloud engine (AssemblyAI) and publishing to YouTube send anything out.
 - Free and open source under AGPL-3.0. Exports are unlimited, full quality, and watermark-free.
@@ -106,7 +99,7 @@ If you are weighing podcli against the cloud clippers, this is the difference:
 
 ## Use it from your agent
 
-podcli is an [MCP](https://modelcontextprotocol.io) server, so an agent can transcribe, suggest clips, and render them through conversation.
+Clipperz is an [MCP](https://modelcontextprotocol.io) server, so an agent can transcribe, suggest clips, and render them through conversation.
 
 ```bash
 podcli mcp install    # registers it with Claude Code
@@ -116,7 +109,7 @@ Claude Desktop and Codex setup is in the [MCP docs](https://podcli.com/docs/mcp-
 
 ## Content workflow
 
-[PodStack](https://github.com/nmbrthirteen/podstack) ships with podcli as a set of Claude Code slash commands. They take a transcript to a publish-ready package: scored moments, titles, descriptions, thumbnail briefs, a brand review, and a publish checklist.
+[PodStack](https://github.com/nmbrthirteen/podstack) ships with Clipperz as a set of Claude Code slash commands. They take a transcript to a publish-ready package: scored moments, titles, descriptions, thumbnail briefs, a brand review, and a publish checklist.
 
 ```
 /produce-shorts
@@ -149,4 +142,4 @@ Content workflow powered by [PodStack](https://github.com/nmbrthirteen/podstack)
 
 AGPL-3.0. See [LICENSE](LICENSE).
 
-Need podcli without AGPL terms? A commercial license is available. Email [siradze@nikusha.me](mailto:siradze@nikusha.me) with a one-line description of your use case.
+For commercial licensing of the upstream code, contact its author at [siradze@nikusha.me](mailto:siradze@nikusha.me). This fork retains the AGPL-3.0 license.

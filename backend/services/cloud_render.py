@@ -42,10 +42,10 @@ def run(video_path: str, config: dict, output_dir: str, args) -> None:
     """Render one episode in the cloud and download the clips it produced."""
     if not podcli_cloud.signed_in():
         raise CloudRenderError(
-            "cloud rendering needs a podcli Pro session — run `podcli login`")
+            "cloud rendering needs an upstream Pro session — run `podcli login`")
 
     size = os.path.getsize(video_path)
-    print(f"\n  podcli — rendering in the cloud")
+    print(f"\n  Clipperz — rendering in the cloud")
     print(f"  Video:   {os.path.basename(video_path)} ({_megabytes(size)})")
     print(f"  Output:  {output_dir}/\n")
 

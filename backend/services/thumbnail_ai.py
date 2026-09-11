@@ -490,8 +490,8 @@ def _extract_json(text: str):
 def _ask_ai_for_json(prompt: str, timeout: int = 30):
     """Run `prompt` through the AI provider chain, returning the first JSON value
     it emits, or None if nothing is available or nothing returns parseable JSON."""
-    from config.policy import require_external
-    require_external("AI thumbnail generation")
+    # The provider owns the local Codex -> Claude -> stop policy, just as it
+    # does for clip suggestions and titles. Thumbnail copy needs no media upload.
     from services import ai_provider
 
     parsed, result = ai_provider.generate_json(prompt, timeout=timeout)

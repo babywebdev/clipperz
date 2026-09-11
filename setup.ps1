@@ -1,6 +1,6 @@
 #Requires -Version 5.1
 <#
-  podcli - Install & Launch (Windows)
+  Clipperz - Install & Launch (Windows)
 
   Usage (from a PowerShell prompt in the repo root):
     .\setup.ps1               # Install everything + launch UI
@@ -27,7 +27,7 @@ $VenvPython = Join-Path $ScriptDir "venv\Scripts\python.exe"
 function Write-Banner {
     Write-Host ""
     Write-Host "  +======================================+"
-    Write-Host "  |        podcli  (Windows)             |"
+    Write-Host "  |        Clipperz  (Windows)             |"
     Write-Host "  +======================================+"
     Write-Host ""
 }

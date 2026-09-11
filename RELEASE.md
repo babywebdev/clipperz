@@ -1,4 +1,4 @@
-# Releasing podcli
+# Releasing Clipperz
 
 Distribution is fully automated by `.github/workflows/release.yml`: pushing a
 `v*` tag builds the launcher per platform, builds whisper.cpp, bundles the studio

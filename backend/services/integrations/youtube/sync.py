@@ -1,6 +1,6 @@
 """Attribution (clip ↔ uploaded video) and metric sync.
 
-podcli renders but never publishes, so performance is reconstructed after the
+Clipperz renders but never publishes, so performance is reconstructed after the
 fact: match each rendered clip to its uploaded video, then pull metrics onto
 the clip. Matching is proposed, never silent — a wrong link poisons the signal.
 """

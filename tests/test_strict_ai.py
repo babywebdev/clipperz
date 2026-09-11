@@ -172,9 +172,16 @@ class StrictPolicyTests(unittest.TestCase):
         self.assertEqual(params["engine"], "whisper-py")
         self.assertFalse(params["enable_diarization"])
 
-    def test_thumbnail_ai_is_explicitly_disabled(self):
-        from services.thumbnail_ai import _ask_ai_for_json
-        with self.assertRaisesRegex(policy.PolicyError, "disabled"): _ask_ai_for_json("task")
+    def test_thumbnail_copy_uses_subscription_chain_and_reports_failure(self):
+        from services.thumbnail_ai import generate_headline_variations
+        text = '[{"line1":"A USEFUL", "line2":"HEADLINE"}]'
+        with mock.patch.object(sa, "run_client", side_effect=[RuntimeError("quota"), completed(text)]) as run:
+            self.assertEqual(generate_headline_variations("Test", 1), [("A USEFUL", "HEADLINE")])
+            self.assertEqual([call.args[1] for call in run.call_args_list], ["codex", "claude"])
+        with mock.patch.object(sa, "run_client", side_effect=RuntimeError("signed out")) as run:
+            with self.assertRaisesRegex(sa.StrictAIError, "AI generation failed"):
+                generate_headline_variations("Test", 1)
+            self.assertEqual(run.call_count, 2)
 
 
 if __name__ == "__main__":

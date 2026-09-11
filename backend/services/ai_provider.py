@@ -1,8 +1,8 @@
-"""Single entry point for every AI generation in podcli.
+"""Single entry point for every AI generation in Clipperz.
 
 Three backends, tried in order until one answers:
 
-  cloud  podcli Pro, if signed in (fastest, no install, prompt caching)
+  cloud  upstream Pro, if signed in (fastest, no install, prompt caching)
   cli    the user's local Claude Code / Codex binary (free, needs an install)
   api    ANTHROPIC_API_KEY, called directly over HTTPS (no install, per token)
 
@@ -13,7 +13,7 @@ every platform, and that mess stops here.
 Selection is controlled by PODCLI_AI_PROVIDER (auto|cloud|cli|api). On `auto`
 the order above applies: a Pro subscriber gets what they paid for first, and the
 local CLI remains the fallback if the network or the subscription is unavailable
-— podcli never stops working because a server did.
+— Clipperz never stops working because a server did.
 """
 
 from __future__ import annotations
@@ -91,7 +91,7 @@ def _chain() -> list[tuple[str, str, str]]:
 
 def label_for(kind: str, engine: str) -> str:
     if kind == "cloud":
-        return "podcli Pro"
+        return "upstream Pro"
     if kind == "api":
         return "Claude API"
     return ai_cli._engine_label(engine)
@@ -216,14 +216,14 @@ def _run_cloud(purpose: str, instruction: str, system: Optional[str],
             timeout=timeout,
         )
     except podcli_cloud.CloudError as exc:
-        return AIResult(ok=False, provider="cloud", label="podcli Pro", error=str(exc))
+        return AIResult(ok=False, provider="cloud", label="upstream Pro", error=str(exc))
 
     text = (payload.get("text") or "").strip()
     if not text:
-        return AIResult(ok=False, provider="cloud", label="podcli Pro",
-                        error="podcli Pro returned no text.")
+        return AIResult(ok=False, provider="cloud", label="upstream Pro",
+                        error="upstream Pro returned no text.")
     return AIResult(
-        ok=True, text=text, provider="cloud", label="podcli Pro",
+        ok=True, text=text, provider="cloud", label="upstream Pro",
         alternates=[a for a in (payload.get("alternates") or []) if a],
     )
 
@@ -274,7 +274,7 @@ def generate(
 ) -> AIResult:
     """Run one prompt through the first backend that answers.
 
-    on_attempt is called with a human label ("Claude", "podcli Pro") before each
+    on_attempt is called with a human label ("Claude", "upstream Pro") before each
     attempt so callers can drive progress UI without knowing the chain.
 
     accept rejects a response the backend considers successful — an engine that

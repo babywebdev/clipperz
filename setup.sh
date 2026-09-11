@@ -16,7 +16,7 @@ case "$(uname -s 2>/dev/null)" in
 esac
 
 # ============================================================
-# podcli — Install & Launch
+# Clipperz — Install & Launch
 # Usage:
 #   ./setup.sh              # Install everything + open UI
 #   ./setup.sh --install    # Install only (no launch)
@@ -28,7 +28,7 @@ MODE="${1:-full}"
 
 echo ""
 echo "  ╔══════════════════════════════════════╗"
-echo "  ║        🎬  podcli  v1.0              ║"
+echo "  ║        🎬  Clipperz  v1.0              ║"
 echo "  ╚══════════════════════════════════════╝"
 echo ""
 

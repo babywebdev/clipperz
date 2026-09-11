@@ -122,7 +122,7 @@ PodStack ships one source-of-truth (`commands/`) and installs to the right locat
 | opencode | `.opencode/commands/*.md` | `AGENTS.podstack.md` |
 | Generic | `commands/*.md` | `AGENTS.podstack.md` |
 
-These command files ship with podcli; place the set for your tool (left column) in
+These command files ship with Clipperz; place the set for your tool (left column) in
 its command dir. See `README.md` for per-host usage examples.
 
 ---

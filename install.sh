@@ -1,5 +1,5 @@
 #!/bin/sh
-# podcli installer - downloads the prebuilt native binary (no Go, Node, Python,
+# Clipperz installer - downloads the prebuilt native binary (no Go, Node, Python,
 # or ffmpeg needed; the binary provisions those itself on first run).
 # Usage: curl -fsSL https://raw.githubusercontent.com/nmbrthirteen/podcli/main/install.sh | sh
 # Uninstall: curl -fsSL https://raw.githubusercontent.com/nmbrthirteen/podcli/main/install.sh | sh -s -- --uninstall
@@ -22,7 +22,7 @@ bin_dir="$home_dir/bin"
 if [ "${1:-}" = "--uninstall" ]; then
   purge=0
   [ "${2:-}" = "--purge" ] && purge=1
-  echo "Uninstalling podcli..."
+  echo "Uninstalling Clipperz..."
   for d in /usr/local/bin "$HOME/.local/bin"; do
     link="$d/podcli"
     if [ -L "$link" ] && [ "$(readlink "$link")" = "$bin_dir/podcli" ]; then
@@ -48,7 +48,7 @@ if [ "${1:-}" = "--uninstall" ]; then
     fi
   done
   if [ "$purge" = 1 ]; then
-    echo "  removed podcli and all managed data from: $home_dir"
+    echo "  removed Clipperz and all managed data from: $home_dir"
   else
     echo "  removed app files from: $home_dir"
     echo "  kept user data (config, knowledge, presets, assets, history, cache)."
@@ -77,7 +77,7 @@ fi
 
 asset="podcli-${target}"
 base="https://github.com/$REPO/releases/download/v${version}"
-echo "Installing podcli v${version} (${target})..."
+echo "Installing Clipperz v${version} (${target})..."
 
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
@@ -122,7 +122,7 @@ echo
 if [ -n "$linked" ]; then
 echo "Done - run:  podcli"
 else
-  echo "Done. Add podcli to your PATH:"
+  echo "Done. Add Clipperz to your PATH:"
   echo "  export PATH=\"$bin_dir:\$PATH\""
   echo "Then run:  podcli"
 fi

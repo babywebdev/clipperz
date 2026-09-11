@@ -15,7 +15,7 @@ import * as cloud from "./services/podcli-cloud.js";
  */
 async function main(): Promise<number> {
   if (!(await cloud.signedIn())) {
-    console.log("Not signed in to podcli Pro. Run `podcli login` first.");
+    console.log("Not signed in to upstream Pro. Run `podcli login` first.");
     return 1;
   }
 
