@@ -4,9 +4,13 @@ import { basename, join } from "path";
 import { v4 as uuidv4 } from "uuid";
 import { paths } from "../config/paths.js";
 import { writeFileAtomic } from "../utils/atomic-file.js";
+import { withFileLock, FileLockError } from "../utils/mutation-lock.js";
+import { childLogger } from "../utils/logger.js";
 import { sliceTranscript, sliceWords } from "../utils/transcript.js";
 import { isDemoMode, demoClips } from "../ui/demo-fixtures.js";
 import type { BatchClipsResult, ClipHistoryEntry, Format, WordTimestamp } from "../models/index.js";
+
+const log = childLogger("clips-history");
 
 type BatchResultRow = BatchClipsResult["results"][number];
 
@@ -34,11 +38,99 @@ export interface BatchRecipeContext {
   clipSpecs?: BatchClipSpec[];
 }
 
+export type HistoryReadErrorCode = "HISTORY_UNREADABLE" | "HISTORY_INVALID_JSON" | "HISTORY_INVALID_SHAPE";
+
+/** The history file exists but cannot be used; mutations abort without writing. */
+export class HistoryReadError extends Error {
+  readonly code: HistoryReadErrorCode;
+  readonly path: string;
+  constructor(code: HistoryReadErrorCode, message: string, path: string) {
+    super(message);
+    this.name = "HistoryReadError";
+    this.code = code;
+    this.path = path;
+  }
+}
+
+export { FileLockError };
+
+function isErrno(err: unknown, code: string): boolean {
+  return typeof err === "object" && err !== null && (err as NodeJS.ErrnoException).code === code;
+}
+
+// Minimum compatible structure: an array of objects, each with a non-empty
+// string id. Every reader and writer already depends on id; no other field is
+// required so legacy entries keep working.
+function validateShape(data: unknown, path: string): ClipHistoryEntry[] {
+  if (!Array.isArray(data)) {
+    throw new HistoryReadError(
+      "HISTORY_INVALID_SHAPE",
+      `History file ${path} must contain a JSON array of clip entries. No changes were written.`,
+      path,
+    );
+  }
+  data.forEach((entry, index) => {
+    const id = entry && typeof entry === "object" && !Array.isArray(entry) ? (entry as { id?: unknown }).id : undefined;
+    if (typeof id !== "string" || !id) {
+      throw new HistoryReadError(
+        "HISTORY_INVALID_SHAPE",
+        `History file ${path} entry ${index} is not a clip record with a string id. No changes were written.`,
+        path,
+      );
+    }
+  });
+  return data as ClipHistoryEntry[];
+}
+
+/**
+ * Read the history file for a mutation. A missing file yields an empty list
+ * and `raw: null`; any other failure throws HistoryReadError so the caller
+ * cannot overwrite a file it could not read.
+ */
+export async function readHistoryStrict(
+  path: string,
+): Promise<{ entries: ClipHistoryEntry[]; raw: string | null }> {
+  let raw: string;
+  try {
+    raw = await readFile(path, "utf-8");
+  } catch (err) {
+    if (isErrno(err, "ENOENT")) return { entries: [], raw: null };
+    throw new HistoryReadError(
+      "HISTORY_UNREADABLE",
+      `History file ${path} could not be read (${(err as Error).message}). No changes were written.`,
+      path,
+    );
+  }
+  const text = raw.replace(/^﻿/, "");
+  let data: unknown;
+  try {
+    data = JSON.parse(text);
+  } catch (err) {
+    throw new HistoryReadError(
+      "HISTORY_INVALID_JSON",
+      `History file ${path} is not valid JSON (${(err as Error).message}). No changes were written. ` +
+        "Restore it from a backup or repair the file, then retry.",
+      path,
+    );
+  }
+  return { entries: validateShape(data, path), raw: text };
+}
+
+// Resolve a full id or an unambiguous ≥4-char prefix within a given list.
+function resolveIdIn(entries: ClipHistoryEntry[], idOrPrefix: string): string | null {
+  if (!idOrPrefix) return null;
+  if (entries.some((e) => e.id === idOrPrefix)) return idOrPrefix;
+  if (idOrPrefix.length < 4) return null;
+  const matches = entries.filter((e) => e.id.startsWith(idOrPrefix));
+  return matches.length === 1 ? matches[0].id : null;
+}
+
 export class ClipsHistory {
   private historyPath = paths.clipsHistory;
-  // Serializes this process's own read-modify-write cycles so concurrent HTTP
-  // requests can't lose each other's edits. Cross-process safety (vs the Python
-  // CLI) rests on the atomic temp-file rename in save().
+  // Serializes this instance's own read-modify-write cycles so concurrent HTTP
+  // requests queue instead of spinning on the file lock. Cross-process and
+  // cross-language safety (other Studio instances, the Python CLI) comes from
+  // the shared mutation lock held inside mutate().
   private writeChain: Promise<unknown> = Promise.resolve();
   private syncing = new Set<string>();
 
@@ -48,31 +140,42 @@ export class ClipsHistory {
     }
   }
 
+  // Lenient read for listing and lookups: a missing, unreadable, or invalid
+  // file reads as empty so the UI keeps working, and the failure is logged.
+  // Mutations never use this path; see mutate().
   async load(): Promise<ClipHistoryEntry[]> {
     if (isDemoMode()) return demoClips();
     try {
-      if (!existsSync(this.historyPath)) return [];
-      const raw = await readFile(this.historyPath, "utf-8");
-      return JSON.parse(raw) as ClipHistoryEntry[];
-    } catch {
+      return (await readHistoryStrict(this.historyPath)).entries;
+    } catch (err) {
+      log.warn(`clip history unavailable: ${(err as Error).message}`);
       return [];
     }
   }
 
-  private async save(entries: ClipHistoryEntry[]): Promise<void> {
-    if (isDemoMode()) return; // demo fixtures are read-only; never persist to clips.json
-    await this.ensureDir();
-    await writeFileAtomic(this.historyPath, JSON.stringify(entries, null, 2));
-  }
-
-  // Run load → mutate → save as one critical section, queued behind any
-  // in-flight mutation. The callback returns the value the caller wants back.
+  // Run fresh read → mutate → atomic save as one critical section under the
+  // shared lock, queued behind any in-flight mutation of this instance. The
+  // callback returns the value the caller wants back. Demo fixtures are
+  // read-only: the callback runs against a fresh copy and nothing persists.
   private mutate<T>(fn: (entries: ClipHistoryEntry[]) => T | Promise<T>): Promise<T> {
     const run = this.writeChain.then(async () => {
-      const entries = await this.load();
-      const result = await fn(entries);
-      await this.save(entries);
-      return result;
+      if (isDemoMode()) return fn(demoClips());
+      await this.ensureDir();
+      return withFileLock(
+        this.historyPath,
+        async () => {
+          const { entries } = await readHistoryStrict(this.historyPath);
+          const before = JSON.stringify(entries);
+          const result = await fn(entries);
+          // Rewrite only when the content changed: a lookup that finds nothing
+          // must not touch the file, and a missing file stays missing.
+          if (JSON.stringify(entries) !== before) {
+            await writeFileAtomic(this.historyPath, JSON.stringify(entries, null, 2));
+          }
+          return result;
+        },
+        { tool: "clipperz-studio" },
+      );
     });
     this.writeChain = run.then(() => undefined, () => undefined);
     return run;
@@ -296,12 +399,7 @@ export class ClipsHistory {
   // Resolve a full id or an unambiguous ≥4-char prefix to a full id. For the
   // human-facing MCP tool, where typing a short prefix is convenient.
   async resolveId(idOrPrefix: string): Promise<string | null> {
-    if (!idOrPrefix) return null;
-    const entries = await this.load();
-    if (entries.some((e) => e.id === idOrPrefix)) return idOrPrefix;
-    if (idOrPrefix.length < 4) return null;
-    const matches = entries.filter((e) => e.id.startsWith(idOrPrefix));
-    return matches.length === 1 ? matches[0].id : null;
+    return resolveIdIn(await this.load(), idOrPrefix);
   }
 
   async update(id: string, patch: Partial<ClipHistoryEntry>): Promise<ClipHistoryEntry | null> {
@@ -380,13 +478,18 @@ export class ClipsHistory {
 
   // Remove a clip and the artifacts Clipperz rendered for it (output video,
   // word/recipe/reframe sidecars, thumbnail dir). The source video is never touched.
-  // Accepts a full id or an unambiguous prefix (MCP convenience).
+  // Accepts a full id or an unambiguous prefix (MCP convenience); the prefix is
+  // resolved inside the critical section so a concurrent change cannot redirect it.
   async remove(idOrPrefix: string): Promise<ClipHistoryEntry | null> {
-    const id = await this.resolveId(idOrPrefix);
-    if (!id) return null;
+    if (!idOrPrefix) return null;
     // Demo entries are read-only fixtures — never delete their (shipped) artifacts.
-    if (isDemoMode()) return (await this.findById(id)) ?? null;
+    if (isDemoMode()) {
+      const id = await this.resolveId(idOrPrefix);
+      return id ? (await this.findById(id)) ?? null : null;
+    }
     const entry = await this.mutate((entries) => {
+      const id = resolveIdIn(entries, idOrPrefix);
+      if (!id) return null;
       const idx = entries.findIndex((e) => e.id === id);
       if (idx < 0) return null;
       return entries.splice(idx, 1)[0];

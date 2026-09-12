@@ -1,5 +1,10 @@
 # Writing Studio and Library editing — discussion draft
 
+Historical discussion draft. The implementation-planning handoff is now
+`docs/project/tasks/writing-studio/spec.md` (draft-1, 2026-09-11). Workflow 4.0.6
+has been installed. The text below preserves the earlier discussion and is not
+the current task-status record or implementation approval.
+
 Status: proposed scope for discussion; implementation has not started. The exact
 workflow 4.0.6 source must be identified before adapting its worker process.
 

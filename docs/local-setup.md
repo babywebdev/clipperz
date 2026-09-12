@@ -268,6 +268,40 @@ configuration migration instead of printing a policy traceback.
 port 3899 to check startup retention, selected deletion, source protection, and
 blocking during uploads. Unit tests cover stale scans, corrupt metadata, and links.
 
+## Clip history lock and recovery
+
+Studio (TypeScript) and the CLI (Python) both edit `history/clips.json`. Every
+edit holds one shared lock, `history/clips.json.lock`, from the fresh read
+through the atomic replacement, so two processes cannot overwrite each other's
+changes. The lock is held only for the metadata edit, never during rendering,
+transcription, or network work. A missing history file starts empty; a file that
+is unreadable, not valid JSON, or not a list of clip records with string ids
+makes edits fail with a message and leaves the file byte-for-byte unchanged.
+Listing still works in that state and prints a warning. Repair or restore the
+file from a backup, then retry.
+
+The lock file records the owning process, host, and start time. Waiting is
+bounded (10 seconds by default; `PODCLI_HISTORY_LOCK_TIMEOUT_MS` overrides it)
+and a timeout reports the owner and the lock path. Recovery rules:
+
+- A running owner is never displaced, however long it holds the lock.
+- A lock whose owner process on this machine has exited is reclaimed
+  automatically; a crash while holding the lock needs no manual step.
+- A lock with no readable owner record (a crash between creating the file and
+  writing the record) is reclaimed after 60 seconds.
+- A lock recorded by another host name, or whose process id is in use (a reused
+  id after a crash cannot be told apart from a live owner), is treated as live.
+  If no Clipperz Studio or CLI process is running, delete
+  `history/clips.json.lock` by hand and retry.
+
+Interrupted waiting creates no files. Leftover `clips.json.*.tmp` files are
+abandoned partial writes from a crashed process; the real file is always either
+the previous or the new complete version, and the temp files can be deleted.
+
+Tests: `src/utils/mutation-lock.test.ts`, `src/services/clips-history.test.ts`,
+`src/services/clips-history.cross-process.test.ts` (real Node and Python
+processes), `tests/test_mutation_lock.py`, `tests/test_clips_history.py`.
+
 ## Highlights batches
 
 Open a saved reel in **Highlights**, set **Moments → Custom** for a count and

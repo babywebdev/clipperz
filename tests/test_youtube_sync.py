@@ -24,13 +24,16 @@ class CsvSyncTests(unittest.TestCase):
         ]
         self.saved = None
 
-        def fake_save(entries):
-            self.saved = entries
-            return "clips.json"
+        # The locked publish step runs the callback against the current list
+        # and records that a write happened.
+        def fake_mutate(fn, timeout_ms=None):
+            result = fn(self.entries)
+            self.saved = self.entries
+            return result
 
         self._patches = [
             mock.patch.object(yt_sync, "load_clips_history", return_value=self.entries),
-            mock.patch.object(yt_sync, "save_clips_history", side_effect=fake_save),
+            mock.patch.object(yt_sync, "mutate_clips_history", side_effect=fake_mutate),
             mock.patch.object(yt_sync, "_refresh_learnings"),
         ]
         for p in self._patches:
@@ -72,6 +75,80 @@ class CsvSyncTests(unittest.TestCase):
         matched = next(c for c in self.saved if c["id"] == "b")
         self.assertEqual(matched["metrics"]["views"], 500)
         self.assertIn("fetched_at", matched["metrics"])
+
+
+class PublishReconciliationTests(unittest.TestCase):
+    """Metrics are fetched against a snapshot and published against the current
+    list under the lock: deleted clips are not resurrected, re-attributed clips
+    are skipped, and concurrent edits to other fields survive."""
+
+    def setUp(self):
+        self.snapshot = [
+            {"id": "a", "title": "alpha", "youtube_video_id": "V1"},
+            {"id": "b", "title": "beta", "youtube_video_id": "V2"},
+        ]
+        self.current = None
+        self.published = False
+
+        def fake_mutate(fn, timeout_ms=None):
+            self.published = True
+            return fn(self.current)
+
+        self._patches = [
+            mock.patch.object(yt_sync, "load_clips_history", return_value=self.snapshot),
+            mock.patch.object(yt_sync, "mutate_clips_history", side_effect=fake_mutate),
+            mock.patch.object(yt_sync, "_refresh_learnings"),
+            mock.patch.object(yt_client, "fetch_metrics", side_effect=lambda vid: {"views": 10, "vid": vid}),
+        ]
+        for p in self._patches:
+            p.start()
+
+    def tearDown(self):
+        for p in self._patches:
+            p.stop()
+
+    def test_deleted_clip_is_not_resurrected(self):
+        self.current = [{"id": "b", "title": "beta", "youtube_video_id": "V2"}]
+        self.assertEqual(yt_sync.sync_metrics(), 1)
+        self.assertEqual([c["id"] for c in self.current], ["b"])
+        self.assertEqual(self.current[0]["metrics"]["vid"], "V2")
+
+    def test_reattributed_clip_is_skipped(self):
+        self.current = [
+            {"id": "a", "title": "alpha", "youtube_video_id": "V9"},
+            {"id": "b", "title": "beta", "youtube_video_id": "V2"},
+        ]
+        self.assertEqual(yt_sync.sync_metrics(), 1)
+        self.assertNotIn("metrics", self.current[0])
+        self.assertEqual(self.current[1]["metrics"]["vid"], "V2")
+
+    def test_concurrent_edits_to_other_fields_survive(self):
+        self.current = [
+            {"id": "a", "title": "renamed meanwhile", "youtube_video_id": "V1", "description": "new"},
+            {"id": "b", "title": "beta", "youtube_video_id": "V2"},
+        ]
+        self.assertEqual(yt_sync.sync_metrics(), 2)
+        self.assertEqual(self.current[0]["title"], "renamed meanwhile")
+        self.assertEqual(self.current[0]["description"], "new")
+        self.assertEqual(self.current[0]["metrics"]["vid"], "V1")
+
+    def test_nothing_fetched_means_no_publish(self):
+        self.snapshot[:] = [{"id": "x", "title": "unlinked"}]
+        self.current = list(self.snapshot)
+        self.assertEqual(yt_sync.sync_metrics(), 0)
+        self.assertFalse(self.published)
+
+    def test_csv_publish_requires_the_matched_title(self):
+        rows = [{"title": "alpha", "views": 3}, {"title": "beta", "views": 4}]
+        self.current = [
+            {"id": "a", "title": "renamed meanwhile", "youtube_video_id": "V1"},
+            {"id": "b", "title": "beta", "youtube_video_id": "V2"},
+        ]
+        with mock.patch.object(yt_client, "parse_analytics_csv", return_value=rows):
+            res = yt_sync.sync_from_csv("x.csv")
+        self.assertEqual(res["matched"], 2)  # proposals reflect the snapshot
+        self.assertNotIn("metrics", self.current[0])  # but publication checks attribution
+        self.assertEqual(self.current[1]["metrics"]["views"], 4)
 
 
 class TokenStateTests(unittest.TestCase):

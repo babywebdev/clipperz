@@ -1,0 +1,226 @@
+{
+  "purpose": "Planning freshness only; not a reproducible implementation snapshot or acceptance evidence",
+  "specRevision": "draft-1",
+  "capturedAt": "2026-09-11T15:46:16.2116842-05:00",
+  "head": "710b4d4eaf598e1a3a75a48e57b17b1b25f30e0e",
+  "checkout": "C:/Users/Isaac/Desktop/BabyWebDev/Code and Websites/video-clipperz",
+  "workflowVersion": "4.0.6",
+  "authorRole": "Planning-only; explicitly not Project Lead",
+  "gitStatusNote": "Captured with repository and global ignore rules accessible; no Git configuration or index changed.",
+  "relevantGitStatus": [],
+  "inputs": [
+    {
+      "path": "AGENTS.md",
+      "sha256": "5646a04621f4ff9da5359482a5ff456a8485c526d71cf21f5b7667be5d58ee2b"
+    },
+    {
+      "path": "CLAUDE.md",
+      "sha256": "b8a60904bafc52f918dc2a2bee9b4f65a5dd15688257b6961ef6ddfa9fcbe606"
+    },
+    {
+      "path": ".claude/rules/workflow.md",
+      "sha256": "2be35df7e900a669c0d16eaa065204a45dd3546185d30a5c631623b4ce3a1da8"
+    },
+    {
+      "path": "docs/workflow/README.md",
+      "sha256": "e91075ba1047a9741cc2cff5926fa5bbb80e189f5b8210bad270a556c7a9e829"
+    },
+    {
+      "path": "docs/workflow/contract.md",
+      "sha256": "8fbd543a9969886899b6187f83eeecaa259575a2542eaa8864d69a6ec18b98f5"
+    },
+    {
+      "path": "docs/workflow/roles/project-lead.md",
+      "sha256": "3a9ce60c7995adad484edb6f3bdfc653cd87187f3b5cca7c7e22bfd7b301f110"
+    },
+    {
+      "path": "docs/workflow/roles/worker.md",
+      "sha256": "a9412f71ee33a207190c3ad7205d70a0610fed08f5b2aaf1247eea6bfacee5ca"
+    },
+    {
+      "path": "docs/project/tasks/_SPEC-TEMPLATE.md",
+      "sha256": "40d1b4ee25d67e71084dd1e50be2f14e3c0e6ddcc868b714d0b1608424fe8010"
+    },
+    {
+      "path": "docs/project/tasks/_REPORT-TEMPLATE.md",
+      "sha256": "88f2c094b826f356db6329be075dee36f5b6304f1f27f50652a45232a6dc3a3e"
+    },
+    {
+      "path": "docs/project/tasks/_REVIEW-TEMPLATE.md",
+      "sha256": "f2ebd2737701dbe3ad30e99ddfa3477f5438b938146459b8998e38926cf78f0b"
+    },
+    {
+      "path": "docs/local-setup.md",
+      "sha256": "22a231d8e1829b090664d5607122911202205177e2bc4ced022a038084073ea0"
+    },
+    {
+      "path": "src/ui/client/ContentStudio.tsx",
+      "sha256": "89570f40208e0b5d059cc819dc23b707af3cb9489ed243bd713fd6c336779511"
+    },
+    {
+      "path": "src/ui/client/ClipDetail.tsx",
+      "sha256": "c757e4d0eddd92999d902ecb7bbc7d8ba2a2863ebcb7c642154e0c9f0e45d912"
+    },
+    {
+      "path": "src/ui/client/ReframeEditor.tsx",
+      "sha256": "68c6e13a04ba8fe8db749068341af9d4b6c91c8abd7098dac9fe70bf92baa05f"
+    },
+    {
+      "path": "src/ui/client/ClipPlayer.tsx",
+      "sha256": "7e1a5e17509be04d796c778823855eaa9ee35c17e56d8be9ef670b94545de684"
+    },
+    {
+      "path": "src/ui/client/MomentTrim.tsx",
+      "sha256": "1e96436154620ec031f59a5338f3998cc197743e4660271844fa2c27d78b24ca"
+    },
+    {
+      "path": "src/ui/client/main.tsx",
+      "sha256": "2fd4750158a876cc75efdc488613d53fcb37c452260b3e51a094d285d72a8589"
+    },
+    {
+      "path": "src/ui/client/Layout.tsx",
+      "sha256": "6ba48d96ad69ede7eae619b988721cfc96c956f482a9eb3f8c96ac561f87d4b4"
+    },
+    {
+      "path": "src/ui/client/lib.ts",
+      "sha256": "88cc833e9546a497d333fe9eed0d93f83106dac202c832c3f32d389412acbaa0"
+    },
+    {
+      "path": "src/ui/web-server.ts",
+      "sha256": "8fd09a150310212e548adc8c4e1cd5db84ff49823a610d1f20148c78bffb5e13"
+    },
+    {
+      "path": "src/models/index.ts",
+      "sha256": "85b7bfc895c16a6575082dba9fa4993a39c0396dc820d9640b5c8c5d5a8dd38d"
+    },
+    {
+      "path": "src/services/clips-history.ts",
+      "sha256": "bfd0a61963baf1063cd7ebd905eedd7fc7428525d074d541011b605af1e70f7a"
+    },
+    {
+      "path": "src/services/storage-cleanup.ts",
+      "sha256": "22ba0ac741b8653be002fb31a52057891030ca9b861ff9a6f8b2c280cf11cbad"
+    },
+    {
+      "path": "src/utils/transcript.ts",
+      "sha256": "0bff671b9bd7e83fc003a81023a26945a9b9a6518bb9bed5816c00e7ff5d37ba"
+    },
+    {
+      "path": "src/utils/atomic-file.ts",
+      "sha256": "3bb7f0bc5525bf3b938928e66003c1447defd154b861378864c86562c5f40e98"
+    },
+    {
+      "path": "src/config/paths.ts",
+      "sha256": "42b90ad9d5ef332a11367b2eb1a412ceda7885621b04f69a112bd4efd909362f"
+    },
+    {
+      "path": "src/config/policy.ts",
+      "sha256": "7cd51884d82279d6040c450386cae65ed1fbfbbf39b501186c64908df22e5d54"
+    },
+    {
+      "path": "backend/cli.py",
+      "sha256": "48c0e884ae28b914245f85fa8d86710790646527fe0f7674ccce3ea80f4a0a1d"
+    },
+    {
+      "path": "backend/main.py",
+      "sha256": "dbf21b771318f880dbf54a164b95b278218c6906263f855a096ec3120d7c82df"
+    },
+    {
+      "path": "backend/services/clips_history.py",
+      "sha256": "ccd24506afc2740bc817863ef5ea656c297808cf656fef783e9042944e5bc4ad"
+    },
+    {
+      "path": "backend/services/thumbnail_ai.py",
+      "sha256": "d1ee073efea7ae16cce95a14ff2758a18c16bc007674de5b890c6a5f66d0d7a7"
+    },
+    {
+      "path": "backend/services/thumbnail_html.py",
+      "sha256": "40634e3d7070bf63b0970ed6d95e3e8f36e2a07db67bd5acb177b8e2e58325f6"
+    },
+    {
+      "path": "backend/services/content_generator.py",
+      "sha256": "bc6a13126edb4073655fa8d9d62e7db1d443b4c66d98256ab0dfc540097d34a4"
+    },
+    {
+      "path": "backend/services/ai_provider.py",
+      "sha256": "0b60e3f2b4b52549b5d3aaf6c40102bbd561a8839b90b104646bb88094d0b154"
+    },
+    {
+      "path": "scripts/local/runtime.mjs",
+      "sha256": "0ed6f227f93b3aae26104ac6bdab5039cf926e3c0b612681afc0da809d3ea02e"
+    },
+    {
+      "path": "scripts/verification/run-tests.mjs",
+      "sha256": "373eba2ee5cc5b6f25c862d14e58d9545600c1eacfcc1b9534eb3bcb42e30389"
+    },
+    {
+      "path": "scripts/verification/check-preview-render.mjs",
+      "sha256": "4113ff304d3df8f4fab4b81a643129331068affff0cd8dbb60f13705405a7648"
+    },
+    {
+      "path": "scripts/verification/check-storage-cleanup.mjs",
+      "sha256": "18c9d84bb81d74c6ca5d4b51eef88844abe98dfcdbebfb3e0e0ac399e784720b"
+    },
+    {
+      "path": "package.json",
+      "sha256": "b5f8cb7df014185b06de3d4e0ba8f593212572988db5517ef0af4e8234f6b82b"
+    },
+    {
+      "path": "package-lock.json",
+      "sha256": "315ea9a6c258942619c568cbe4029d692c3de3e20c560640ac60f6a7b9ceb65a"
+    },
+    {
+      "path": "src/services/clips-history.test.ts",
+      "sha256": "244c8bba0875be2bf535d7dd1803dff418564fbe960476579e5d63ebeb65b4dd"
+    },
+    {
+      "path": "src/services/storage-cleanup.test.ts",
+      "sha256": "e0da3c1739cd5553277aa14c717f931233a56c7ddcced78aa02735269bfe355a"
+    },
+    {
+      "path": "src/config/policy.test.ts",
+      "sha256": "a8acf286d26d6a8f4f4f1aa7ab6b8ae679e776c2f2222e2d8511f2a1d326c5d2"
+    },
+    {
+      "path": "src/server-policy.test.ts",
+      "sha256": "0af36ab087fcf629cd632db017c9e4b29f1d63607232b88d6776cbd92b473f04"
+    },
+    {
+      "path": "tests/test_local_reframe.py",
+      "sha256": "f3517529eb1074575205c8075d55cb18874972fee36b3e5a9065cb3d2df79ef5"
+    },
+    {
+      "path": "tests/test_strict_ai.py",
+      "sha256": "37dcc0c0af6f55d2307210fa0ac01c8cc0430d524ba454a2713008574958c28d"
+    }
+  ],
+  "ignoredContext": {
+    "runtime": "docs/local-setup.md and scripts/local/runtime.mjs describe the configured runtime. Actual _local configuration values were not read or copied in this planning turn.",
+    "userData": "Actual clip history, media, and browser localStorage not inspected for this plan; use legacy/disposable fixtures to validate migration."
+  },
+  "verification": "Source inspection and document checks only; no app build, render, browser flow, or live AI call run.",
+  "leadReassessment": {
+    "date": "2026-09-11",
+    "authorRole": "Coordinating Project Lead",
+    "specRevision": "lead-2",
+    "head": "710b4d4eaf598e1a3a75a48e57b17b1b25f30e0e",
+    "originalInputsChecked": 46,
+    "changedOriginalInputs": [],
+    "additionalInputs": [
+      {
+        "path": "backend/services/clip_generator.py",
+        "sha256": "729c7565183a245efc1f99cc2b30527c902f6a40f75de173ef7fcc84ac9f8e5c"
+      },
+      {
+        "path": "backend/services/integrations/youtube/sync.py",
+        "sha256": "87c925e837f0dba11eb45fa0989f3162ea0f2f510cc8cf801239e5a2dbea5d56"
+      },
+      {
+        "path": "tests/test_youtube_sync.py",
+        "sha256": "ec520375521924dbcc1e9e4da23b70f3e50f500b59231e2cb8ef8d31910910b6"
+      }
+    ],
+    "statusNote": "Only existing planning changes before lead edits; Git warned global ignore inaccessible. No application writes. Source/document checks only.",
+    "assessment": "reports/kickoff-assessment.md"
+  }
+}

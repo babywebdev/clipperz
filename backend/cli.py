@@ -3309,6 +3309,7 @@ def _print_config_result(action: str, data: dict) -> None:
 def cmd_clips(args):
     """Browse and edit saved clips (.podcli/history/clips.json)."""
     from services.clips_history import (
+        ClipsHistoryError,
         list_clips,
         get_clips_by_source,
         find_clip,
@@ -3367,7 +3368,15 @@ def cmd_clips(args):
         if title is None and caption_style is None and thumbnail_config is None:
             print(f"\n  {red}✗{reset} Nothing to change\n", file=sys.stderr)
             sys.exit(1)
-        updated = update_clip(args.clip_id, title=title, caption_style=caption_style, thumbnail_config=thumbnail_config)
+        try:
+            updated = update_clip(args.clip_id, title=title, caption_style=caption_style, thumbnail_config=thumbnail_config)
+        except ClipsHistoryError as e:
+            print(f"\n  {red}✗{reset} {e}\n", file=sys.stderr)
+            sys.exit(1)
+        if updated is None:
+            # Resolved again under the lock; the clip can vanish between the lookup and the edit.
+            print(f"\n  {red}✗{reset} Clip not found: {args.clip_id}\n", file=sys.stderr)
+            sys.exit(1)
         print(f"\n  {green}✓{reset} Updated {accent}{str(updated['id'])[:8]}{reset}  {bold}{updated.get('title')}{reset}")
         print(f"      {gray}caption: {updated.get('caption_style')}{reset}\n")
         return
@@ -3386,7 +3395,14 @@ def cmd_clips(args):
             if confirm.strip().lower() not in ("y", "yes"):
                 print(f"  {gray}Cancelled.{reset}\n")
                 return
-        removed = delete_clip(args.clip_id)
+        try:
+            removed = delete_clip(args.clip_id)
+        except ClipsHistoryError as e:
+            print(f"\n  {red}✗{reset} {e}\n", file=sys.stderr)
+            sys.exit(1)
+        if removed is None:
+            print(f"\n  {red}✗{reset} Clip not found: {args.clip_id}\n", file=sys.stderr)
+            sys.exit(1)
         print(f"\n  {green}✓{reset} Deleted {accent}{str(removed['id'])[:8]}{reset}  {bold}{removed.get('title')}{reset}\n")
         return
 
