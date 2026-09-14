@@ -1,11 +1,28 @@
+---
+record: "review"
+task: "[task]"
+cycle: "[cycle]"
+spec_revision: "[revision]"
+snapshot: "[commit or reproducible snapshot record]"
+author: "reviewer"
+date: "[YYYY-MM-DD]"
+state: "active"
+summary: "[Outcome first; at most 40 words]"
+read_when: "[Relevant situations; at most 25 words]"
+evidence: "[evidence path]"
+workflow_version: "[installed version or unknown]"
+instruction_inventory: "[preserved inventory revision or unknown]"
+---
+
 # Review: [task] / [cycle]
+
+<!-- Metadata: docs/workflow/record-frontmatter.md. Soft cap 900 words; state any reason to exceed without dropping findings or decisive evidence. Draft checkpoints remain editable; assessment and evidence/provenance metadata freeze at actual handoff. -->
 
 <!-- Written by the assigned reviewer to docs/project/tasks/[task]/reports/[cycle]-review.md. Reviewer is an assignment, not another standing role. The coordinating lead completes only the disposition section after review finishes, preserving the reviewer's assessment. -->
 
 ## Review identity and coverage
 
 - Task and spec revision: [exact reference]
-- Installed workflow provenance: [installed version and relevant customized/retained instruction versions, or unknown; use the installed inventory and actual files]
 - Code snapshot reviewed: [commit or reproducible snapshot record]
 - Reviewer session/role: [identity]
 - Review independence: [fresh subagent / separate fresh session / focused local review; inherited conversation history, implementation authorship, or other limitation]
@@ -34,7 +51,7 @@
 
 ## Recurrence and prevention
 
-[Before finalizing, read `docs/project/findings-ledger.md` if present and compare current findings with earlier occurrences across tasks. Link relevant entries and still-open defects, propose first-occurrence/recurrence updates, and include any prevention proposal with destination/cost. The coordinating lead updates the ledger; the review-only agent does not. Repeated defects remain findings until resolved.]
+[Before finalizing, read the Open table in `docs/project/findings-ledger.md` if present and search matching class keywords in both its Closed table and `docs/project/findings-ledger-archive.md` when present. Compare current findings with earlier occurrences by ledger ID across tasks; never enter archive-dnr. Link relevant entries and still-open defects, propose first-occurrence/recurrence updates, and include any prevention proposal with destination/cost. The coordinating lead updates the ledger; the review-only agent does not. Repeated defects remain findings until resolved.]
 
 - Proposed durable corrections: [evidence/status and existing canonical destination, or none; coordinating lead reconciles]
 
@@ -52,11 +69,14 @@
 - Review: accepted | changes-requested | pending | not-required [reason]
 - Findings disposition: [resolution/evidence per finding, including any disagreement; preserve the original findings]
 - Acceptance basis or blockers: [requirements and evidence]
+- Author-lead closure verified by: [fresh non-author reviewer and report path / not applicable]
 - Lead-authored changes needing separate review: [list or none]
 - Task Status update: [what the coordinating lead reconciled in spec.md, or the established phase-state procedure; pending until reconciled]
 - Ledger update: [indexed defects/occurrences and links, none needed, or pending]
 - Integration/release approval: [separate state, if applicable]
-- Hand to the Worker / pending Isaac decision: [one concise next instruction]
+- Next action / Hand to the Worker (classic) / Hand to the reviewer (solo fallback) / pending Isaac decision: [one concise next instruction]
+
+<!-- Review-only checkpoints preserve only this assigned report, coverage/evidence and next action; never Status or another author's header. A lead who authored implementation cannot self-close confirmed blocking findings or contested dismissals; fresh non-author verification is required and Review stays pending/changes-requested until then. -->
 
 <!-- A later implementation or acceptance-criteria change invalidates affected approval and evidence. -->
 <!-- After handoff, substantive corrections use an attributed, dated addendum or linked successor explaining their effect on evidence/acceptance. Preserve the reviewer's original assessment and the separately attributed coordinator disposition, subject to required secret redaction. Current task status remains editable. -->

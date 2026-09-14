@@ -301,6 +301,30 @@ describe("ClipsHistory mutation safety", () => {
     expect(leftovers()).toEqual([]);
   });
 
+  // Same bytes as the Python suite: a lone 0xFF inside a JSON string.
+  const invalidUtf8 = Buffer.concat([Buffer.from('[{"id":"a","title":"'), Buffer.from([0xff]), Buffer.from('"}]')]);
+
+  it("invalid UTF-8 aborts every mutation with a typed error and leaves the bytes untouched", async () => {
+    writeFileSync(historyPath, invalidUtf8);
+    await expectMutationsAbort("HISTORY_INVALID_ENCODING");
+    await history.update("a", { description: "review" } as any).catch((err: Error) => {
+      expect(err.message).toContain("not valid UTF-8");
+    });
+    expect(readFileSync(historyPath).equals(invalidUtf8)).toBe(true);
+    // Listing stays lenient and still does not touch the file.
+    expect(await history.list()).toEqual([]);
+    expect(readFileSync(historyPath).equals(invalidUtf8)).toBe(true);
+  });
+
+  it("genuine UTF-8, including a literal replacement character, survives an unrelated edit", async () => {
+    const entries = [{ id: "a", title: "café � \u{1F3AC}" }, { id: "b", title: "b" }];
+    writeFileSync(historyPath, JSON.stringify(entries), "utf-8");
+    expect((await history.update("b", { description: "d" } as any))?.description).toBe("d");
+    const after = JSON.parse(readFileSync(historyPath, "utf-8"));
+    expect(after[0]).toEqual(entries[0]);
+    expect(readFileSync(historyPath).includes(Buffer.from("café � \u{1F3AC}", "utf-8"))).toBe(true);
+  });
+
   it("a BOM-prefixed valid file is accepted", async () => {
     writeFileSync(historyPath, "﻿" + JSON.stringify(seed), "utf-8");
     expect((await history.update("two", { title: "edited" }))?.title).toBe("edited");

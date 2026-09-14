@@ -38,7 +38,11 @@ export interface BatchRecipeContext {
   clipSpecs?: BatchClipSpec[];
 }
 
-export type HistoryReadErrorCode = "HISTORY_UNREADABLE" | "HISTORY_INVALID_JSON" | "HISTORY_INVALID_SHAPE";
+export type HistoryReadErrorCode =
+  | "HISTORY_UNREADABLE"
+  | "HISTORY_INVALID_ENCODING"
+  | "HISTORY_INVALID_JSON"
+  | "HISTORY_INVALID_SHAPE";
 
 /** The history file exists but cannot be used; mutations abort without writing. */
 export class HistoryReadError extends Error {
@@ -82,6 +86,11 @@ function validateShape(data: unknown, path: string): ClipHistoryEntry[] {
   return data as ClipHistoryEntry[];
 }
 
+// Strict decoding: a byte sequence that is not valid UTF-8 is a corrupt file,
+// not a string with replacement characters. Decoding it leniently would let
+// JSON.parse succeed and the next save overwrite the original bytes.
+const strictUtf8 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
+
 /**
  * Read the history file for a mutation. A missing file yields an empty list
  * and `raw: null`; any other failure throws HistoryReadError so the caller
@@ -90,14 +99,25 @@ function validateShape(data: unknown, path: string): ClipHistoryEntry[] {
 export async function readHistoryStrict(
   path: string,
 ): Promise<{ entries: ClipHistoryEntry[]; raw: string | null }> {
-  let raw: string;
+  let bytes: Buffer;
   try {
-    raw = await readFile(path, "utf-8");
+    bytes = await readFile(path);
   } catch (err) {
     if (isErrno(err, "ENOENT")) return { entries: [], raw: null };
     throw new HistoryReadError(
       "HISTORY_UNREADABLE",
       `History file ${path} could not be read (${(err as Error).message}). No changes were written.`,
+      path,
+    );
+  }
+  let raw: string;
+  try {
+    raw = strictUtf8.decode(bytes);
+  } catch {
+    throw new HistoryReadError(
+      "HISTORY_INVALID_ENCODING",
+      `History file ${path} is not valid UTF-8. No changes were written. ` +
+        "Restore it from a backup or repair the file, then retry.",
       path,
     );
   }
@@ -179,6 +199,19 @@ export class ClipsHistory {
     });
     this.writeChain = run.then(() => undefined, () => undefined);
     return run;
+  }
+
+  /**
+   * Run one locked read-modify-write transaction over the clip list: fresh
+   * strict read, in-memory change, atomic replacement, under the shared
+   * cross-process lock. The callback edits `entries` in place and returns the
+   * caller's value; the file is rewritten only when the content changed. This
+   * is the focused transaction seam for services that must commit several
+   * fields of one entry together (Writing Studio saved revisions). Hold no
+   * render, probe or network work inside it.
+   */
+  transaction<T>(fn: (entries: ClipHistoryEntry[]) => T | Promise<T>): Promise<T> {
+    return this.mutate(fn);
   }
 
   async record(entry: Omit<ClipHistoryEntry, "id" | "created_at">): Promise<ClipHistoryEntry> {

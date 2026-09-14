@@ -154,6 +154,31 @@ class ReadAndMutateTests(IsolatedHistory):
         self.assertTrue(os.path.isdir(self.path))
         self.assertEqual(self.leftovers(), [])
 
+    # Same bytes as the TypeScript suite: a lone 0xFF inside a JSON string.
+    INVALID_UTF8 = b'[{"id":"a","title":"\xff"}]'
+
+    def test_invalid_utf8_aborts_mutation_and_preserves_bytes(self):
+        with open(self.path, "wb") as f:
+            f.write(self.INVALID_UTF8)
+        self._assert_mutations_abort("HISTORY_INVALID_ENCODING")
+        with self.assertRaises(ch.HistoryReadError) as ctx:
+            ch.update_clip("a", description="review")
+        self.assertIn("not valid UTF-8", str(ctx.exception))
+        self.assertEqual(self.raw(), self.INVALID_UTF8)
+        with mock.patch("sys.stderr", new_callable=io.StringIO) as err:
+            self.assertEqual(ch.load_clips_history(), [])
+        self.assertIn("not valid UTF-8", err.getvalue())
+        self.assertEqual(self.raw(), self.INVALID_UTF8)
+
+    def test_genuine_utf8_including_a_literal_replacement_character_survives(self):
+        entries = [{"id": "a", "title": "café � \U0001f3ac"}, {"id": "b", "title": "b"}]
+        with open(self.path, "wb") as f:
+            f.write(json.dumps(entries, ensure_ascii=False).encode("utf-8"))
+        self.assertEqual(ch.update_clip("b", description="d")["description"], "d")
+        after = self.entries()
+        self.assertEqual(after[0], entries[0])
+        self.assertIn("café � \U0001f3ac".encode("utf-8"), self.raw())
+
     def test_bom_prefixed_file_is_accepted(self):
         self.seed(text="﻿" + json.dumps(SEED))
         self.assertEqual(ch.update_clip("two", title="edited")["title"], "edited")

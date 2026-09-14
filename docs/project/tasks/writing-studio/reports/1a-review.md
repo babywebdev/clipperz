@@ -113,12 +113,32 @@ Read [findings ledger](../../../findings-ledger.md), including parent-added Work
 
 ## Coordinating lead disposition and next action
 
-- Coordinating lead: pending.
-- Review: pending coordinating disposition.
-- Findings disposition: pending; reviewer assessment above is preserved.
-- Acceptance basis or blockers: pending.
-- Lead-authored changes needing separate review: pending.
-- Task Status update: pending.
-- Ledger update: pending.
-- Integration/release approval: separate; not assessed or granted by this review.
-- Hand to the Worker / pending Isaac decision: pending coordinating lead.
+- Coordinating lead: Codex coordinating Project Lead, 2026-09-11 America/Chicago.
+- Review: **changes-requested**. Independent findings and recommendation above
+  are preserved. Lead read the report, inspected reproduction scripts and affected
+  source, corroborated Worker suite/build logs, and rechecked snapshot stability.
+- Findings disposition: **R1 supported**: stale pathname observation plus rename
+  and unconditional cleanup breaks recovery exclusion; **R2 supported**: simulated
+  age does not weaken the proof that a living paused acquirer can be displaced;
+  **R3 supported**: attribution equality alone cannot protect intervening metrics;
+  **R4 supported**: permissive Node decoding loses bytes before JSON validation.
+  Python already preserves those bytes, but its error must use the history error
+  surface. All four are in-scope corrections under the original 1A contract.
+- Acceptance basis or blockers: R1-R4 remain open. Passing existing suites is
+  retained as limited evidence, not task acceptance. TS recovery schedules were
+  source-inspected rather than separately reproduced; repair must test both
+  implementations. Lenient listing is acceptable within 1A, as are bounded Windows
+  retries in principle; retries cannot waive ownership checks. Unknown-owner
+  age-based stealing is rejected. Conservative fail-closed recovery is allowed.
+- Lead-authored changes needing separate review: no implementation changes. Only
+  Status, ledger, this designated disposition, and the bounded repair handoff.
+- Task Status update: slice 1A implemented but behavioral verification fails;
+  changes-requested; later slices not authorized. All original implementation
+  manifest hashes still match; only spec Status and ledger bookkeeping differ.
+- Ledger update: R1-R3 indexed as new occurrences of WS-01; R4 extends WS-02.
+  WS-07 retains the ownership-safety follow-up; WS-08's fix has independent evidence.
+- Integration/release approval: not granted; no commit, push or release performed.
+- Hand to the Worker: execute `../handoff-1a-repair-1.md` after Isaac's manual relay,
+  return a successor Worker report and new snapshot, then stop for fresh independent
+  follow-up review. No new product decision is required. This is repair round 1;
+  the existing two-unsuccessful-round reassessment budget remains in force.

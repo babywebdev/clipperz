@@ -3152,12 +3152,29 @@ def concat_outro(
     output_path: str,
     crossfade_duration: float = 0.8,
     transition: str = "fadeblack",
+    report: Optional[dict] = None,
+    synchronized_transitions_only: bool = False,
 ) -> str:
     """
     Append an outro video to the end of the main clip with a crossfade transition.
 
     Uses FFmpeg xfade filter for a smooth video crossfade and acrossfade for audio.
     Falls back to hard cut if xfade fails (older FFmpeg).
+
+    `report`, when a dict is supplied, is filled with what actually happened:
+    `branch` (xfade_acrossfade, xfade_audio_concat, hardcut_soft_audio or
+    hardcut), `requested_fade`, `applied_overlap` (seconds of video overlap
+    the output really has; 0 for the hard cuts), `main_duration`,
+    `appended_duration` and the probed `output_duration`. The requested fade
+    is clamped to the shorter input, so a caller that needs the output's
+    real timing must read the report rather than trust its request. The
+    return value is unchanged for existing callers.
+
+    `synchronized_transitions_only` skips the `xfade_audio_concat` option,
+    whose video overlaps by the fade while its audio is joined end to end,
+    so its two streams disagree by the fade from the join onward. A caller
+    that must vouch for the output's timing (the exact edit) asks for this;
+    the default keeps the legacy fallback order unchanged.
     """
     width, height = get_dimensions(input_path)
 
@@ -3166,6 +3183,18 @@ def concat_outro(
         safe_crossfade = 0.0
     else:
         safe_crossfade = _parse_duration_seconds(crossfade_duration) or 0.5
+
+    def _record(branch: str, overlap: float) -> str:
+        if report is not None:
+            report.update({
+                "branch": branch,
+                "requested_fade": crossfade_duration,
+                "applied_overlap": overlap,
+                "main_duration": main_duration,
+                "appended_duration": outro_duration,
+                "output_duration": _get_media_duration_seconds(output_path, default=0.0),
+            })
+        return output_path
 
     # Re-encode outro to match dimensions
     outro_scaled = output_path + ".outro_scaled.mp4"
@@ -3199,20 +3228,23 @@ def concat_outro(
     # so mismatched sample rates / channel layouts don't cause rc=234.
     _AFMT = "aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo"
     if can_crossfade:
-        for audio_filter in [
+        xfade_options = [
             # Option 1: video transition + audio crossfade.
-            (
+            ("xfade_acrossfade", (
                 f"[0:v][1:v]xfade=transition={transition}:duration={safe_crossfade}:offset={fade_offset}[v];"
                 f"[0:a]{_AFMT}[a0];[1:a]{_AFMT}[a1];"
                 f"[a0][a1]acrossfade=d={safe_crossfade}[a]"
-            ),
-            # Option 2: video transition + hard audio concat fallback.
-            (
+            )),
+        ]
+        if not synchronized_transitions_only:
+            # Option 2: video transition + hard audio concat fallback. Its
+            # audio runs one fade longer than its video; see the docstring.
+            xfade_options.append(("xfade_audio_concat", (
                 f"[0:v][1:v]xfade=transition={transition}:duration={safe_crossfade}:offset={fade_offset}[v];"
                 f"[0:a]{_AFMT}[a0];[1:a]{_AFMT}[a1];"
                 f"[a0][a1]concat=n=2:v=0:a=1[a]"
-            ),
-        ]:
+            )))
+        for branch, audio_filter in xfade_options:
             try:
                 xfade_cmd = [
                     "ffmpeg", "-y",
@@ -3231,7 +3263,7 @@ def concat_outro(
                 if result.returncode == 0:
                     if os.path.exists(outro_scaled):
                         os.remove(outro_scaled)
-                    return output_path
+                    return _record(branch, safe_crossfade)
             except Exception:
                 continue
 
@@ -3248,7 +3280,7 @@ def concat_outro(
         audio_fade_start = max(0.0, main_duration - audio_fade)
         AFMT = "aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo"
         try:
-            return _run_ffmpeg_with_fallback(
+            _run_ffmpeg_with_fallback(
                 cmd_parts_before_enc=[
                     "ffmpeg", "-y",
                     "-i", input_path,
@@ -3270,6 +3302,7 @@ def concat_outro(
                 output_path=output_path,
                 label="outro_hardcut_soft_audio",
             )
+            return _record("hardcut_soft_audio", 0.0)
         except Exception:
             pass
 
@@ -3307,7 +3340,7 @@ def concat_outro(
         result = proc_run(cmd, timeout=_FFMPEG_TIMEOUT, check=False)
         if result.returncode != 0:
             raise RuntimeError(f"FFmpeg concat failed: {result.stderr[-500:]}")
-        return output_path
+        return _record("hardcut", 0.0)
     finally:
         for tmp in [concat_list, outro_scaled, main_reenc]:
             if os.path.exists(tmp):

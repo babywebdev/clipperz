@@ -1,5 +1,6 @@
 """Tests for the YouTube CSV sync attribution and token-state helpers."""
 
+import io
 import json
 import os
 import sys
@@ -80,7 +81,9 @@ class CsvSyncTests(unittest.TestCase):
 class PublishReconciliationTests(unittest.TestCase):
     """Metrics are fetched against a snapshot and published against the current
     list under the lock: deleted clips are not resurrected, re-attributed clips
-    are skipped, and concurrent edits to other fields survive."""
+    are skipped, concurrent edits to other fields survive, and a clip whose
+    metrics changed since the snapshot is a conflict that keeps the current
+    value regardless of ``fetched_at`` (spec lead-3 expected-state rule)."""
 
     def setUp(self):
         self.snapshot = [
@@ -137,6 +140,148 @@ class PublishReconciliationTests(unittest.TestCase):
         self.current = list(self.snapshot)
         self.assertEqual(yt_sync.sync_metrics(), 0)
         self.assertFalse(self.published)
+
+    SKIP_MESSAGE = "skipped: metrics changed since this sync read them"
+    OURS_AT = "2026-09-12T01:00:01+00:00"
+
+    def _current_with_metrics(self, metrics):
+        self.current = [
+            {"id": "a", "title": "alpha", "youtube_video_id": "V1", "metrics": metrics},
+            {"id": "b", "title": "beta", "youtube_video_id": "V2"},
+        ]
+
+    def _sync(self):
+        with mock.patch.object(yt_sync, "_now", return_value=self.OURS_AT), \
+                mock.patch("sys.stderr", new_callable=io.StringIO) as err:
+            count = yt_sync.sync_metrics()
+        return count, err.getvalue()
+
+    def _assert_a_kept_and_b_published(self, count, err, expected_a):
+        self.assertEqual(count, 1)
+        self.assertEqual(self.current[0]["metrics"], expected_a)
+        self.assertEqual(self.current[1]["metrics"]["vid"], "V2")
+        self.assertIn("1 clip(s) " + self.SKIP_MESSAGE, err)
+
+    # Intervening metrics changes are conflicts whatever their timestamp says.
+
+    def test_intervening_metrics_with_newer_timestamp_are_kept(self):
+        # Review R3 schedule: this sync fetched A at 01:00:01, then another
+        # sync published metrics fetched at 01:00:02 before this one published.
+        intervening = {"views": 200, "fetched_at": "2026-09-12T01:00:02+00:00"}
+        self._current_with_metrics(dict(intervening))
+        count, err = self._sync()
+        self._assert_a_kept_and_b_published(count, err, intervening)
+
+    def test_intervening_metrics_with_older_timestamp_are_kept(self):
+        intervening = {"views": 50, "fetched_at": "2026-09-12T00:59:00+00:00"}
+        self._current_with_metrics(dict(intervening))
+        count, err = self._sync()
+        self._assert_a_kept_and_b_published(count, err, intervening)
+
+    def test_intervening_metrics_with_equal_timestamp_are_kept(self):
+        intervening = {"views": 60, "fetched_at": self.OURS_AT}
+        self._current_with_metrics(dict(intervening))
+        count, err = self._sync()
+        self._assert_a_kept_and_b_published(count, err, intervening)
+
+    def test_intervening_metrics_with_malformed_timestamp_are_kept(self):
+        intervening = {"views": 70, "fetched_at": "yesterday-ish"}
+        self._current_with_metrics(dict(intervening))
+        count, err = self._sync()
+        self._assert_a_kept_and_b_published(count, err, intervening)
+
+    def test_intervening_metrics_without_fetched_at_are_kept(self):
+        # Repair-1 review reproduction: a compatible writer saved {'views': 200}
+        # with no optional fetched_at after this sync read a clip with none.
+        intervening = {"views": 200}
+        self._current_with_metrics(dict(intervening))
+        count, err = self._sync()
+        self._assert_a_kept_and_b_published(count, err, intervening)
+
+    def test_intervening_cleared_metrics_are_kept(self):
+        # The snapshot had metrics; another writer cleared them meanwhile,
+        # either by removing the key or by storing null.
+        existing = {"views": 9, "fetched_at": "2026-09-12T00:00:00+00:00"}
+        for cleared in ({}, {"metrics": None}):
+            with self.subTest(cleared=cleared):
+                self.snapshot[0]["metrics"] = dict(existing)
+                self.current = [
+                    {"id": "a", "title": "alpha", "youtube_video_id": "V1", **cleared},
+                    {"id": "b", "title": "beta", "youtube_video_id": "V2"},
+                ]
+                count, err = self._sync()
+                self.assertEqual(count, 1)
+                self.assertEqual(self.current[0].get("metrics"), cleared.get("metrics"))
+                self.assertEqual("metrics" in self.current[0], "metrics" in cleared)
+                self.assertEqual(self.current[1]["metrics"]["vid"], "V2")
+                self.assertIn("1 clip(s) " + self.SKIP_MESSAGE, err)
+
+    # Unchanged metrics refresh normally, whatever their timestamp state.
+
+    def test_metrics_unchanged_since_snapshot_are_replaced_regardless_of_timestamp(self):
+        # Nothing intervened: the snapshot and the current entry agree, even
+        # though the existing timestamp is later than ours (a clock skew case).
+        existing = {"views": 1, "fetched_at": "2026-09-12T09:00:00+00:00"}
+        self.snapshot[0]["metrics"] = dict(existing)
+        self._current_with_metrics(dict(existing))
+        count, err = self._sync()
+        self.assertEqual(count, 2)
+        self.assertEqual(self.current[0]["metrics"], {"views": 10, "vid": "V1", "fetched_at": self.OURS_AT})
+        self.assertEqual(err, "")
+
+    def test_unchanged_legacy_metrics_without_fetched_at_are_refreshed(self):
+        existing = {"views": 7}
+        self.snapshot[0]["metrics"] = dict(existing)
+        self._current_with_metrics(dict(existing))
+        count, err = self._sync()
+        self.assertEqual(count, 2)
+        self.assertEqual(self.current[0]["metrics"], {"views": 10, "vid": "V1", "fetched_at": self.OURS_AT})
+        self.assertEqual(err, "")
+
+    # CSV publication shares the rule and keeps title attribution.
+
+    def _csv_sync(self, rows):
+        with mock.patch.object(yt_client, "parse_analytics_csv", return_value=rows), \
+                mock.patch.object(yt_sync, "_now", return_value=self.OURS_AT), \
+                mock.patch("sys.stderr", new_callable=io.StringIO) as err:
+            res = yt_sync.sync_from_csv("x.csv")
+        return res, err.getvalue()
+
+    def test_csv_publish_keeps_intervening_metrics_with_timestamps_and_unrelated_fields(self):
+        rows = [{"title": "alpha", "views": 3}, {"title": "beta", "views": 4}]
+        newer = {"views": 300, "fetched_at": "2026-09-12T01:00:02+00:00"}
+        older = {"views": 1, "fetched_at": "2026-09-12T00:00:00+00:00"}
+        self.current = [
+            {"id": "a", "title": "alpha", "youtube_video_id": "V1", "description": "kept", "metrics": dict(newer)},
+            {"id": "b", "title": "beta", "youtube_video_id": "V2", "metrics": dict(older)},
+        ]
+        res, err = self._csv_sync(rows)
+        self.assertEqual(res["matched"], 2)  # proposals reflect the snapshot
+        self.assertEqual(self.current[0]["metrics"], newer)
+        self.assertEqual(self.current[0]["description"], "kept")
+        self.assertEqual(self.current[1]["metrics"], older)
+        self.assertIn("2 clip(s) " + self.SKIP_MESSAGE, err)
+
+    def test_csv_publish_keeps_intervening_metrics_without_fetched_at(self):
+        rows = [{"title": "alpha", "views": 3}, {"title": "beta", "views": 4}]
+        self.current = [
+            {"id": "a", "title": "alpha", "youtube_video_id": "V1", "metrics": {"views": 200}},
+            {"id": "b", "title": "beta", "youtube_video_id": "V2"},
+        ]
+        res, err = self._csv_sync(rows)
+        self.assertEqual(res["matched"], 2)
+        self.assertEqual(self.current[0]["metrics"], {"views": 200})
+        self.assertEqual(self.current[1]["metrics"], {"views": 4, "fetched_at": self.OURS_AT})
+        self.assertIn("1 clip(s) " + self.SKIP_MESSAGE, err)
+
+    def test_csv_publish_refreshes_unchanged_legacy_metrics(self):
+        rows = [{"title": "alpha", "views": 3}]
+        self.snapshot[0]["metrics"] = {"views": 7}
+        self._current_with_metrics({"views": 7})
+        res, err = self._csv_sync(rows)
+        self.assertEqual(res["matched"], 1)
+        self.assertEqual(self.current[0]["metrics"], {"views": 3, "fetched_at": self.OURS_AT})
+        self.assertEqual(err, "")
 
     def test_csv_publish_requires_the_matched_title(self):
         rows = [{"title": "alpha", "views": 3}, {"title": "beta", "views": 4}]

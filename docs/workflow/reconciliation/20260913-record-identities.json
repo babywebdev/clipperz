@@ -1,0 +1,123 @@
+{
+  "date": "2026-09-13",
+  "author": "Codex /root, coordinating Project Lead for workflow maintenance",
+  "reason": "Authorized 4.1.0 refresh and active repair-3 reconciliation; not application acceptance",
+  "priorInstructionInventory": "docs/workflow/inventories/4.0.6-pre-refresh-20260913-1.md",
+  "newInstructionInventory": "docs/workflow/inventories/4.1.0-local-1.md",
+  "originalArtifactsRoot": "_local/generate-init-backup/20260913-4.1.0",
+  "recordedRepair2Manifest": "_local/project/writing-studio/1b-1-repair-2-snapshot/manifest.json",
+  "identities": [
+    {
+      "path": "AGENTS.md",
+      "preservedOriginal": "_local/generate-init-backup/20260913-4.1.0/AGENTS.md",
+      "oldSha256": "5646a04621f4ff9da5359482a5ff456a8485c526d71cf21f5b7667be5d58ee2b",
+      "newSha256": "68bc09411632aa2452e6657b4ea88a9182beef251cbaa51abed8d758aaf49056",
+      "historicalRepair2Sha256": null,
+      "disposition": "Installed instruction refreshed; historical inventories retained"
+    },
+    {
+      "path": ".claude/rules/workflow.md",
+      "preservedOriginal": "_local/generate-init-backup/20260913-4.1.0/.claude/rules/workflow.md",
+      "oldSha256": "2be35df7e900a669c0d16eaa065204a45dd3546185d30a5c631623b4ce3a1da8",
+      "newSha256": "fcbb594ebfd6ed45602d6c995dca48555c5171cbaf7c4e3ea830de872df517b6",
+      "historicalRepair2Sha256": "2be35df7e900a669c0d16eaa065204a45dd3546185d30a5c631623b4ce3a1da8",
+      "disposition": "Installed instruction refreshed; historical inventories retained"
+    },
+    {
+      "path": "docs/workflow/contract.md",
+      "preservedOriginal": "_local/generate-init-backup/20260913-4.1.0/docs/workflow/contract.md",
+      "oldSha256": "8fbd543a9969886899b6187f83eeecaa259575a2542eaa8864d69a6ec18b98f5",
+      "newSha256": "2f2af1b29c5446168eac78cb18252eeca7cf375d4b21a4eb7f5ed39189b06d95",
+      "historicalRepair2Sha256": "8fbd543a9969886899b6187f83eeecaa259575a2542eaa8864d69a6ec18b98f5",
+      "disposition": "Installed instruction refreshed; historical inventories retained"
+    },
+    {
+      "path": "docs/workflow/roles/project-lead.md",
+      "preservedOriginal": "_local/generate-init-backup/20260913-4.1.0/docs/workflow/roles/project-lead.md",
+      "oldSha256": "3a9ce60c7995adad484edb6f3bdfc653cd87187f3b5cca7c7e22bfd7b301f110",
+      "newSha256": "6fcfffbb4cd5123697af95d728728f9774e0ad389046e8a808f3df38cfe0335d",
+      "historicalRepair2Sha256": null,
+      "disposition": "Installed instruction refreshed; historical inventories retained"
+    },
+    {
+      "path": "docs/workflow/roles/worker.md",
+      "preservedOriginal": "_local/generate-init-backup/20260913-4.1.0/docs/workflow/roles/worker.md",
+      "oldSha256": "a9412f71ee33a207190c3ad7205d70a0610fed08f5b2aaf1247eea6bfacee5ca",
+      "newSha256": "1024ec3e775eb992980eee3fc9741a3d73124a524c9a35e6cd8eaaac387ba66e",
+      "historicalRepair2Sha256": "a9412f71ee33a207190c3ad7205d70a0610fed08f5b2aaf1247eea6bfacee5ca",
+      "disposition": "Installed instruction refreshed; historical inventories retained"
+    },
+    {
+      "path": "docs/project/tasks/_SPEC-TEMPLATE.md",
+      "preservedOriginal": "_local/generate-init-backup/20260913-4.1.0/docs/project/tasks/_SPEC-TEMPLATE.md",
+      "oldSha256": "40d1b4ee25d67e71084dd1e50be2f14e3c0e6ddcc868b714d0b1608424fe8010",
+      "newSha256": "edc29b88f48f7ae25ce95e41370b2ba96a24a65f4f42c4057cdfcaa7134e174b",
+      "historicalRepair2Sha256": null,
+      "disposition": "Installed instruction refreshed; historical inventories retained"
+    },
+    {
+      "path": "docs/project/tasks/_REPORT-TEMPLATE.md",
+      "preservedOriginal": "_local/generate-init-backup/20260913-4.1.0/docs/project/tasks/_REPORT-TEMPLATE.md",
+      "oldSha256": "88f2c094b826f356db6329be075dee36f5b6304f1f27f50652a45232a6dc3a3e",
+      "newSha256": "3a1a5ec9120178e126b779764a97613cb3b098db6adcbf62733d89f802511c53",
+      "historicalRepair2Sha256": "88f2c094b826f356db6329be075dee36f5b6304f1f27f50652a45232a6dc3a3e",
+      "disposition": "Installed instruction refreshed; historical inventories retained"
+    },
+    {
+      "path": "docs/project/tasks/_REVIEW-TEMPLATE.md",
+      "preservedOriginal": "_local/generate-init-backup/20260913-4.1.0/docs/project/tasks/_REVIEW-TEMPLATE.md",
+      "oldSha256": "f2ebd2737701dbe3ad30e99ddfa3477f5438b938146459b8998e38926cf78f0b",
+      "newSha256": "c5d522f58602794e6ce5de480a9f7c83cf596b2eabeeb5e8e7a8b375baa2dc19",
+      "historicalRepair2Sha256": null,
+      "disposition": "Installed instruction refreshed; historical inventories retained"
+    },
+    {
+      "path": "docs/adr/_TEMPLATE.md",
+      "preservedOriginal": "_local/generate-init-backup/20260913-4.1.0/docs/adr/_TEMPLATE.md",
+      "oldSha256": "fb8816a4affec9aff4c1a2f735a8dd2d7f512dc90b6f366892d65ac4ba74d974",
+      "newSha256": "4a2012b382eeb06dcec66e3d1404e1638fb6f7a393daf7ece6ce14909df1d19f",
+      "historicalRepair2Sha256": null,
+      "disposition": "Installed instruction refreshed; historical inventories retained"
+    },
+    {
+      "path": "docs/external/README.md",
+      "preservedOriginal": "_local/generate-init-backup/20260913-4.1.0/docs/external/README.md",
+      "oldSha256": "8b35ea1505d6d63d5ab933adfb2fe8247def47a6dd13e1404b36417cbb16590e",
+      "newSha256": "cdce66cc08cad09551c6b0898068a5c403e57179dc25035fc3de866664aef01f",
+      "historicalRepair2Sha256": null,
+      "disposition": "Installed instruction refreshed; historical inventories retained"
+    },
+    {
+      "path": "docs/workflow/README.md",
+      "preservedOriginal": "_local/generate-init-backup/20260913-4.1.0/docs/workflow/README.md",
+      "oldSha256": "e91075ba1047a9741cc2cff5926fa5bbb80e189f5b8210bad270a556c7a9e829",
+      "newSha256": "3d02e832fdce6d4a73936c4d24e2dc7fd87399ab7474106cf097e691ccbc1269",
+      "historicalRepair2Sha256": "e91075ba1047a9741cc2cff5926fa5bbb80e189f5b8210bad270a556c7a9e829",
+      "disposition": "Installed instruction refreshed; historical inventories retained"
+    },
+    {
+      "path": "docs/project/tasks/writing-studio/handoff-1b-1-repair-3.md",
+      "preservedOriginal": "_local/generate-init-backup/20260913-4.1.0/docs/project/tasks/writing-studio/handoff-1b-1-repair-3.md",
+      "oldSha256": "68a2dde6eec79985dc4a6d15148692a6bc4eeb01ea2ccd666b77e4aec53cc42a",
+      "newSha256": "5b28b4925a34ceae687fabf7ca0b58f0994bec1946a68d961b3c0925a1132dc0",
+      "historicalRepair2Sha256": null,
+      "disposition": "Living lead-owned record reconciled; older handed-off assessments untouched"
+    },
+    {
+      "path": "docs/project/tasks/writing-studio/spec.md",
+      "preservedOriginal": "_local/generate-init-backup/20260913-4.1.0/docs/project/tasks/writing-studio/spec.md",
+      "oldSha256": "f01ab87f33df4715eda4220a1c7fb4a0431b950a1ef2e6bebe892c5bbc1f079a",
+      "newSha256": "da0b593a1e38f7a02c5bd3dca25fcaf1cc68cacba02f55d3b218830baf5d0e03",
+      "historicalRepair2Sha256": "c7ee4b0f2ecfb41338c7dae121a5e43793c3056e03db4ad05166da809f540897",
+      "disposition": "Living lead-owned record reconciled; older handed-off assessments untouched"
+    },
+    {
+      "path": "docs/project/findings-ledger.md",
+      "preservedOriginal": "_local/generate-init-backup/20260913-4.1.0/docs/project/findings-ledger.md",
+      "oldSha256": "b8aa9dc26b1ca7c9cdc435adc0d162b24a3a83e97e69a329382fc66cf1348dbc",
+      "newSha256": "db9a484b772d2bdb6219b01fc131ee01a33258ee3057a2a5c8f087db251804d5",
+      "historicalRepair2Sha256": "a925a37e160ab5390f6a9c1a80058167acde704d8b52dfe07872cc3568e7af69",
+      "disposition": "Living lead-owned record reconciled; older handed-off assessments untouched"
+    }
+  ]
+}

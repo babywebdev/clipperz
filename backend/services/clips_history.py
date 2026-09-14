@@ -43,7 +43,8 @@ class ClipsHistoryError(RuntimeError):
 
 class HistoryReadError(ClipsHistoryError):
     """The history file exists but cannot be used. ``code`` is one of
-    HISTORY_UNREADABLE, HISTORY_INVALID_JSON, HISTORY_INVALID_SHAPE."""
+    HISTORY_UNREADABLE, HISTORY_INVALID_ENCODING, HISTORY_INVALID_JSON,
+    HISTORY_INVALID_SHAPE."""
 
     def __init__(self, code: str, message: str, path: str):
         super().__init__(message)
@@ -88,13 +89,25 @@ def read_clips_history_strict(path: Optional[str] = None) -> tuple[list[dict], O
     failure raises HistoryReadError so a mutation cannot overwrite it."""
     path = path or _history_path()
     try:
-        with open(path, encoding="utf-8") as f:
-            raw = f.read()
+        with open(path, "rb") as f:
+            data_bytes = f.read()
     except FileNotFoundError:
         return [], None
     except OSError as exc:
         raise HistoryReadError(
             "HISTORY_UNREADABLE", f"History file {path} could not be read ({exc}). No changes were written.", path
+        ) from exc
+    # Strict decoding: bytes that are not valid UTF-8 mean a corrupt file, and
+    # a mutation must not rewrite it. The error is typed like every other read
+    # failure so callers and the CLI surface it the same way.
+    try:
+        raw = data_bytes.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise HistoryReadError(
+            "HISTORY_INVALID_ENCODING",
+            f"History file {path} is not valid UTF-8 ({exc}). No changes were written. "
+            "Restore it from a backup or repair the file, then retry.",
+            path,
         ) from exc
     text = raw.lstrip("﻿")
     try:

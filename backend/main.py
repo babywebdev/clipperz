@@ -171,10 +171,38 @@ def handle_create_clip(task_id: str, params: dict):
     from services import asset_store
 
     emit_progress(task_id, "starting", 0, "Preparing clip...")
+
+    # Exact edit (Writing Studio 1B.1): internal, opt-in, additive. The
+    # renderer validates the mode itself; the bridge only makes sure an asset
+    # the request named cannot silently vanish on the way in, because
+    # asset_store.resolve answers None for an unknown name or missing file and
+    # exact mode must not report a bookend-free render as the one requested.
+    timing_mode = params.get("timing_mode")
+    resolved_assets = {
+        key: asset_store.resolve(params.get(key)) for key in ("logo_path", "outro_path", "intro_path")
+    }
+    if timing_mode == "exact":
+        for key, resolved in resolved_assets.items():
+            if params.get(key) and not resolved:
+                raise ValueError(f"{key} could not be resolved to an existing file: {params.get(key)!r}")
+        # Exact mode cuts from keep_segments; the legacy bounds are optional
+        # compatibility summaries there. Legacy requests keep requiring them.
+        start_second = params.get("start_second") or 0
+        end_second = params.get("end_second") or 0
+        # The renderer reports transcript availability, so the request must
+        # reach it as sent: an omitted or null transcript is unavailable, an
+        # explicit [] is a supplied, empty one. The legacy default below
+        # would turn "unavailable" into "supplied and empty".
+        transcript_words = params.get("transcript_words")
+    else:
+        start_second = params["start_second"]
+        end_second = params["end_second"]
+        transcript_words = params.get("transcript_words", [])
+
     result = generate_clip(
         video_path=params["video_path"],
-        start_second=params["start_second"],
-        end_second=params["end_second"],
+        start_second=start_second,
+        end_second=end_second,
         caption_style=params.get("caption_style", "hormozi"),
         caption_position=params.get("caption_position", "auto"),
         caption_font_scale=params.get("caption_font_scale", 100),
@@ -188,12 +216,12 @@ def handle_create_clip(task_id: str, params: dict):
         crop_strategy=params.get("crop_strategy", "face"),
         format=params.get("format", "vertical"),
         crop_keyframes=params.get("crop_keyframes"),
-        transcript_words=params.get("transcript_words", []),
+        transcript_words=transcript_words,
         title=params.get("title", "clip"),
         output_dir=params.get("output_dir"),
-        logo_path=asset_store.resolve(params.get("logo_path")),
-        outro_path=asset_store.resolve(params.get("outro_path")),
-        intro_path=asset_store.resolve(params.get("intro_path")),
+        logo_path=resolved_assets["logo_path"],
+        outro_path=resolved_assets["outro_path"],
+        intro_path=resolved_assets["intro_path"],
         name_card=params.get("name_card"),
         motion=params.get("motion"),
         bookend_fade=params.get("bookend_fade", 0.0),
@@ -206,6 +234,7 @@ def handle_create_clip(task_id: str, params: dict):
         use_ass_captions=params.get("use_ass_captions", False),
         keep_caption_overlay=params.get("keep_caption_overlay", False),
         progress_callback=lambda pct, msg: emit_progress(task_id, "processing", pct, msg),
+        timing_mode=timing_mode,
     )
     emit_result(task_id, "success", data=result)
 

@@ -52,7 +52,8 @@ def command_for(engine: str, executable: str, output: str) -> list[str]:
     if engine == "codex":
         flags = {
             "approval_policy": "never", "forced_login_method": "chatgpt",
-            "model_provider": "openai", "web_search": "disabled",
+            "model_provider": "openai", "model": "gpt-5.6-sol", "web_search": "disabled",
+            "model_reasoning_effort": "medium",
             "project_doc_max_bytes": 0, "project_root_markers": [".clipperz-inference"],
             "mcp_servers": {}, "developer_instructions": INSTRUCTIONS,
             "memories.generate_memories": False, "memories.use_memories": False,

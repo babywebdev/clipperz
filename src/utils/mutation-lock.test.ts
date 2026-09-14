@@ -3,7 +3,7 @@ import { mkdtempSync, writeFileSync, readFileSync, existsSync, utimesSync, rmSyn
 import { tmpdir, hostname } from "os";
 import { join } from "path";
 import { spawnSync } from "child_process";
-import { withFileLock, lockPathFor, FileLockError, pidAlive, UNKNOWN_OWNER_GRACE_MS } from "./mutation-lock.js";
+import { withFileLock, lockPathFor, reclaimPathFor, FileLockError, pidAlive } from "./mutation-lock.js";
 
 const dir = mkdtempSync(join(tmpdir(), "podcli-lock-"));
 const target = join(dir, "clips.json");
@@ -76,14 +76,29 @@ describe("mutation lock", () => {
     expect(existsSync(`${lockPath}.reclaim`)).toBe(false);
   });
 
-  it("treats a fresh lock without an owner record as live, and reclaims it only after the grace period", async () => {
-    foreignLock("");
-    await expect(withFileLock(target, async () => 1, { timeoutMs: 150 })).rejects.toMatchObject({ code: "LOCK_TIMEOUT", owner: null });
-    expect(existsSync(lockPath)).toBe(true);
-
-    const old = (Date.now() - UNKNOWN_OWNER_GRACE_MS - 5000) / 1000;
-    utimesSync(lockPath, old, old);
-    expect(await withFileLock(target, async () => "reclaimed", { timeoutMs: 2000 })).toBe("reclaimed");
+  it("never removes a lock without a readable owner record, however old it is", async () => {
+    // Empty, truncated, and non-JSON records: a live acquirer paused between
+    // creating the file and writing its record looks exactly like this, and
+    // elapsed time cannot tell it apart from a crash.
+    for (const content of ["", '{"pid": 12', "not json"]) {
+      foreignLock(content);
+      const old = (Date.now() - 86_400_000) / 1000;
+      utimesSync(lockPath, old, old);
+      let ran = false;
+      const attempt = withFileLock(target, async () => { ran = true; }, { timeoutMs: 300 });
+      await expect(attempt).rejects.toMatchObject({ code: "LOCK_TIMEOUT", owner: null });
+      await attempt.catch((err: FileLockError) => {
+        expect(err.message).toContain("no readable owner record");
+        expect(err.message).toContain("never removed automatically");
+        expect(err.message).toContain(lockPath);
+      });
+      expect(ran).toBe(false);
+      expect(readFileSync(lockPath, "utf-8")).toBe(content);
+      expect(existsSync(reclaimPathFor(lockPath))).toBe(false);
+    }
+    // Manual removal is the documented recovery.
+    rmSync(lockPath);
+    expect(await withFileLock(target, async () => "after manual removal", { timeoutMs: 2000 })).toBe("after manual removal");
     expect(existsSync(lockPath)).toBe(false);
   });
 

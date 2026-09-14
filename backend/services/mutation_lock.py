@@ -7,24 +7,38 @@ interleave their read-modify-write cycles on clips.json.
 Protocol
 - Acquire: create ``<target>.lock`` with O_EXCL (atomic on NTFS and POSIX),
   then write an owner record ``{pid, host, token, created_at, tool}`` into it.
-- Release: unlink the lock only if its owner record still carries our token.
-  Another process's lock is never removed by a release.
+- Release: unlink the lock only if its owner record still carries our token,
+  re-checked before every removal attempt. Another process's lock is never
+  removed by a release.
 - Contention: poll with backoff until the timeout elapses, then raise a
   FileLockError describing the owner and how to recover. A living owner is
   never displaced merely because time passed.
-- Crash recovery: an owner record whose pid is provably dead on this host is
-  reclaimed. Reclaim runs under a second O_EXCL file (``<target>.lock.reclaim``)
-  and re-reads the owner record under it, so two waiters cannot remove a lock
-  that a third process created in between.
-- Unknown owner: a lock with no readable owner record (a crash between create
-  and write, or a foreign tool) is reclaimed only once it is older than
-  UNKNOWN_OWNER_GRACE_MS; a fresh unreadable lock is treated as live.
+- Crash recovery: a lock whose recorded owner pid is provably dead on this
+  host is removed by one waiter at a time. That waiter first creates
+  ``<target>.lock.reclaim`` with O_EXCL (the recovery file), re-reads the lock
+  under it, and removes the lock only if it still carries the dead record it
+  assessed. The recovery file is released by token, like the lock.
+- Unknown owner: a lock with no readable owner record is never removed
+  automatically, however old it is. Its owner may be a live process paused
+  between creating the file and writing the record, and elapsed time cannot
+  prove otherwise. Acquisition fails closed at the timeout and names the file.
+- Orphaned recovery file: the recovery file is held for one read and one
+  unlink and is never recovered automatically. If a reclaimer crashed there,
+  acquisition of a dead lock fails closed at the timeout naming both files.
 - PID reuse / foreign host: if the pid is alive (possibly reused) or belongs to
   another host name, the lock is treated as live and acquisition fails closed
   at the timeout with the owner details and the lock path so the operator can
   confirm no Clipperz process holds it and delete it by hand.
-- Interrupted acquisition: waiting creates no files. A crash after creating the
-  lock file but before the owner record is the unknown-owner case above.
+- Interrupted acquisition: waiting creates no files.
+
+Why this is mutually exclusive: at most one process can create the lock
+(O_EXCL). The lock is removed only by its owner (token-verified) or by a
+reclaimer holding the recovery file that has just read a dead record under it;
+the recovery file is itself O_EXCL and released only by its creator, so the
+record cannot change between that read and the removal (no one else can
+remove the lock, and no one can create one while it exists). A live owner's
+pid is never assessed as dead, and a record-less lock is never assessed at
+all, so no living acquirer loses its lock.
 
 ``os.kill(pid, 0)`` is never used on Windows: there it terminates the target.
 """
@@ -38,11 +52,9 @@ import time
 import uuid
 from contextlib import contextmanager
 from datetime import datetime, timezone
-from typing import Iterator, Optional
+from typing import Iterator, NamedTuple, Optional
 
 DEFAULT_LOCK_TIMEOUT_MS = 10_000
-UNKNOWN_OWNER_GRACE_MS = 60_000
-_RECLAIM_MUTEX_GRACE_MS = 30_000
 _POLL_MIN_S = 0.02
 _POLL_MAX_S = 0.25
 
@@ -63,7 +75,7 @@ def lock_path_for(target_path: str) -> str:
     return f"{target_path}.lock"
 
 
-def _reclaim_path_for(lock_path: str) -> str:
+def reclaim_path_for(lock_path: str) -> str:
     return f"{lock_path}.reclaim"
 
 
@@ -84,24 +96,8 @@ def _host() -> str:
 # FILE_SHARE_DELETE, which Python's own open() never requests. A waiter reading
 # the owner record holds it for microseconds, so removal retries briefly
 # instead of leaving a lock behind that its own owner would then wait on.
-_REMOVE_RETRY_S = 2.0
+REMOVE_RETRY_S = 2.0
 _REMOVE_RETRY_STEP_S = 0.025
-
-
-def remove_with_retry(path: str) -> None:
-    """Remove ``path``; a missing file is fine. Retries transient sharing
-    violations for a bounded time, then re-raises."""
-    deadline = time.monotonic() + _REMOVE_RETRY_S
-    while True:
-        try:
-            os.remove(path)
-            return
-        except FileNotFoundError:
-            return
-        except PermissionError:
-            if time.monotonic() >= deadline:
-                raise
-            time.sleep(_REMOVE_RETRY_STEP_S)
 
 
 def pid_alive(pid: int) -> Optional[bool]:
@@ -162,30 +158,35 @@ def _parse_owner(raw: str) -> Optional[dict]:
     }
 
 
-def _read_owner(path: str) -> tuple[bool, Optional[dict], float]:
-    """Return (exists, owner record or None, age in ms)."""
+class OwnerRead(NamedTuple):
+    exists: bool
+    owner: Optional[dict]
+    unreadable: bool  # present but could not be read (for example a transient sharing violation)
+
+
+def _read_owner(path: str) -> OwnerRead:
     try:
         with open(path, encoding="utf-8", errors="replace") as handle:
             raw = handle.read()
-        age_ms = (time.time() - os.stat(path).st_mtime) * 1000.0
-        return True, _parse_owner(raw), age_ms
+        return OwnerRead(True, _parse_owner(raw), False)
     except FileNotFoundError:
-        return False, None, 0.0
+        return OwnerRead(False, None, False)
     except OSError:
-        # Present but unreadable (for example a transient sharing violation
-        # while the owner is still writing its record): a fresh live lock.
-        return True, None, 0.0
+        return OwnerRead(True, None, True)
 
 
-def _assess(read: tuple[bool, Optional[dict], float], grace_ms: float) -> str:
-    exists, owner, age_ms = read
-    if not exists:
+def _assess(read: OwnerRead) -> str:
+    """Decide what a lock file we did not create represents: ``gone``,
+    ``live`` or ``dead``. Only a readable record naming a provably dead process
+    on this host is dead; everything else, including a missing or unreadable
+    record, is live."""
+    if not read.exists:
         return "gone"
-    if owner is None:
-        return "unknown" if age_ms > grace_ms else "live"
-    if owner["host"].lower() != _host().lower():
+    if read.owner is None:
         return "live"
-    return "dead" if pid_alive(owner["pid"]) is False else "live"
+    if read.owner["host"].lower() != _host().lower():
+        return "live"
+    return "dead" if pid_alive(read.owner["pid"]) is False else "live"
 
 
 def _try_create(lock_path: str, owner: dict) -> bool:
@@ -197,6 +198,8 @@ def _try_create(lock_path: str, owner: dict) -> bool:
         os.write(fd, json.dumps(owner).encode("utf-8"))
     except OSError as exc:
         os.close(fd)
+        # The file is ours (created with O_EXCL an instant ago) and record-less
+        # files are never removed by anyone else, so this path is still ours.
         try:
             os.remove(lock_path)
         except OSError:
@@ -208,65 +211,98 @@ def _try_create(lock_path: str, owner: dict) -> bool:
     return True
 
 
-def _reclaim(lock_path: str, expected: Optional[dict], owner: dict) -> bool:
-    """Remove a lock judged stale, only after re-reading it under the reclaim
-    mutex and confirming it is still the same stale record."""
-    mutex_path = _reclaim_path_for(lock_path)
-    if not _try_create(mutex_path, owner):
-        if _assess(_read_owner(mutex_path), _RECLAIM_MUTEX_GRACE_MS) == "live":
-            return False
-        aside = f"{mutex_path}.{uuid.uuid4().hex[:8]}"
-        try:
-            os.replace(mutex_path, aside)
-            remove_with_retry(aside)
-        except OSError:
-            return False
-        if not _try_create(mutex_path, owner):
-            return False
-    try:
-        exists, current, age_ms = _read_owner(lock_path)
-        if not exists:
+def remove_owned(path: str, token: str) -> bool:
+    """Remove ``path`` only while it still carries ``token``, re-reading before
+    every attempt so a bounded retry can never unlink a file whose ownership
+    changed meanwhile. Returns True when the file is gone (removed here or
+    already absent) and False when it now belongs to someone else. Transient
+    sharing violations are retried for REMOVE_RETRY_S, then re-raised."""
+    deadline = time.monotonic() + REMOVE_RETRY_S
+    while True:
+        current = _read_owner(path)
+        if not current.exists:
             return True
-        if expected is not None:
-            same_record = current is not None and current["token"] == expected["token"]
-        else:
-            same_record = current is None and age_ms > UNKNOWN_OWNER_GRACE_MS
-        if not same_record:
-            return False
-        remove_with_retry(lock_path)
-        return True
+        if not current.unreadable:
+            if current.owner is None or current.owner["token"] != token:
+                return False
+            try:
+                os.remove(path)
+                return True
+            except FileNotFoundError:
+                return True
+            except PermissionError:
+                if time.monotonic() >= deadline:
+                    raise
+        elif time.monotonic() >= deadline:
+            raise OSError(f"could not read {path} to confirm ownership before removing it")
+        time.sleep(_REMOVE_RETRY_STEP_S)
+
+
+def _reclaim(lock_path: str, expected: dict, owner: dict) -> tuple[str, Optional[OwnerRead]]:
+    """Remove a lock whose record names a dead process, under the recovery file.
+
+    Returns ``("removed", None)`` when the lock is gone and the caller may try
+    to create its own; ``("changed", None)`` when the lock no longer carries the
+    assessed dead record; ``("blocked", recovery_read)`` when the recovery file
+    exists. The recovery file is never taken over; its record is returned so a
+    timeout can describe it."""
+    recovery_path = reclaim_path_for(lock_path)
+    if not _try_create(recovery_path, owner):
+        return "blocked", _read_owner(recovery_path)
+    try:
+        current = _read_owner(lock_path)
+        if not current.exists:
+            return "removed", None
+        if current.owner is None or current.owner["token"] != expected["token"] or _assess(current) != "dead":
+            return "changed", None
+        return ("removed" if remove_owned(lock_path, expected["token"]) else "changed"), None
     except OSError:
-        return False
+        return "changed", None
     finally:
         try:
-            remove_with_retry(mutex_path)
+            remove_owned(recovery_path, owner["token"])
         except OSError:
             pass
 
 
-def _describe(owner: Optional[dict], lock_path: str) -> str:
+def _holder_text(owner: dict) -> str:
+    since = f" since {owner['created_at']}" if owner.get("created_at") else ""
+    return f"{owner['tool']} process {owner['pid']} on {owner['host']}{since}"
+
+
+_MANUAL_STEP = "If no Clipperz Studio or CLI process is running, delete"
+
+
+def _describe_timeout(lock_path: str, last_seen: Optional[OwnerRead], blocked_by: Optional[OwnerRead]) -> str:
+    owner = last_seen.owner if last_seen is not None else None
     if owner is None:
         return (
-            f"The lock file {lock_path} has no readable owner record. If no Clipperz "
-            "Studio or CLI process is running, delete that file and retry."
+            f"The lock file {lock_path} has no readable owner record, so its owner cannot be identified "
+            f"and the file is never removed automatically. {_MANUAL_STEP} that file and retry."
         )
-    since = f" since {owner['created_at']}" if owner.get("created_at") else ""
-    return (
-        f"History is locked by {owner['tool']} process {owner['pid']} on {owner['host']}{since}. "
-        f"If that process is no longer running, delete {lock_path} and retry."
-    )
+    if blocked_by is not None:
+        recovery_path = reclaim_path_for(lock_path)
+        holder = blocked_by.owner
+        if holder is None:
+            state = f"the recovery file {recovery_path} has no readable owner record"
+        elif _assess(blocked_by) == "dead":
+            state = f"the recovery file {recovery_path} was left by {_holder_text(holder)}, which is no longer running"
+        else:
+            state = f"the recovery file {recovery_path} is held by {_holder_text(holder)} (recovery in progress)"
+        return (
+            f"History is locked by {_holder_text(owner)}, which is no longer running, and automatic recovery "
+            f"is blocked: {state}. {_MANUAL_STEP} {recovery_path} and {lock_path}, then retry."
+        )
+    return f"History is locked by {_holder_text(owner)}. If that process is no longer running, delete {lock_path} and retry."
 
 
 def _release_own(lock_path: str, token: str) -> None:
-    """Unlink the lock only when it still carries our token. A removal that
+    """Unlink the lock only while it still carries our token. A removal that
     keeps failing is reported on stderr rather than raised, so the caller's
     completed mutation is not misreported; the next acquisition would then
     time out naming this process and the lock path."""
-    exists, current, _ = _read_owner(lock_path)
-    if not exists or current is None or current["token"] != token:
-        return
     try:
-        remove_with_retry(lock_path)
+        remove_owned(lock_path, token)
     except OSError as exc:
         print(
             f"clipperz: could not release {lock_path} ({exc}). "
@@ -293,25 +329,33 @@ def file_lock(target_path: str, timeout_ms: Optional[int] = None, tool: str = "c
     timeout = _default_timeout_ms() if timeout_ms is None else timeout_ms
     deadline = time.monotonic() + timeout / 1000.0
     delay = _POLL_MIN_S
-    last_seen: Optional[dict] = None
+    last_seen: Optional[OwnerRead] = None
+    blocked_by: Optional[OwnerRead] = None
 
     while True:
         if _try_create(lock_path, owner):
             break
-        read = _read_owner(lock_path)
-        last_seen = read[1]
-        state = _assess(read, UNKNOWN_OWNER_GRACE_MS)
+        current = _read_owner(lock_path)
+        if current.exists and not current.unreadable:
+            last_seen = current
+        blocked_by = None
+        state = _assess(current)
         if state == "gone":
             continue
-        if state in ("dead", "unknown") and _reclaim(lock_path, read[1], owner):
-            continue
+        if state == "dead":
+            outcome, recovery = _reclaim(lock_path, current.owner, owner)
+            if outcome == "removed":
+                continue
+            if outcome == "blocked":
+                blocked_by = recovery
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise FileLockError(
                 "LOCK_TIMEOUT",
-                f"Timed out after {timeout} ms waiting to update {target_path}. {_describe(last_seen, lock_path)}",
+                f"Timed out after {timeout} ms waiting to update {target_path}. "
+                f"{_describe_timeout(lock_path, last_seen, blocked_by)}",
                 lock_path,
-                last_seen,
+                last_seen.owner if last_seen is not None else None,
             )
         time.sleep(min(delay, max(0.0, remaining)))
         delay = min(_POLL_MAX_S, delay * 1.5)

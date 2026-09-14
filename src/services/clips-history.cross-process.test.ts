@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, writeFileSync, readFileSync, readdirSync, rmSync, mkdirSync, existsSync } from "fs";
+import { mkdtempSync, writeFileSync, readFileSync, readdirSync, rmSync, mkdirSync, existsSync, utimesSync } from "fs";
 import { tmpdir } from "os";
 import { dirname, join, resolve } from "path";
 import { fileURLToPath } from "url";
@@ -204,6 +204,69 @@ describe("clip history across TS and Python processes", () => {
     expect(entries()[2].title).toBe("recovered-by-python");
     expect(existsSync(lockPath)).toBe(false);
     expect(leftovers()).toEqual([]);
+  }, 60_000);
+
+  // Review R2: a live acquirer paused between creating the lock file and
+  // writing its record must never be displaced, however old the file looks,
+  // and its critical section must stay exclusive once it resumes.
+  async function pausedAcquirerIsNeverDisplaced(label: string, run: (args: string[]) => { child: ChildProcess; done: Promise<Result> }) {
+    const created = join(tmp, `${label}-created`);
+    const go = join(tmp, `${label}-go`);
+    const entered = join(tmp, `${label}-entered`);
+    const release = join(tmp, `${label}-release`);
+    for (const p of [created, go, entered, release]) rmSync(p, { force: true });
+    const child = run(["paused-acquire", created, go, entered, release]);
+    await waitFor(created);
+    expect(readFileSync(lockPath, "utf-8")).toBe("");
+    // Age the record-less file a day: elapsed time is not evidence of a crash.
+    // (Best effort: the child holds the file open, which can refuse the touch.)
+    const old = (Date.now() - 86_400_000) / 1000;
+    try { utimesSync(lockPath, old, old); } catch {}
+
+    process.env.PODCLI_HISTORY_LOCK_TIMEOUT_MS = "400";
+    const before = readFileSync(historyPath);
+    const blocked = history.update("seed-a", { title: "blocked" });
+    await expect(blocked).rejects.toBeInstanceOf(FileLockError);
+    await blocked.catch((err: InstanceType<typeof FileLockError>) => {
+      expect(err.code).toBe("LOCK_TIMEOUT");
+      expect(err.owner).toBeNull();
+      expect(err.message).toContain("no readable owner record");
+      expect(err.message).toContain("never removed automatically");
+    });
+    expect(readFileSync(historyPath)).toEqual(before);
+    expect(readFileSync(lockPath, "utf-8")).toBe("");
+    expect(existsSync(`${lockPath}.reclaim`)).toBe(false);
+
+    // The acquirer resumes, records ownership and enters its critical section.
+    writeFileSync(go, "go");
+    await waitFor(entered);
+    const record = JSON.parse(readFileSync(lockPath, "utf-8"));
+    expect(record.tool).toBe("clipperz-test-paused");
+    expect(record.pid).toBe(Number(readFileSync(created, "utf-8")));
+
+    delete process.env.PODCLI_HISTORY_LOCK_TIMEOUT_MS;
+    let settled = false;
+    const waiter = history.update("seed-a", { title: `after-${label}` }).then((r) => { settled = true; return r; });
+    await sleep(300);
+    expect(settled).toBe(false);
+    expect(JSON.parse(readFileSync(lockPath, "utf-8")).token).toBe(record.token);
+
+    writeFileSync(release, "go");
+    const result = await child.done;
+    expect(result, result.stderr).toMatchObject({ code: 0 });
+    expect(JSON.parse(result.stdout)).toEqual({ paused: true, released: "ok" });
+    expect((await waiter)?.title).toBe(`after-${label}`);
+    expect(entries()[0].title).toBe(`after-${label}`);
+    expect(existsSync(lockPath)).toBe(false);
+    expect(leftovers()).toEqual([]);
+  }
+
+  it("a Python acquirer paused before writing its record is never displaced by Node", async () => {
+    await pausedAcquirerIsNeverDisplaced("py-paused", runPython);
+  }, 60_000);
+
+  it("a Node acquirer paused before writing its record is never displaced by Node", async () => {
+    await pausedAcquirerIsNeverDisplaced("node-paused", runNode);
   }, 60_000);
 
   it("a delete and an update from two Node processes cannot resurrect the entry", async () => {

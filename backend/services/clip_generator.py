@@ -12,7 +12,9 @@ import shutil
 import signal
 import subprocess
 import re
+import secrets
 import threading
+import time
 from typing import Optional, Callable
 
 from utils.proc import run as proc_run, ProcError
@@ -34,6 +36,8 @@ from services.video_processor import (
 )
 from config.caption_styles import get_style
 from services.formats import get_format
+from services import exact_render
+from services.exact_render import ExactRenderError, ExactRenderVerificationError
 
 _FILLER_WORDS = frozenset([
     "um", "uh", "uhh", "uhm", "umm", "hmm", "hm", "mhm",
@@ -839,6 +843,311 @@ def _render_with_remotion(
             pass
 
 
+_EXACT_HEURISTICS_DISABLED = (
+    "weak_opening_trim",
+    "sentence_end_extension",
+    "automatic_pause_and_filler_cuts",
+    "boundary_revert",
+    "transition_autofix",
+)
+
+
+def _best_effort_note(message: str) -> None:
+    """Write a diagnostic to stderr without letting the write itself matter.
+
+    Used after the exact publication boundary and on cleanup paths, where a
+    failing reporting channel must not become the operation's outcome.
+    """
+    try:
+        print(message, file=sys.stderr, flush=True)
+    except Exception:
+        pass
+
+
+def _stage_verified_copy(source_path: str, staged_path: str) -> int:
+    """Copy a proven artifact to an operation-owned staging path, size-checked.
+
+    The staging path is inside this operation's own directory on the output
+    volume, so nothing that already exists is touched while the fallible
+    copy runs. A failure removes the partial staged file and raises; returns
+    the size.
+    """
+    try:
+        shutil.copy2(source_path, staged_path)
+        expected = os.path.getsize(source_path)
+        actual = os.path.getsize(staged_path)
+        if actual != expected:
+            raise ExactRenderVerificationError(
+                f"staged copy of {os.path.basename(source_path)} is {actual} bytes, "
+                f"the verified file was {expected}"
+            )
+        return actual
+    except BaseException:
+        if os.path.exists(staged_path):
+            try:
+                os.unlink(staged_path)
+            except OSError:
+                pass
+        raise
+
+
+class _ExactOutputGroup:
+    """One exact operation's exclusively owned output directory.
+
+    Layout under the output root::
+
+        <stem>-<op_id>/     created exclusively by this operation (os.mkdir)
+            staging/        every requested artifact is copied and checked here
+            final/          exists only after the single publication rename
+
+    `op_id` is a UTC timestamp, the process id and a random token, so
+    same-title operations in the same or another process never share a
+    group; the exclusive mkdir, not the id, is the arbiter. Nothing that
+    existed before the operation is renamed, replaced or deleted: an earlier
+    flat output or an earlier group stays byte-identical at its path.
+
+    Publication is one rename of `staging` to `final`. `final` cannot exist
+    beforehand because the parent belongs to this operation alone, so the
+    group is either complete at its final paths or not published at all. A
+    failure at any point after the parent was acquired, including a failure
+    to create `staging` itself, removes only this operation's own directories;
+    if that removal is denied, the residual is reported on the raised error
+    rather than claimed clean. A parent whose exclusive creation did not
+    succeed is never touched. A process that dies before the rename leaves
+    unreferenced staging and nothing else.
+    """
+
+    STAGING = "staging"
+    FINAL = "final"
+
+    def __init__(self, parent: str):
+        self.parent = parent
+        self.staging_dir = os.path.join(parent, self.STAGING)
+        self.final_dir = os.path.join(parent, self.FINAL)
+
+    @classmethod
+    def create(cls, output_root: str, stem: str, attempts: int = 16) -> "_ExactOutputGroup":
+        os.makedirs(output_root, exist_ok=True)
+        last_error: Optional[BaseException] = None
+        for _ in range(attempts):
+            op_id = f"{time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())}-{os.getpid()}-{secrets.token_hex(4)}"
+            parent = os.path.join(output_root, f"{stem}-{op_id}")
+            try:
+                os.mkdir(parent)
+            except FileExistsError as exc:
+                last_error = exc
+                continue
+            # The parent is this operation's own from this point: a setup
+            # failure from here on takes the same discard path as a
+            # publication failure, removing only that parent or reporting
+            # its residual on the original error. Nothing is retried.
+            group = cls(parent)
+            try:
+                os.mkdir(group.staging_dir)
+            except BaseException as exc:
+                group.discard(exc)
+                raise
+            return group
+        raise ExactRenderVerificationError(
+            f"could not create an unused output group for {stem!r} under {output_root}"
+        ) from last_error
+
+    def staged_path(self, name: str) -> str:
+        return os.path.join(self.staging_dir, name)
+
+    def final_path(self, name: str) -> str:
+        return os.path.join(self.final_dir, name)
+
+    def publish(self) -> None:
+        """The one publication boundary: rename the staged group into place."""
+        if os.path.lexists(self.final_dir):
+            # Only this operation writes inside its parent; anything already
+            # at `final` is not ours to replace.
+            raise FileExistsError(f"output group destination already exists: {self.final_dir}")
+        os.rename(self.staging_dir, self.final_dir)
+
+    def discard(self, error: BaseException) -> list[str]:
+        """Remove this operation's directories after a failure.
+
+        Returns the paths that could not be removed. They are also attached
+        to `error` as a note and written to stderr best-effort, so a denied
+        cleanup is reported as a residual instead of a clean result.
+        """
+        shutil.rmtree(self.parent, ignore_errors=True)
+        if not os.path.lexists(self.parent):
+            return []
+        residual = [self.parent]
+        for dirpath, _dirnames, filenames in os.walk(self.parent):
+            residual.extend(os.path.join(dirpath, name) for name in filenames)
+        note = (
+            "exact render cleanup could not remove this operation's own output group; "
+            "nothing was published and earlier outputs are untouched. Residual: "
+            + ", ".join(residual)
+        )
+        try:
+            error.add_note(note)
+        except Exception:
+            pass
+        _best_effort_note(f"  {note}")
+        return residual
+
+
+def _exact_render_timeline(
+    *,
+    plan: dict,
+    final_video_path: str,
+    content_measured: dict,
+    tolerance: dict,
+    intro_report: Optional[dict],
+    outro_report: Optional[dict],
+    bookend_fade: float,
+    spec,
+    crop_strategy: str,
+    foreground_framing: Optional[dict],
+    caption_style: str,
+    captions_requested: bool,
+    caption_renderer: Optional[str],
+    caption_words_drawn: list[dict],
+    clean_fillers: bool,
+    caption_warning: Optional[str],
+) -> dict:
+    """Probe the composed output and assemble render_timeline version 1.
+
+    Raises ExactRenderVerificationError when the output cannot be proven,
+    so no receipt exists for a failed or inconsistent render.
+    """
+    final_measured = exact_render.probe_media(final_video_path)
+
+    intro_region = None
+    outro_region = None
+    offset = 0.0
+    expected_duration = float(content_measured["duration"] or 0.0)
+    # Each join is checked on its own: a branch whose audio and video
+    # transition differently is refused before the durations are even read.
+    if intro_report:
+        exact_render.verify_bookend_transition(kind="intro", report=intro_report)
+        intro_region = exact_render.bookend_region(kind="intro", report=intro_report, output_start=0.0)
+        offset = intro_region["output_end"]
+        expected_duration += float(intro_report["main_duration"]) - float(intro_report["applied_overlap"])
+    content_output_end = offset + float(content_measured["duration"] or 0.0)
+    if outro_report:
+        exact_render.verify_bookend_transition(kind="outro", report=outro_report)
+        outro_region = exact_render.bookend_region(
+            kind="outro", report=outro_report, output_start=content_output_end,
+        )
+        expected_duration += float(outro_report["appended_duration"]) - float(outro_report["applied_overlap"])
+
+    exact_render.verify_output_measurement(
+        expected_duration=expected_duration,
+        measured=final_measured,
+        tolerance=tolerance,
+        source_has_audio=plan["source"]["has_audio"],
+        expected_dims=spec.dims,
+    )
+
+    source = plan["source"]
+    source_words = plan["source_words"]
+    content_words = plan["content_words"]
+    captions_rendered = caption_renderer is not None
+    return {
+        "version": exact_render.RENDER_TIMELINE_VERSION,
+        "timing_mode": "exact",
+        "time_domains": {
+            "segments.source_*": "source-absolute seconds in the original file",
+            "segments.content_*, words.content[], captions.words[], framing.crop_keyframes[].t":
+                "content-relative seconds: kept intervals concatenated in supplied order from 0",
+            "bookends.*.output_*, content_to_output_offset, output_duration":
+                "output seconds in the rendered file, bookends included",
+        },
+        "source": {
+            "path": source["path"],
+            "duration": source["duration"],
+            "fps": source["fps"],
+            "frame_rate_variable": source["frame_rate_variable"],
+            "width": source["width"],
+            "height": source["height"],
+            "has_audio": source["has_audio"],
+        },
+        "segment_count": len(plan["segments"]),
+        "segments": exact_render.content_intervals(plan["segments"]),
+        "content_duration": round(plan["content_duration"], 3),
+        "content_duration_measured": round(float(content_measured["video_end"]), 3),
+        "content_to_output_offset": round(offset, 3),
+        "output_duration": round(float(final_measured["duration"]), 3),
+        "output": {
+            "path": final_video_path,
+            "width": final_measured["width"],
+            "height": final_measured["height"],
+            "fps": final_measured["fps"],
+            "frame_rate_variable": final_measured["frame_rate_variable"],
+            "has_audio": final_measured["has_audio"],
+            "video_duration": final_measured["video_end"],
+            "audio_duration": final_measured["audio_end"],
+            "file_size_bytes": final_measured["file_size_bytes"],
+        },
+        "tolerance": tolerance,
+        "frame_precision": {
+            "source_variable_frame_rate": bool(source["frame_rate_variable"]),
+            "note": (
+                "Boundaries are intended cut points; measured values carry codec frame and "
+                "AAC frame quantization within the stated tolerance. Not sample-exact."
+                + (" The source reports a variable frame rate, so per-frame stepping "
+                   "precision is not established; the tolerance uses its average rate."
+                   if source["frame_rate_variable"] else "")
+            ),
+        },
+        "bookends": {
+            "requested_fade": bookend_fade,
+            "intro": intro_region,
+            "outro": outro_region,
+        },
+        "thumbnail_card": {
+            "applied": False,
+            "note": (
+                "The Library's 1.5s opening thumbnail card is composed by the server "
+                "after this render. It is absent from this output and no offset for it "
+                "is included; the caller must compose it once and probe again."
+            ),
+        },
+        "framing": {
+            "format": spec.name,
+            "width": spec.width,
+            "height": spec.height,
+            "crop_strategy": crop_strategy,
+            "foreground_framing": foreground_framing,
+            "crop_keyframes": {
+                "time_domain": "content",
+                "keyframes": plan["keyframes"],
+            },
+        },
+        "words": {
+            "input": plan["words_input"],
+            "source_count": None if source_words is None else len(source_words),
+            "source": (
+                None if source_words is None
+                else exact_render.words_in_intervals(source_words, plan["segments"])
+            ),
+            "content": content_words,
+            "content_text": exact_render.content_text(content_words),
+        },
+        "captions": {
+            "requested": bool(captions_requested),
+            "style": caption_style,
+            "rendered": captions_rendered,
+            "renderer": caption_renderer,
+            "filler_cleaning": bool(clean_fillers),
+            "words": caption_words_drawn if captions_rendered else [],
+            "unavailable_reason": None if captions_rendered else (
+                caption_warning
+                or ("captions were not requested" if not captions_requested else
+                    "transcript unavailable" if plan["words_input"] == "unavailable" else
+                    "no caption words to draw")
+            ),
+        },
+        "heuristics_disabled": list(_EXACT_HEURISTICS_DISABLED),
+    }
+
+
 def generate_clip(
     video_path: str,
     start_second: float,
@@ -876,6 +1185,7 @@ def generate_clip(
     captions: bool = True,
     progress_callback: Optional[Callable[[int, str], None]] = None,
     foreground_framing: Optional[dict] = None,
+    timing_mode: Optional[str] = None,
 ) -> dict:
     """
     Generate a complete short-form video clip.
@@ -892,6 +1202,10 @@ def generate_clip(
         output_dir: Where to save the final clip (defaults to temp)
         logo_path: Path to logo image (PNG). Used with "branded" style.
         progress_callback: Optional (percent, message) callback
+        timing_mode: None/"legacy" (default) keeps every editorial heuristic
+            below. "exact" renders the ordered `keep_segments` exactly as
+            supplied and adds a `render_timeline` to the result; see
+            services.exact_render for the contract.
 
     Returns:
         {
@@ -900,6 +1214,41 @@ def generate_clip(
             "file_size_mb": float,
             "title": str,
         }
+
+    Exact mode (`timing_mode="exact"`), in addition to the legacy fields:
+
+    - `keep_segments` is required, ordered and authoritative. Nothing is
+      sorted, merged, widened, clamped or dropped; backward source order
+      between intervals is rendered as supplied. The caller's lists are
+      never mutated. `start_second`/`end_second` are ignored for cutting
+      and reported back as the bounding min/max of the intervals, a
+      compatibility summary only.
+    - Weak-opening trim, sentence-end extension, automatic pause/filler
+      cuts, boundary revert and the transition autofix pass are all
+      skipped. `trim_opening` and `preserve_timing` are ignored.
+      `clean_fillers` only removes filler words from the drawn captions;
+      it never cuts speech.
+    - `transcript_words` are source-absolute. Caption words and
+      `render_timeline.words.content` are derived in content-relative
+      seconds by one mapping for one or many intervals. `None` means the
+      transcript is unavailable; `[]` is a supplied empty transcript.
+    - `crop_keyframes[].t` is in content-relative seconds (the cut video
+      the cropper sees), validated against the content duration.
+    - Supplied intro/outro/logo paths must exist. The composition branch and
+      real overlap of each bookend are reported, not the request.
+    - The output is probed after every renderer-owned stage; a result that
+      cannot be proven within the documented tolerance raises instead of
+      returning a receipt. The Library's opening thumbnail card is applied
+      by the server later and is reported as absent here.
+    - `duration` keeps its legacy meaning (requested content seconds);
+      `render_timeline.output_duration` is the probed output length.
+    - Output layout: every exact operation publishes into its own new group
+      directory `<output_dir>/<title>_short-<op_id>/final/` holding
+      `<title>_short.mp4` and, when `keep_caption_overlay` is set, the
+      `_captions.mov` and `_source.mp4` sidecars. The returned paths are
+      those final files. An earlier same-title output, flat or grouped, is
+      never renamed, replaced or deleted; a failed operation leaves no
+      published group. Legacy mode keeps its flat naming and replacement.
     """
     # Auto-enable caption overlay export when an editor integration that needs it is on.
     if not keep_caption_overlay:
@@ -910,10 +1259,12 @@ def generate_clip(
         except Exception:
             pass
 
+    exact = exact_render.normalize_timing_mode(timing_mode) == "exact"
+
     if not os.path.exists(video_path):
         raise FileNotFoundError(f"Video not found: {video_path}")
 
-    if end_second <= start_second:
+    if not exact and end_second <= start_second:
         raise ValueError("end_second must be greater than start_second")
 
     from services.foreground_framing import normalize_framing, render_foreground
@@ -928,6 +1279,15 @@ def generate_clip(
     # back is the same dict describing the same window.
     from services.audiogram import is_audio_only
     if is_audio_only(video_path):
+        if exact:
+            # The audiogram renderer has its own window logic and no
+            # segment cutting. Claiming the supplied segments were honoured
+            # there would be false, so exact mode refuses it outright; the
+            # legacy path below still renders these sources as before.
+            raise ExactRenderError(
+                "timing_mode 'exact' is not supported for audio-only sources; "
+                "render it without timing_mode for the audiogram"
+            )
         from services.audiogram import render_audiogram
         return render_audiogram(
             audio_path=video_path,
@@ -941,97 +1301,138 @@ def generate_clip(
             progress_callback=progress_callback,
         )
 
-    if trim_opening is None:
-        trim_opening = not (keep_segments and len(keep_segments) > 0)
-
-    llm_start_second, llm_end_second = start_second, end_second
-    orig_keep_segments = None
-    if keep_segments and len(keep_segments) > 0:
-        llm_start_second = keep_segments[0]["start"]
-        llm_end_second = keep_segments[-1]["end"]
-        orig_keep_segments = [dict(s) for s in keep_segments if s["end"] > s["start"]]
-        llm_total = max(0.01, sum(s["end"] - s["start"] for s in orig_keep_segments))
+    plan = None
+    if exact:
+        # Exact edit: the supplied sequence is the sequence rendered. Every
+        # editorial heuristic in the else-branch is bypassed on purpose.
+        source_probe = exact_render.probe_media(video_path)
+        if not source_probe["has_video"]:
+            raise ExactRenderError(f"exact timing_mode needs a video source: {video_path}")
+        exact_segments = exact_render.validate_exact_segments(
+            keep_segments, source_probe["duration"] or 0.0,
+        )
+        words_input, source_words = exact_render.validate_exact_words(transcript_words)
+        content_seconds = exact_render.content_duration(exact_segments)
+        exact_keyframes = exact_render.validate_exact_keyframes(crop_keyframes, content_seconds)
+        logo_path = exact_render.require_existing_asset(logo_path, "logo_path")
+        intro_path = exact_render.require_existing_asset(intro_path, "intro_path")
+        outro_path = exact_render.require_existing_asset(outro_path, "outro_path")
+        if bookend_fade is not None:
+            exact_render._finite_number(bookend_fade, "bookend_fade")
+            if bookend_fade < 0:
+                raise ExactRenderError("bookend_fade must not be negative")
+        content_words = (
+            exact_render.map_words_to_content(source_words, exact_segments)
+            if source_words is not None else []
+        )
+        plan = {
+            "source": source_probe,
+            "segments": exact_segments,
+            "content_duration": content_seconds,
+            "words_input": words_input,
+            "source_words": source_words,
+            "content_words": content_words,
+            "keyframes": exact_keyframes,
+        }
+        keep_segments = [dict(seg) for seg in exact_segments]
+        crop_keyframes = exact_keyframes
+        transcript_words = content_words if source_words is not None else None
+        start_second = min(seg["start"] for seg in exact_segments)
+        end_second = max(seg["end"] for seg in exact_segments)
+        duration = content_seconds
+        llm_total = max(0.01, content_seconds)
     else:
-        llm_total = max(0.01, llm_end_second - llm_start_second)
+        if trim_opening is None:
+            trim_opening = not (keep_segments and len(keep_segments) > 0)
 
-    # Multi-segment cutting: if keep_segments provided, use those ranges.
-    # Otherwise auto-detect silences/fillers and build tight segments.
-    if keep_segments and len(keep_segments) > 0:
-        # Validate segments from Claude
-        keep_segments = [s for s in keep_segments if s["end"] > s["start"]]
-        keep_segments.sort(key=lambda s: s["start"])
+        llm_start_second, llm_end_second = start_second, end_second
+        orig_keep_segments = None
+        if keep_segments and len(keep_segments) > 0:
+            llm_start_second = keep_segments[0]["start"]
+            llm_end_second = keep_segments[-1]["end"]
+            orig_keep_segments = [dict(s) for s in keep_segments if s["end"] > s["start"]]
+            llm_total = max(0.01, sum(s["end"] - s["start"] for s in orig_keep_segments))
+        else:
+            llm_total = max(0.01, llm_end_second - llm_start_second)
 
-        if trim_opening and transcript_words:
-            trimmed_start = _trim_weak_opening(
-                transcript_words,
-                keep_segments[0]["start"],
-                keep_segments[0]["end"],
-            )
-            if trimmed_start < keep_segments[0]["end"] - 0.5:
-                keep_segments[0]["start"] = trimmed_start
+        # Multi-segment cutting: if keep_segments provided, use those ranges.
+        # Otherwise auto-detect silences/fillers and build tight segments.
+        if keep_segments and len(keep_segments) > 0:
+            # Validate segments from Claude
+            keep_segments = [s for s in keep_segments if s["end"] > s["start"]]
+            keep_segments.sort(key=lambda s: s["start"])
 
-        if transcript_words:
-            snapped_end = _snap_to_sentence_end(
-                transcript_words,
-                keep_segments[-1]["start"],
-                keep_segments[-1]["end"],
-            )
-            if snapped_end > keep_segments[-1]["end"]:
-                keep_segments[-1]["end"] = snapped_end
+            if trim_opening and transcript_words:
+                trimmed_start = _trim_weak_opening(
+                    transcript_words,
+                    keep_segments[0]["start"],
+                    keep_segments[0]["end"],
+                )
+                if trimmed_start < keep_segments[0]["end"] - 0.5:
+                    keep_segments[0]["start"] = trimmed_start
 
-        start_second = keep_segments[0]["start"]
-        end_second = keep_segments[-1]["end"]
+            if transcript_words:
+                snapped_end = _snap_to_sentence_end(
+                    transcript_words,
+                    keep_segments[-1]["start"],
+                    keep_segments[-1]["end"],
+                )
+                if snapped_end > keep_segments[-1]["end"]:
+                    keep_segments[-1]["end"] = snapped_end
 
-        # If Claude returned a single segment, still auto-trim pauses within it.
-        # Multiple segments means Claude made deliberate editorial cuts — trust those.
-        if len(keep_segments) == 1 and transcript_words and clean_fillers:
-            auto_segments = _build_tight_segments(
-                transcript_words, start_second, end_second,
-            )
-            if len(auto_segments) > 1:
-                keep_segments = auto_segments
+            start_second = keep_segments[0]["start"]
+            end_second = keep_segments[-1]["end"]
 
-        duration = sum(s["end"] - s["start"] for s in keep_segments)
-    else:
-        if trim_opening and transcript_words:
-            start_second = _trim_weak_opening(transcript_words, start_second, end_second)
+            # If Claude returned a single segment, still auto-trim pauses within it.
+            # Multiple segments means Claude made deliberate editorial cuts — trust those.
+            if len(keep_segments) == 1 and transcript_words and clean_fillers:
+                auto_segments = _build_tight_segments(
+                    transcript_words, start_second, end_second,
+                )
+                if len(auto_segments) > 1:
+                    keep_segments = auto_segments
 
-        if transcript_words:
-            end_second = _snap_to_sentence_end(transcript_words, start_second, end_second)
+            duration = sum(s["end"] - s["start"] for s in keep_segments)
+        else:
+            if trim_opening and transcript_words:
+                start_second = _trim_weak_opening(transcript_words, start_second, end_second)
 
-        # Auto-build tight segments: cut long pauses and isolated fillers
-        if transcript_words and clean_fillers:
-            auto_segments = _build_tight_segments(
-                transcript_words, start_second, end_second,
-            )
-            if len(auto_segments) > 1:
-                keep_segments = auto_segments
-                duration = sum(s["end"] - s["start"] for s in keep_segments)
+            if transcript_words:
+                end_second = _snap_to_sentence_end(transcript_words, start_second, end_second)
+
+            # Auto-build tight segments: cut long pauses and isolated fillers
+            if transcript_words and clean_fillers:
+                auto_segments = _build_tight_segments(
+                    transcript_words, start_second, end_second,
+                )
+                if len(auto_segments) > 1:
+                    keep_segments = auto_segments
+                    duration = sum(s["end"] - s["start"] for s in keep_segments)
+                else:
+                    keep_segments = None
+                    duration = end_second - start_second
             else:
                 keep_segments = None
                 duration = end_second - start_second
-        else:
-            keep_segments = None
-            duration = end_second - start_second
 
-    if duration < 0.75 * llm_total and llm_total >= 8.0:
-        print(
-            f"  Boundary revert: post-trim duration {duration:.1f}s < "
-            f"75% of asked {llm_total:.1f}s - using original range",
-            file=sys.stderr,
-            flush=True,
-        )
-        if orig_keep_segments:
-            keep_segments = [dict(s) for s in orig_keep_segments]
-            keep_segments.sort(key=lambda s: s["start"])
-            start_second = keep_segments[0]["start"]
-            end_second = keep_segments[-1]["end"]
-            duration = sum(s["end"] - s["start"] for s in keep_segments)
-        elif (llm_end_second - llm_start_second) <= spec.dur_max:
-            start_second = llm_start_second
-            end_second = llm_end_second
-            keep_segments = None
-            duration = end_second - start_second
+        if duration < 0.75 * llm_total and llm_total >= 8.0:
+            print(
+                f"  Boundary revert: post-trim duration {duration:.1f}s < "
+                f"75% of asked {llm_total:.1f}s - using original range",
+                file=sys.stderr,
+                flush=True,
+            )
+            if orig_keep_segments:
+                keep_segments = [dict(s) for s in orig_keep_segments]
+                keep_segments.sort(key=lambda s: s["start"])
+                start_second = keep_segments[0]["start"]
+                end_second = keep_segments[-1]["end"]
+                duration = sum(s["end"] - s["start"] for s in keep_segments)
+            elif (llm_end_second - llm_start_second) <= spec.dur_max:
+                start_second = llm_start_second
+                end_second = llm_end_second
+                keep_segments = None
+                duration = end_second - start_second
 
     length_warning = None
     # A clip that asks for captions and renders without them used to be
@@ -1048,6 +1449,10 @@ def generate_clip(
     # Create temp working directory
     work_dir = tempfile.mkdtemp(prefix="podcast_clip_")
     caption_overlay_path = None
+    # Which renderer actually drew words, if any; the exact-mode receipt
+    # reports this rather than assuming the requested captions exist.
+    caption_renderer = None
+    caption_words_drawn: list[dict] = []
 
     try:
         total_steps = 4 + (1 if outro_path and os.path.exists(str(outro_path)) else 0) + (
@@ -1062,14 +1467,26 @@ def generate_clip(
 
         segment_path = os.path.join(work_dir, "segment.mp4")
         with timed("render", "cut", segments=len(keep_segments) if keep_segments else 1):
-            if keep_segments and len(keep_segments) > 1:
+            if exact:
+                # One or many, always the ordered list: cut_multi_segment cuts
+                # each interval in the order given and concatenates them, so
+                # a single interval and a backward pair take the same road.
+                cut_multi_segment(video_path, segment_path, keep_segments)
+            elif keep_segments and len(keep_segments) > 1:
                 cut_multi_segment(video_path, segment_path, keep_segments)
             else:
                 cut_segment(video_path, segment_path, start_second, end_second)
 
         # Remap transcript words for multi-segment clips.
         # Needed before crop (speaker detection) and captions.
-        if keep_segments and len(keep_segments) > 1 and transcript_words:
+        if exact:
+            # Already content-relative and boundary-clipped by the plan, for
+            # one interval exactly as for many.
+            remapped_words = list(plan["content_words"])
+            crop_words = remapped_words
+            crop_clip_start = 0
+            caption_time_offset = 0
+        elif keep_segments and len(keep_segments) > 1 and transcript_words:
             remapped_words = []
             cumulative_t = 0.0
             for seg in keep_segments:
@@ -1164,7 +1581,9 @@ def generate_clip(
             if progress_callback:
                 progress_callback(50, f"Adding {caption_style} captions (3/{total_steps})")
 
-            if keep_segments and len(keep_segments) > 1:
+            if exact:
+                clip_words = list(remapped_words)
+            elif keep_segments and len(keep_segments) > 1:
                 clip_words = remapped_words
             else:
                 clip_words = [
@@ -1220,6 +1639,9 @@ def generate_clip(
                         font_family=font_family,
                         captions=captions,
                     )
+                    if remotion_ok and captions and clip_words:
+                        caption_renderer = "remotion"
+                        caption_words_drawn = list(clip_words)
 
                 if not remotion_ok and not captions:
                     # Nothing else can draw a chip, a bar or a card: the ASS
@@ -1245,6 +1667,9 @@ def generate_clip(
 
                 if not remotion_ok and captions and allow_ass_fallback:
                     # Optional fallback: ASS subtitle burn-in
+                    if clip_words:
+                        caption_renderer = "ass"
+                        caption_words_drawn = list(clip_words)
                     ass_path = os.path.join(work_dir, "captions.ass")
                     render_captions(
                         words=clip_words,
@@ -1298,10 +1723,32 @@ def generate_clip(
         normalized_path = os.path.join(work_dir, "normalized.mp4")
         normalize_audio(captioned_path, normalized_path)
 
+        content_measured = None
+        tolerance = None
+        if exact:
+            # Everything renderer-owned that touches content timing has run:
+            # cut, crop/fit, captions, loudness. Measure the content before a
+            # bookend can hide a wrong cut inside a longer file.
+            content_measured = exact_render.probe_media(normalized_path)
+            tolerance = exact_render.timing_tolerance(
+                segment_count=len(keep_segments),
+                source_fps=plan["source"]["fps"],
+                output_fps=content_measured["fps"],
+                bookend_count=int(bool(intro_path)) + int(bool(outro_path)),
+            )
+            exact_render.verify_content_measurement(
+                requested=plan["content_duration"],
+                measured=content_measured,
+                tolerance=tolerance,
+                source_has_audio=plan["source"]["has_audio"],
+            )
+
         # Step 5: Prepend intro, then append outro (if provided).
         # concat_outro joins two clips head-to-tail, so passing the intro first
         # puts it in front of the clip.
         final_video_path = normalized_path
+        intro_report = {} if exact else None
+        outro_report = {} if exact else None
         if intro_path and os.path.exists(intro_path):
             if progress_callback:
                 progress_callback(83, "Adding intro")
@@ -1312,8 +1759,11 @@ def generate_clip(
             intro_scaled = os.path.join(work_dir, "intro_scaled.mp4")
             scale_to_frame(intro_path, intro_scaled, cw, ch)
             with_intro_path = os.path.join(work_dir, "with_intro.mp4")
+            # Exact mode vouches for the output's timing, so it takes only
+            # joins that transition audio and video alike.
             concat_outro(intro_scaled, final_video_path, with_intro_path,
-                         crossfade_duration=bookend_fade)
+                         crossfade_duration=bookend_fade, report=intro_report,
+                         synchronized_transitions_only=exact)
             final_video_path = with_intro_path
 
         if outro_path and os.path.exists(outro_path):
@@ -1322,21 +1772,121 @@ def generate_clip(
 
             with_outro_path = os.path.join(work_dir, "with_outro.mp4")
             concat_outro(final_video_path, outro_path, with_outro_path,
-                         crossfade_duration=bookend_fade)
+                         crossfade_duration=bookend_fade, report=outro_report,
+                         synchronized_transitions_only=exact)
             final_video_path = with_outro_path
+
+        render_timeline = None
+        if exact:
+            render_timeline = _exact_render_timeline(
+                plan=plan,
+                final_video_path=final_video_path,
+                content_measured=content_measured,
+                tolerance=tolerance,
+                intro_report=intro_report if intro_path else None,
+                outro_report=outro_report if outro_path else None,
+                bookend_fade=bookend_fade,
+                spec=spec,
+                crop_strategy=crop_strategy,
+                foreground_framing=foreground_framing,
+                caption_style=caption_style,
+                captions_requested=captions,
+                caption_renderer=caption_renderer,
+                caption_words_drawn=caption_words_drawn,
+                clean_fillers=clean_fillers,
+                caption_warning=caption_warning,
+            )
 
         # Step 6: Move to output
         if progress_callback:
             progress_callback(95, "Saving final clip...")
 
-        if output_dir:
+        stem = f"{safe_filename(title)}_short"
+        # Sidecars a caller asked to keep are part of this operation's output
+        # and must outlive the work directory.
+        want_overlay = bool(keep_caption_overlay and caption_overlay_path and os.path.exists(caption_overlay_path))
+        want_source = want_overlay and os.path.exists(cropped_path)
+
+        group = None
+        if exact:
+            # Exact mode never touches an earlier output. Each operation owns
+            # a new group directory under the output root (the temp dir when
+            # none is given) and publishes it with one rename; see
+            # _ExactOutputGroup. The in-process reservation set is a legacy
+            # flat-name device and is not consulted here.
+            group = _ExactOutputGroup.create(output_dir or tempfile.gettempdir(), stem)
+            final_path = group.final_path(f"{stem}.mp4")
+        elif output_dir:
             os.makedirs(output_dir, exist_ok=True)
-            final_path = _reserve_output_path(output_dir, f"{safe_filename(title)}_short", ".mp4")
+            final_path = _reserve_output_path(output_dir, stem, ".mp4")
         else:
-            fd, final_path = tempfile.mkstemp(
-                prefix=f"{safe_filename(title)}_short_", suffix=".mp4"
-            )
+            fd, final_path = tempfile.mkstemp(prefix=f"{stem}_", suffix=".mp4")
             os.close(fd)
+
+        base, _ = os.path.splitext(final_path)
+        persisted_overlay = f"{base}_captions.mov" if want_overlay else None
+        persisted_source = f"{base}_source.mp4" if want_source else None
+
+        def _result(file_size: int) -> dict:
+            out = {
+                "output_path": final_path,
+                "duration": round(duration, 2),
+                "file_size_mb": round(file_size / (1024 * 1024), 2),
+                "title": title,
+                "start_second": start_second,
+                "end_second": end_second,
+                "caption_style": caption_style,
+                "foreground_framing": foreground_framing,
+                "crop_strategy": crop_strategy,
+                "format": spec.name,
+            }
+            warnings = [w for w in (caption_warning, length_warning) if w]
+            if warnings:
+                out["warning"] = "; ".join(warnings)
+            if render_timeline is not None:
+                out["timing_mode"] = "exact"
+                out["render_timeline"] = render_timeline
+            if persisted_overlay:
+                out["caption_overlay_path"] = persisted_overlay
+            if persisted_source:
+                out["cropped_source_path"] = persisted_source
+            return out
+
+        if exact:
+            # The operation publishes the proven main file and any requested
+            # sidecars together as one group. Every fallible copy lands in
+            # the group's own staging directory, size-checked; the receipt
+            # is assembled from the staged files; then the single rename
+            # publishes the complete group at the returned paths. No earlier
+            # output is touched at any point. A failure removes only this
+            # operation's directories, and after the rename nothing fallible
+            # remains except best-effort reporting.
+            try:
+                file_size = _stage_verified_copy(
+                    final_video_path, group.staged_path(os.path.basename(final_path)),
+                )
+                if persisted_overlay:
+                    _stage_verified_copy(
+                        caption_overlay_path, group.staged_path(os.path.basename(persisted_overlay)),
+                    )
+                if persisted_source:
+                    _stage_verified_copy(
+                        cropped_path, group.staged_path(os.path.basename(persisted_source)),
+                    )
+                render_timeline["output"]["path"] = final_path
+                out = _result(file_size)
+                group.publish()
+            except BaseException as exc:
+                group.discard(exc)
+                raise
+            if progress_callback:
+                # The group is complete on disk. Neither a failing callback
+                # nor a failing diagnostic may turn it into a reported failure.
+                try:
+                    progress_callback(100, "Clip complete!")
+                except Exception as exc:
+                    _best_effort_note(f"  progress callback failed after publication: {exc}")
+            return out
 
         shutil.copy2(final_video_path, final_path)
 
@@ -1354,38 +1904,17 @@ def generate_clip(
                 progress_callback(97, "Quality gate: checking transitions...")
             _auto_fix_transition_jumps(final_path, max_passes=max_autofix_passes)
 
-        # Get file size
         file_size = os.path.getsize(final_path)
-        file_size_mb = round(file_size / (1024 * 1024), 2)
 
         if progress_callback:
             progress_callback(100, "Clip complete!")
 
-        out = {
-            "output_path": final_path,
-            "duration": round(duration, 2),
-            "file_size_mb": file_size_mb,
-            "title": title,
-            "start_second": start_second,
-            "end_second": end_second,
-            "caption_style": caption_style,
-            "foreground_framing": foreground_framing,
-            "crop_strategy": crop_strategy,
-            "format": spec.name,
-        }
-        warnings = [w for w in (caption_warning, length_warning) if w]
-        if warnings:
-            out["warning"] = "; ".join(warnings)
-        if keep_caption_overlay and caption_overlay_path and os.path.exists(caption_overlay_path):
+        out = _result(file_size)
+        if persisted_overlay:
             # Copy out of work_dir before cleanup so the returned paths survive.
-            base, _ = os.path.splitext(final_path)
-            persisted_overlay = f"{base}_captions.mov"
             shutil.copy2(caption_overlay_path, persisted_overlay)
-            out["caption_overlay_path"] = persisted_overlay
-            if os.path.exists(cropped_path):
-                persisted_source = f"{base}_source.mp4"
+            if persisted_source:
                 shutil.copy2(cropped_path, persisted_source)
-                out["cropped_source_path"] = persisted_source
         return out
 
     finally:

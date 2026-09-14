@@ -1,0 +1,159 @@
+{
+  "purpose": "1B plan freshness; not implementation acceptance evidence",
+  "specRevision": "lead-4",
+  "capturedAt": "2026-09-12T04:10:43.8011442-05:00",
+  "workflowVersion": "4.0.6",
+  "head": "8cf6b82039381e62b0f1dac1953c0c8c279e86f1",
+  "predecessor": {
+    "slice": "1A accepted",
+    "snapshot": "_local/project/writing-studio/1a-repair-2-snapshot/manifest.json",
+    "patchSha256": "308aa8fc5e1313e4a64dbf86c23a412cd1c59924a7af2706d6a029b2479c4194",
+    "review": "reports/1a-repair-2-review.md",
+    "comparison": "Accepted implementation hashes unchanged; only lead bookkeeping differs."
+  },
+  "inputs": [
+    {
+      "path": "AGENTS.md",
+      "sha256": "5646a04621f4ff9da5359482a5ff456a8485c526d71cf21f5b7667be5d58ee2b"
+    },
+    {
+      "path": "docs/workflow/README.md",
+      "sha256": "e91075ba1047a9741cc2cff5926fa5bbb80e189f5b8210bad270a556c7a9e829"
+    },
+    {
+      "path": "docs/workflow/contract.md",
+      "sha256": "8fbd543a9969886899b6187f83eeecaa259575a2542eaa8864d69a6ec18b98f5"
+    },
+    {
+      "path": "docs/workflow/roles/project-lead.md",
+      "sha256": "3a9ce60c7995adad484edb6f3bdfc653cd87187f3b5cca7c7e22bfd7b301f110"
+    },
+    {
+      "path": "docs/workflow/roles/worker.md",
+      "sha256": "a9412f71ee33a207190c3ad7205d70a0610fed08f5b2aaf1247eea6bfacee5ca"
+    },
+    {
+      "path": "CLAUDE.md",
+      "sha256": "b8a60904bafc52f918dc2a2bee9b4f65a5dd15688257b6961ef6ddfa9fcbe606"
+    },
+    {
+      "path": "docs/local-setup.md",
+      "sha256": "36902ad2c5c6a90dbd9c83e0eb5eb9258a2eef9e8086228aae94527de6ddccae"
+    },
+    {
+      "path": "backend/services/clip_generator.py",
+      "sha256": "729c7565183a245efc1f99cc2b30527c902f6a40f75de173ef7fcc84ac9f8e5c"
+    },
+    {
+      "path": "backend/services/video_cut.py",
+      "sha256": "a16345c4897106201d6802eba8c158360f8b3dea12e9e26df734e0e26592b49d"
+    },
+    {
+      "path": "backend/services/video_processor.py",
+      "sha256": "addd877b6c74167b22b6cd51071ee651762cc10934b07896046df85a2793f930"
+    },
+    {
+      "path": "backend/services/audio_normalize.py",
+      "sha256": "c8ff30dc5f76bdb655a47a0f6452ee6099bc988313ec929a59f58c3b0511554b"
+    },
+    {
+      "path": "backend/services/media_probe.py",
+      "sha256": "e7631013eb27f068bcd758d1ce87a4e39f6a19bac81c2b99798c2da8c2ca3c44"
+    },
+    {
+      "path": "backend/services/audiogram.py",
+      "sha256": "e80894d4058eea38b35b013cb34cf385f05898f8ce00424056fe4bd7642441c7"
+    },
+    {
+      "path": "backend/main.py",
+      "sha256": "dbf21b771318f880dbf54a164b95b278218c6906263f855a096ec3120d7c82df"
+    },
+    {
+      "path": "src/models/index.ts",
+      "sha256": "85b7bfc895c16a6575082dba9fa4993a39c0396dc820d9640b5c8c5d5a8dd38d"
+    },
+    {
+      "path": "src/services/python-executor.ts",
+      "sha256": "55217905023ef208ad0a9a4826a2cda0a22259db3c547fd9d884ca91ce9bce52"
+    },
+    {
+      "path": "src/services/clips-history.ts",
+      "sha256": "2d465e82680fc972fb8a0f2aeb95d396d2951ad3296a74d9f1bbfa29f7119fa0"
+    },
+    {
+      "path": "src/utils/mutation-lock.ts",
+      "sha256": "52ec81eafc1b31b669cfe543cad453cc33062ceead227142e91e3def989f7bce"
+    },
+    {
+      "path": "backend/services/clips_history.py",
+      "sha256": "0ca8ae9b7ad70c8e34f1adb83104040724b56c542a5d73a0bd8d7e2fd8b68ef1"
+    },
+    {
+      "path": "backend/services/mutation_lock.py",
+      "sha256": "9c5cc7a39f4d730ccd3817e1bc5f3393b99ed19e09ad11e590ba297c88ad654a"
+    },
+    {
+      "path": "src/ui/web-server.ts",
+      "sha256": "8fd09a150310212e548adc8c4e1cd5db84ff49823a610d1f20148c78bffb5e13"
+    },
+    {
+      "path": "src/services/storage-cleanup.ts",
+      "sha256": "22ba0ac741b8653be002fb31a52057891030ca9b861ff9a6f8b2c280cf11cbad"
+    },
+    {
+      "path": "src/ui/client/ClipDetail.tsx",
+      "sha256": "c757e4d0eddd92999d902ecb7bbc7d8ba2a2863ebcb7c642154e0c9f0e45d912"
+    },
+    {
+      "path": "src/ui/client/ReframeEditor.tsx",
+      "sha256": "68c6e13a04ba8fe8db749068341af9d4b6c91c8abd7098dac9fe70bf92baa05f"
+    },
+    {
+      "path": "tests/test_clip_generator.py",
+      "sha256": "a75fb79e3959c65a3a42d8caadcb7e60b2a85a064a8f48846b882d7baef68c1e"
+    },
+    {
+      "path": "tests/test_batch_render.py",
+      "sha256": "550ab521d974fea9150cf14d5d83e258b877dd1aa110287d00375e097016b0dd"
+    },
+    {
+      "path": "tests/test_foreground_framing.py",
+      "sha256": "285dff6a0a9327764a57daf94a0da5b5873067860717f9eb4c72968d40499947"
+    },
+    {
+      "path": "scripts/verification/check-preview-render.mjs",
+      "sha256": "4113ff304d3df8f4fab4b81a643129331068affff0cd8dbb60f13705405a7648"
+    },
+    {
+      "path": "scripts/verification/run-tests.mjs",
+      "sha256": "373eba2ee5cc5b6f25c862d14e58d9545600c1eacfcc1b9534eb3bcb42e30389"
+    },
+    {
+      "path": "scripts/local/runtime.mjs",
+      "sha256": "0ed6f227f93b3aae26104ac6bdab5039cf926e3c0b612681afc0da809d3ea02e"
+    },
+    {
+      "path": "package.json",
+      "sha256": "b5f8cb7df014185b06de3d4e0ba8f593212572988db5517ef0af4e8234f6b82b"
+    },
+    {
+      "path": "package-lock.json",
+      "sha256": "315ea9a6c258942619c568cbe4029d692c3de3e20c560640ac60f6a7b9ceb65a"
+    },
+    {
+      "path": "docs/project/tasks/writing-studio/spec.md",
+      "sha256": "893c527895c13fd6322592a6429b2a454d1b3622397ec115c7be6057fce34c79"
+    },
+    {
+      "path": "docs/project/tasks/writing-studio/plan-1b.md",
+      "sha256": "b8ba5ca78d3c05758291d46123856f1a8732bfbc07e54f58e3ca73f4e8065a89"
+    },
+    {
+      "path": "docs/project/tasks/writing-studio/handoff-1b-1.md",
+      "sha256": "07253ae9984fa2d8be9d5c3ac8d092d2a29776692b023093b2953728b58310c1"
+    }
+  ],
+  "ignoredContext": "Accepted local snapshot/review evidence inspected; real Library/media/browser drafts and private runtime config not read.",
+  "verification": "Source inspection and hash comparisons only; no 1B implementation/build/render/AI call.",
+  "gitStatusNote": "Existing uncommitted 1A repairs and records preserved. Global ignore warning remains; no Git configuration/index changed."
+}

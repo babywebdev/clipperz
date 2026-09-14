@@ -1,81 +1,78 @@
+---
+record: "spec"
+task: "[task]"
+cycle: "[cycle]"
+spec_revision: "[revision]"
+author: "coordinating-lead"
+date: "[YYYY-MM-DD]"
+state: "active"
+summary: "[Outcome first; at most 40 words]"
+read_when: "[Relevant situations; at most 25 words]"
+---
+
+
 # Spec: [task]
 
-<!-- Copy to docs/project/tasks/[task]/spec.md for substantial work. The coordinating lead maintains this record; review-only assignments do not transfer that ownership. Do not fill the installed template itself. Scale sections to the task; mark inapplicable design detail explicitly. -->
+<!-- Copy to docs/project/tasks/[task]/spec.md; do not fill the installed template. The coordinating lead owns this living spec and its header. Omit cycle if the spec spans cycles; add snapshot only when code-bound. Metadata follows docs/workflow/record-frontmatter.md. Soft cap: 1,500 words; Status 300 words. State a reason here if exceeded; never omit criteria, findings, decisive evidence or approved exceptions to meet a cap. -->
 
 ## Status
 
-- Task ID: [stable task name]
-- Spec revision: [revision/date; change when requirements or settled design change]
+- Objective: [one line]
+- Task ID: [stable name]; spec revision: [revision]; current snapshot: [commit/record or none yet]
 - Implementation: partial | implemented | blocked
 - Verification: pass | fail | incomplete
 - Review: pending | changes-requested | accepted | not-required [reason]
-- Current slice: [number and observable outcome]
-- Coordinating lead: [session/task identifier responsible for authoritative status]
-- Implementation owner: [Worker / Project Lead / none; session identifier if useful]
-- Completed slices: [brief list]
-- Latest reviewed code snapshot: [commit or reproducible snapshot record; none yet]
-- Latest worker report: [path or none]
-- Latest review: [path or none]
-- Next action: [specific step and owner]
+- Integration/release: [separate pending/authorized/done/not-applicable state]
+- Current slice and acceptance IDs: [bounded outcome; AC-IDs]
+- Coordinating lead: [session]; implementation owner: [role/session or none; both for solo]
+- Completed slices: [one line]
+- Unresolved findings: [ledger IDs or none]
+- Last failed approach: [one line or none]
 - Pending Isaac decision: [decision or none]
-- Integration/release: [pending, authorized, done, or not applicable; separate from review]
-
-## Planning baseline and freshness
-
-- Planning baseline: [commit plus relevant working changes, or content manifest; include relevant ignored records]
-- Relevant inputs and assumptions: [schema/interfaces/configuration and constraints on which this design depends]
-- Predecessor outcomes: [accepted state, evidence and unresolved findings used; none when independent]
-- Latest scope reconciliation: [date, current comparison, already-satisfied work removed, dependency/design changes and decision disposition]
-- Pre-implementation freshness: [owner/date and comparison result or pending; link the implementation report when available]
-
-<!-- Reassess relevant drift under the contract's decision boundaries; unrelated changes do not invalidate the plan. Keep future dependent partitions provisional. -->
+- Next action and owner: [specific step]
+- Records to open for this action: [exact paths and sections]
+- Evidence root: [path under recorded storage policy]
 
 ## Product and acceptance criteria
 
 - Problem and audience: [what this solves and for whom]
-- Intended behavior: [observable outcomes]
-- Success measure: [how the outcome is assessed]
-- Implementation completion condition: [observable authorized outcome and required verification; required review remains separate]
+- Intended behavior and success measure: [observable outcome]
+- Implementation completion condition: [authorized outcome and required verification; review remains separate]
 
-| ID | Acceptance criterion, including relevant failure behavior | Required verification |
+<!-- This is the single acceptance-to-check map. Reports reference IDs and supply results, not a second plan. Name mapped verify-skill features when applicable; reuse adequate coverage and identify gaps requiring tests. -->
+
+| ID | Acceptance criterion, including relevant failure behavior | Required verification and expected result |
 |---|---|---|
-| AC-1 | [observable result] | [test, command, or runtime steps and expected result] |
+| AC-1 | [observable result] | [exact check/runtime steps or mapped feature; expected result] |
 
 ## Scope
 
-- Expected change areas: [paths or bounded components; include necessary tests/docs/evidence]
-- Protected boundaries: [what requires an additional decision]
-- Do not build: [adjacent features, speculative work, unrelated refactors]
+- Expected change areas: [bounded components/paths, necessary tests/docs/evidence]
+- Protected boundaries: [what needs a decision]
+- Do not build: [adjacent/speculative work and unrelated refactors]
 
 ## Design and delegated choices
 
-- Important system boundaries and interfaces: [contracts, data flow, invariants]
-- Existing patterns to reuse: [verified paths]
-- Minimum sufficient approach: [how the requirement and important constraints are met without speculative layers]
-- Risk-bearing choices settled: [decisions and reasons]
-- Implementation choices delegated: [what the worker may decide]
-- Planned behavior tests: [existing relevant coverage; identified acceptance/regression/risk gaps requiring additions]
-- Program structure where necessary: [file areas, call paths or signatures only where they settle consequential design]
+- Settled consequential decisions: [important boundaries, interfaces, invariants, minimum sufficient approach, verified precedents and reasons; relevant ADR/external links]
+- Delegated internal choices: [what the implementation owner may decide]
 
 ## Behavioral slices
 
-1. [Working outcome, its relevant failure behavior, and acceptance criteria covered]
-2. [Next outcome]
+1. [Observable outcome, relevant failure behavior, acceptance IDs]
+2. [Next outcome; later dependent details remain provisional]
 
-<!-- Order by useful behavior and uncertainty. Do not enforce a universal mock/UI/wiring sequence. -->
-
-## Investigate and prerequisites
-
-<!-- For open-ended investigation only: state the evidence or lack of progress that triggers stopping/reassessment, any explicitly agreed cap, and the next action on reaching it. A cap hit does not establish task completion. Omit when inapplicable. -->
+## Prerequisites
 
 | Fact/resource | How to verify | Needed by | If missing |
 |---|---|---|---|
-| [fact, account, fixture, or environment variable name] | [source/check] | [slice] | [affected path and independent work that can continue] |
+| [fact/account/fixture/environment variable name, no secret] | [source/check] | [slice] | [affected path; independent work] |
 
-## Decisions and deviations
+<!-- For open-ended investigation, name the evidence/lack of progress that triggers reassessment, any explicitly agreed cap, and next action; a cap never establishes completion. Omit if inapplicable. -->
 
-[Meaningful implementation notes, proposals, decision owner, accepted/rejected resolution, and affected spec revision. Apply the shared contract; a proposal does not silently change a requirement.]
+## Current baseline and assumptions
 
-## Durable decisions
+[Compact current block: commit plus relevant working changes or manifest; relevant schema/interfaces/configuration and ignored inputs; accepted predecessor results/evidence and unresolved findings; latest scope reconciliation and freshness comparison, or pending. No invented historical baseline. Link superseded baselines and dated decisions to spec-log.md.]
 
-[Links to ADRs or external setup records, or none. No secret values.]
+## Approved exceptions currently in force
+
+[Exception, decision owner/authorization, affected criteria and conditions/expiry, or none. Proposals do not change requirements. Superseded decisions/deviations and drift history go to the append-only spec log.]

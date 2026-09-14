@@ -92,6 +92,137 @@ export interface ClipResult {
   format?: Format;
   caption_overlay_path?: string;
   cropped_source_path?: string;
+  /** Present only for an exact-edit render (internal create_clip `timing_mode: "exact"`). */
+  timing_mode?: TimingMode;
+  render_timeline?: RenderTimeline;
+}
+
+// === Exact render result (Writing Studio 1B.1) ===
+//
+// Internal create_clip contract. `timing_mode: "exact"` renders the ordered
+// `keep_segments` exactly as supplied and returns `render_timeline` version 1
+// describing what was actually produced. Absent timing_mode keeps the legacy
+// renderer behavior and result shape. Not exposed through any public route yet.
+
+export type TimingMode = "legacy" | "exact";
+
+/** A source-absolute interval, in the order it is rendered. */
+export interface RenderTimelineSegment {
+  index: number;
+  source_start: number;
+  source_end: number;
+  /** Content-relative seconds: kept intervals concatenated from 0 in supplied order. */
+  content_start: number;
+  content_end: number;
+  duration: number;
+}
+
+export interface RenderTimelineBookend {
+  kind: "intro" | "outro";
+  /** Output seconds occupied by the bookend outside the transition. */
+  output_start: number;
+  output_end: number;
+  asset_duration: number;
+  requested_fade: number | null;
+  /** Seconds of video the join really overlaps; 0 for a hard cut. */
+  applied_overlap: number;
+  /** Composition branch the helper actually took. */
+  branch: "xfade_acrossfade" | "xfade_audio_concat" | "hardcut_soft_audio" | "hardcut";
+  transition: { output_start: number; output_end: number };
+  measured_output_duration: number | null;
+}
+
+export interface RenderTimelineTolerance {
+  content_seconds: number;
+  composition_seconds: number;
+  av_sync_seconds: number;
+  basis: string;
+}
+
+/** A content-relative word; carries whatever metadata the source word had (speaker, confidence). */
+export interface RenderTimelineWord {
+  word: string;
+  start: number;
+  end: number;
+  speaker?: string | null;
+  confidence?: number;
+  [extra: string]: unknown;
+}
+
+export interface RenderTimeline {
+  version: 1;
+  timing_mode: "exact";
+  time_domains: Record<string, string>;
+  source: {
+    path: string;
+    duration: number | null;
+    fps: number | null;
+    frame_rate_variable: boolean;
+    width: number | null;
+    height: number | null;
+    has_audio: boolean;
+  };
+  segment_count: number;
+  segments: RenderTimelineSegment[];
+  /** Requested content seconds (sum of intervals); the legacy top-level `duration`. */
+  content_duration: number;
+  /** Probed content seconds after cut, framing, captions and loudness. */
+  content_duration_measured: number;
+  /** Output second at which content starts (intro contribution, 0 without one). */
+  content_to_output_offset: number;
+  /** Probed length of the rendered file, bookends included. */
+  output_duration: number;
+  output: {
+    path: string;
+    width: number | null;
+    height: number | null;
+    fps: number | null;
+    frame_rate_variable: boolean;
+    has_audio: boolean;
+    video_duration: number | null;
+    /** null when the output has no audio stream. */
+    audio_duration: number | null;
+    file_size_bytes: number;
+  };
+  tolerance: RenderTimelineTolerance;
+  frame_precision: { source_variable_frame_rate: boolean; note: string };
+  bookends: {
+    requested_fade: number | null;
+    intro: RenderTimelineBookend | null;
+    outro: RenderTimelineBookend | null;
+  };
+  /** The Library's opening card is applied by the server later; always absent here. */
+  thumbnail_card: { applied: false; note: string };
+  framing: {
+    format: Format;
+    width: number;
+    height: number;
+    crop_strategy: string;
+    foreground_framing: import('../services/foreground-framing.js').ForegroundFraming | null;
+    crop_keyframes: { time_domain: "content"; keyframes: Array<{ t: number; x_pct: number }> | null };
+  };
+  words: {
+    /** "unavailable" when no transcript_words list was supplied; "supplied" otherwise, even if empty. */
+    input: "supplied" | "unavailable";
+    source_count: number | null;
+    /** Supplied source-absolute words touching any kept interval, unmodified. */
+    source: RenderTimelineWord[] | null;
+    /** Content-relative, boundary-clipped, in output order; the editorial transcript. */
+    content: RenderTimelineWord[];
+    content_text: string;
+  };
+  captions: {
+    requested: boolean;
+    style: string;
+    /** True only when a caption renderer actually drew words. */
+    rendered: boolean;
+    renderer: "remotion" | "ass" | null;
+    filler_cleaning: boolean;
+    /** The caption-cleaned words that were drawn; distinct from words.content. */
+    words: RenderTimelineWord[];
+    unavailable_reason: string | null;
+  };
+  heuristics_disabled: string[];
 }
 
 export interface SuggestedClip {
@@ -328,6 +459,10 @@ export interface ClipHistoryEntry {
   cloud_id?: string;
   cloud_synced?: boolean;
   cloud_video_uploaded?: boolean;
+  // Writing Studio saved revisions (1B.2a): authoritative draft/current/previous
+  // pointers and operation records. Absent on unversioned clips; unknown to the
+  // Python writer, which preserves it as an opaque field.
+  revisions?: import("./clip-revisions.js").ClipRevisionState;
 }
 
 // === Knowledge Base Models ===

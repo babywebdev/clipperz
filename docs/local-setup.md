@@ -182,6 +182,25 @@ blur are approximate; use the rendered preview for final review.
 audio between a disposable preview and batch export and checks that previews stay
 out of history. It uses an isolated server on port 3893 and synthetic local media.
 
+`node scripts/verification/check-exact-render.mjs` exercises the internal
+`create_clip` exact-edit mode (`timing_mode: "exact"`, Writing Studio 1B.1)
+through the compiled Python bridge with synthetic media: it renders a reversed,
+noncontiguous `keep_segments` sequence with Remotion captions and an outro fade,
+decodes frames and tones to prove the order and the absence of discarded
+seconds, checks the returned `render_timeline`, confirms that an omitted, null
+or empty transcript is reported as sent with captions truthfully not drawn,
+confirms the default request is unchanged, and confirms refused requests leave
+the export directory untouched. It needs the build and the Remotion bundle
+cache. The mode is internal and opt-in; no Studio route, CLI flag or batch path
+enables it yet. In exact mode the bookend join only takes transitions that treat
+audio and video alike. Each exact operation publishes into its own new group
+directory under the export root (`<title>_short-<op_id>/final/`) holding the
+proven main file plus any requested caption overlay and cropped source, with one
+directory rename; the returned paths are those final files. Earlier same-title
+outputs, flat or grouped, are never renamed, replaced or deleted, and a failed or
+interrupted operation publishes nothing. The check renders the same title twice
+and confirms the earlier output is byte-identical and still decodes.
+
 First render a short synthetic clip with fixed captions. Then transcribe a short
 local sample, supply selected moments, and render with Remotion. Review framing,
 caption timing, audio alignment, and decoding. Test persistence after restart and
@@ -285,10 +304,19 @@ bounded (10 seconds by default; `PODCLI_HISTORY_LOCK_TIMEOUT_MS` overrides it)
 and a timeout reports the owner and the lock path. Recovery rules:
 
 - A running owner is never displaced, however long it holds the lock.
-- A lock whose owner process on this machine has exited is reclaimed
-  automatically; a crash while holding the lock needs no manual step.
-- A lock with no readable owner record (a crash between creating the file and
-  writing the record) is reclaimed after 60 seconds.
+- A lock whose recorded owner process on this machine has exited is removed
+  automatically by the next waiter; a crash while holding the lock needs no
+  manual step. Only one waiter recovers at a time, through a short-lived
+  recovery file `history/clips.json.lock.reclaim`.
+- A lock with no readable owner record is never removed automatically, however
+  old it is: a process can be paused between creating the file and writing its
+  record, and elapsed time cannot prove it has gone. Edits fail with a message
+  naming the file. If no Clipperz Studio or CLI process is running, delete
+  `history/clips.json.lock` by hand and retry.
+- A leftover `history/clips.json.lock.reclaim` (a crash during recovery) is
+  never taken over automatically. Edits fail with a message naming both files.
+  If no Clipperz Studio or CLI process is running, delete
+  `history/clips.json.lock.reclaim` and `history/clips.json.lock`, then retry.
 - A lock recorded by another host name, or whose process id is in use (a reused
   id after a crash cannot be told apart from a live owner), is treated as live.
   If no Clipperz Studio or CLI process is running, delete
@@ -298,7 +326,12 @@ Interrupted waiting creates no files. Leftover `clips.json.*.tmp` files are
 abandoned partial writes from a crashed process; the real file is always either
 the previous or the new complete version, and the temp files can be deleted.
 
-Tests: `src/utils/mutation-lock.test.ts`, `src/services/clips-history.test.ts`,
+Edits read the file strictly: bytes that are not valid UTF-8, invalid JSON, or
+an unexpected structure make the edit fail with a typed message and leave the
+file byte-for-byte unchanged. Listing stays lenient and prints a warning.
+
+Tests: `src/utils/mutation-lock.test.ts`, `src/utils/mutation-lock.recovery.test.ts`
+(deterministic recovery schedules), `src/services/clips-history.test.ts`,
 `src/services/clips-history.cross-process.test.ts` (real Node and Python
 processes), `tests/test_mutation_lock.py`, `tests/test_clips_history.py`.
 

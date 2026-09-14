@@ -1,15 +1,19 @@
 # Project Agent Startup
 
-This repository uses `docs/workflow/README.md` to identify its installed workflow and selected references.
+For Codex, default to **Project Lead** unless Isaac or an explicit session/task assignment selects another installed role. Use only that role for this assignment; inspecting another role as data does not activate it or rewrite defaults.
 
-For Codex, default to **Project Lead** unless Isaac or an explicit session/task assignment selects another role. The selected role applies for that assignment; do not load both roles as active identities. When assigning work to another session, state its role explicitly.
+Before substantive work, read in this order:
 
-Before substantive work:
-1. Read `docs/workflow/README.md` and `docs/workflow/contract.md`.
-2. Read `CLAUDE.md` for shared project facts and conventions, and the additional context sources named by the workflow README.
-3. Read the selected role file from the README's role map.
-4. Read the selected project references and the relevant task spec or phase records.
+1. `docs/workflow/README.md`.
+2. The contract core, Part A of `docs/workflow/contract.md`.
+3. The selected role from the README role map.
+4. Shared project context in `CLAUDE.md` and applicable additional sources named by README.
+5. Selected project references with their applicability; read their requirements before settling affected design, implementation or review.
+6. The assigned spec's Status or established phase-state owner; preserve existing phase procedures.
+7. A bounded index: `python docs/workflow/scripts/record-index.py docs/project/tasks/<task>`, or bounded header reads without Python. For phases use the assigned phase-record root.
 
-A path listed here is a reading instruction, not an automatic import. If a selected file is missing, report the specific gap and recover the intended selection from project records or Isaac; do not silently activate a different role.
+Read relevant requirements, acceptance criteria, constraints, current baseline and approved exceptions before implementation. Read complete applicable Part B procedures before their named actions: scope/design decisions, plan authoring/start/resume, verification/receipts, report snapshot binding, review/disposition, recurrence/repair/STUCK, authorized edits, and checkpoints/handoff/risky steps. Follow the core's section-first read discipline; no unconditional whole-contract startup read. Metadata routes reading, never authority/acceptance; unrelated references do not activate.
 
-An explicit review-only assignment selects the Project Lead role's review-only procedures, not its coordination or repair authority. The coordinating lead follows that role file's independent-review and session-continuity procedures. Reading the shared contract or references grants no other role's permissions. If instructions change during a session, explicitly reread them before using the change. Existing session context is not erased by editing a file.
+Explicit overrides include “For this session, act as Worker. Implement slice 2 of [task]”, “Act as Project Lead in review-only mode for [task]”, and “Act as coordinating lead and implementation owner for [task] slice N”. Review-only grants no coordination, repairs, Status/ledger edits or delegation. Solo selects the lead's bounded procedure and independent-closure rule, not consequential work.
+
+These paths are explicit reading instructions, not automatic imports. A missing selected role/reference is a configuration gap to resolve from project records or Isaac, not permission to guess a replacement. AGENTS.md and the Claude entrypoint have different defaults; do not import one into CLAUDE.md or adopt the other tool's default. Reread changed instructions before using them. After compaction follow the core's recovery rule instead of blindly repeating retained startup content.

@@ -1,65 +1,205 @@
+---
+record: "spec"
+task: "writing-studio"
+spec_revision: "lead-12"
+snapshot: "_local/project/evidence/writing-studio/1b-2a-repair-2/snapshot/manifest.json"
+author: "coordinating-lead"
+date: "2026-09-14"
+state: "active"
+summary: "Repair-2 closes WS-12; WS-16 survives two rounds. Lead-12 reassesses missing join provenance and authorizes a bounded contract correction by manual Worker relay."
+read_when: "Implementing or reviewing the reassessed join-provenance correction, or checking retained closures."
+---
+
 # Implementation plan: Writing Studio and Library editing
 
-Originally prepared by a planning-only author. The coordinating Project Lead has
-reviewed and refined it against current code in revision lead-2. The roadmap remains
-provisional; only the bounded slice 1A below is technically ready for an implementation
-assignment, subject to Isaac's approval/relay. No implementation is authorized yet.
+This living head retains all current feature requirements and acceptance criteria.
+Size exception: it exceeds 1,500 words to preserve the multi-slice data, media,
+compatibility and safety contracts while the next bounded save slice is introduced. Historical
+baselines, status and decision rationale moved losslessly to append-only spec-log.md;
+later slices remain provisional. No criterion is removed to meet the soft cap.
 
 ## Status
 
-- Task ID: writing-studio
-- Spec revision: lead-2, 2026-09-11
-- Implementation: slice 1A implemented and handed back by Worker; later slices not started.
-- Verification: Worker reports pass on the bound 1A snapshot; lead confirmed all 24
-  manifest hashes and patch hash match. Review of evidence/coverage in progress.
-- Review: fresh independent review of slice 1A in progress; acceptance pending.
-- Current slice: 1A review cycle 1.
-- Coordinating lead: Codex, this coordinating Project Lead session, 2026-09-11.
-- Implementation owner: coordinating Project Lead after Worker handback; writes
-  frozen for independent review, no repairs authorized by this status update.
-- Conditional ownership handoff recorded by lead: upon Isaac's explicit approval
-  and relay of handoff-1a.md, the receiving Worker is the sole implementation
-  owner for slice 1A until it hands writes back. No ownership is active at kickoff.
-- Completed slices: none accepted yet. Worker report: reports/1a-worker.md.
-- Pending independent report: reports/1a-review.md (fresh review-only subagent).
-- Review snapshot: 710b4d4 plus _local/project/writing-studio/1a-snapshot patch and
-  24-file manifest. Matched before this bookkeeping update; spec behavior unchanged.
-- Next action: independent review, then lead disposition and manual next handoff.
-- Pending Isaac decisions: none for review. D1/D2 resolved by Isaac:
-  move captions/logos to Writing Studio; preserve detached writing and offer older
-  revisions in explicit Cleanup (reports/kickoff-assessment.md).
-- Integration/release: not authorized by this planning request.
-- Installed workflow: 4.0.6; local adaptations recorded in `docs/workflow/README.md`.
+- Objective: Writing Studio and Library editing with safe saved media and writing.
+- Task: writing-studio; revision: lead-12 (2026-09-14, post-budget reassessment).
+- Current snapshot: HEAD `8cf6b82039381e62b0f1dac1953c0c8c279e86f1` plus
+  `_local/project/evidence/writing-studio/1b-2a-repair-2/snapshot/manifest.json`.
+- Implementation: repair-2 implemented and handed back; broader task partial.
+- Verification: fail for acceptance: independent 38/38 pass, but wrong-overlap
+  reproduction commits. Historical Python evidence excludes the separate AI change.
+- Review: R1/WS-12 closed; R2/R3/R4 retained. R5/WS-16 changes-requested.
+- Integration/release: not authorized.
+- Current slice: reassessed 1B.2a contract correction (repair-3), WS-16 / B2A-4/6.
+- Coordinating lead: existing Writing Studio coordinating Codex session, resumed
+  under explicitly reread 4.1.0 instructions; maintenance ownership was separate.
+- Implementation owner: Worker on manual relay of lead-12; none active here.
+- Completed: 1A/1B.1; 1B.2a WS-12/13/14/15 corrections, not full slice acceptance.
+- Unresolved: WS-16; WS-03/04/05 and legacy WS-06/09 remain open.
+- Last failed approach: overlap bounds cannot prove deterministic clamp; receipt
+  drops raw join inputs and fake-only validation misses coherent wrong-overlap cases.
+- Pending Isaac decision: none.
+- Next action/owner: Worker implements bounded join-provenance direction below,
+  returns repair-3 report; fresh independent review then lead disposition/reassessment.
+- Resume comparison: 78 files, 46 local evidence, five contract and 16 workflow
+  entries matched before bookkeeping; only excluded Worker report outside inventory.
+- Open: this spec's 1B.2a section, requirements/map/baseline/exceptions;
+  lead-12 direction below; `reports/1b-2a-repair-2-review.md` finding/reassessment
+  and `reports/1b-2a-repair-2-worker.md` receipt/Handoff;
+  accepted predecessor evidence remains applicable within its recorded limits.
+- Evidence: new `_local/project/evidence/writing-studio/1b-2a/`; prior
+  `_local/project/writing-studio/` remains in place. Installed inventory:
+  `docs/workflow/inventories/4.1.0-local-1.md`.
 
-## Planning baseline and freshness
+## Current baseline and assumptions
 
-- Inspected checkout: `C:/Users/Isaac/Desktop/BabyWebDev/Code and Websites/video-clipperz`.
-- HEAD: `710b4d4eaf598e1a3a75a48e57b17b1b25f30e0e`.
-- That commit is titled `Updates pre-Writing Studio`. The 46 application/workflow
-  inputs captured in `planning-baseline.json` have no working changes at the final
-  planning check. This task's new plan files and the historical-draft pointer are
-  uncommitted. The manifest records hashes and Git status for drift detection;
-  it is not an implementation review or acceptance snapshot.
-- Product input: Isaac's request to combine Content and Library's publishing work,
-  preserve all capabilities, retain trim/reframe/thumbnail editing in Library,
-  add an easier live timeline, and hand off saved clips without export/reupload.
-- Earlier discussion: `docs/writing-studio-plan.md`; it is historical context,
-  not another task-status owner. Workflow installation is complete; its earlier
-  unresolved workflow-location question is obsolete.
-- Relevant ignored context: the configured runtime is described by
-  `docs/local-setup.md` and loaded by `scripts/local/runtime.mjs`. No credentials,
-  actual environment values, media, or user's history were copied into this plan.
-  Runtime availability, source files, and browser draft contents were not tested
-  in this planning turn. Validate them in disposable fixtures when needed.
-- Source-inspection observations below are not runtime bug reproductions. Earlier
-  thumbnail/build successes do not prove this proposed workflow works.
-- Before implementation and each resumed slice, compare relevant hashes, callers,
-  migration shape, and predecessor results; update affected design and checks.
-  Do not reset working changes; another checkout needs these plan documents as
-  well as the recorded application baseline before it can resume the task.
-- Before independent implementation review, capture the stronger patch/content
-  snapshot required by the workflow contract. No worker should infer review
-  approval or ownership from the existence of this file.
+Accepted repair-3 is the current application baseline: HEAD
+`8cf6b82039381e62b0f1dac1953c0c8c279e86f1`, patch
+`_local/project/writing-studio/1b-1-repair-3-snapshot/1b-1-repair-3-tracked.patch`
+SHA-256 `e79ad677ca6012c09ffc24892a0b93f59e9bb676642fd7d7f33426b2ba5002e0`.
+The accompanying manifest binds code, checks and relevant ignored inputs. All 87
+entries matched at handback before lead bookkeeping. Only the renderer group-setup
+helper and its tests changed from repair-2 application inputs. Prior baseline and
+workflow reconciliation are preserved in spec-log.md and the identity mapping.
+The refresh snapshot at `_local/generate-init-refresh/20260913/snapshot/manifest.json`
+preserves base/patch/content for this maintenance result; it is not repair-3 evidence.
+
+The latest repair-3 report Handoff returns implementation ownership; its fresh
+review/disposition closes WS-11 and accepts 1B.1. `baseline-1b2.json` records the
+refreshed planning inputs, including interfaces, accepted evidence and instructions.
+It is a planning manifest, not an implementation verification receipt.
+Reconcile any later report/evidence with the actual tree rather than relying on
+metadata alone. Concurrent input changes require affected freshness/evidence,
+not an automatic reset. The earlier no-repair-3 observations refer to refresh entry.
+
+Accepted 1A evidence remains `reports/1a-repair-2-review.md` and its bound snapshot;
+exact R1/R2 and R3a/R3b closures remain in `reports/1b-1-repair-2-review.md`.
+Legacy parity/Node/build/type evidence may be reused only with unchanged covered
+inputs and dependency justification. No historical execution claim is rebound to
+4.1.0; six repair-2 workflow hashes match the preserved pre-refresh inventory subset.
+Other historical provenance remains as recorded or unknown.
+
+Read `CLAUDE.md` and `docs/local-setup.md` for the configured runtime, storage,
+secret/media protections and actual commands; those files are unchanged. Generic
+media-app references remain appropriate; PodStack stays explicit-task-only.
+
+## Current exact publication and successor constraints
+
+Current publication requirement: exact outputs use an exclusively owned new
+directory per operation. Stage the entire requested artifact group on the output
+volume, prepare/validate the receipt, and publish with one directory rename into
+an absent operation-owned destination. Never move/replace previous successful
+files or their sidecars; same-title operations across processes receive distinct
+paths. This removes compensating rollback from failure preservation. Legacy
+output naming/replacement stays unchanged. No revision metadata, journal or
+migration is introduced here. 1B.2 must refresh against the accepted artifact
+layout. Optional completion reporting and its diagnostics are best-effort after
+publication; rendering errors remain visible. Interrupted staging may remain
+unreferenced, but previous paths stay available and no partial group is published.
+Evidence and rationale: reports/1b-1-repair-1-review.md; bounded implementation
+and verification: handoff-1b-1-repair-2.md. No new product decision is required.
+
+Accepted repair-3 requirement: retain the group publication design. Independent
+evidence closes R3a/R3b, including persistent rename faults, failing reporting,
+same-title processes and interruption. R4 occurs before the caller receives its
+group: exclusive parent acquisition succeeds but staging creation fails outside
+cleanup protection. Extend cleanup ownership from that first successful mkdir;
+preserve the original setup error, delete only that owned parent or identify its
+residual if cleanup is denied. No restoration/retry redesign, new protocol or
+product choice is warranted. This condition is accepted through the repair-3
+review/disposition; the original assignment and earlier review remain historical evidence.
+
+1B.2 refresh inputs retained: returned files live under
+<title>_short-<op_id>/final/; the group parent is inferred, not a result field.
+Staging from process death is intentionally uncollected here; empty parents can
+also be interrupted setup. Directory shape alone is not proof of an abandoned
+operation: later recovery/Cleanup must account for active owners and references
+before deletion. Full source transcript recovery input and the narrower exact
+bookend consumer type remain required refresh topics. The bounded 1B.2a assignment
+below consumes these constraints; it does not mark the full feature-map boxes complete.
+
+R1 retains omitted/null versus explicitly empty transcript input through the bridge.
+R2 rejects incompatible audio/video transition semantics even within codec tolerance.
+R3 preservation covers the whole requested artifact group, including sidecars.
+These remain B1-2/B1-3/B1-4 requirements; their history is in spec-log.md.
+
+## 1B.1 current renderer requirements
+
+The renderer contract below is carried forward verbatim from the original 1B.1
+assignment. Current publication, transcript/transition clarifications and repair-3
+requirements above also apply. Its single check map is in Acceptance criteria and
+verification below; earlier handoffs are preserved history.
+
+**B1-1 — explicit exact-edit mode.** Add an opt-in `timing_mode: "exact"` parameter
+to the internal create_clip request and renderer. Absence retains legacy behavior;
+do not repurpose `preserve_timing`. Exact mode takes a nonempty ordered
+`keep_segments` list of source-absolute `{start,end}` intervals as authoritative.
+Validate finite numeric values, positive durations and probed source bounds before
+rendering; reject malformed/unsupported inputs clearly. Do not silently sort,
+merge, widen, clamp or discard requests. Preserve supplied order, including when
+source times run backward between intervals. Never mutate the caller's arrays.
+Legacy bounding fields may remain compatibility summaries; they are not a way to
+replace the ordered sequence. Document their exact-mode meaning without changing
+default callers. All invalid requests must leave source/previous outputs untouched.
+
+Exact mode disables all editorial heuristics: weak-opening trim, sentence-end
+extension, automatic silence/filler interval construction, boundary reversion and
+transition autofix that changes content. Caption-only filler cleaning may still
+change displayed caption words when explicitly requested; it cannot cut speech.
+No omitted interval returns merely because a later caller supplies wider bounds.
+
+**B1-2 — explicit timing result.** Add optional `render_timeline` version 1 to the
+result/types for exact mode. It must identify source-absolute intervals in output
+order and their edited-content offsets, content duration, actual rendered-output
+duration, content-to-output offset and bookend transition regions/actual overlap.
+Keep existing top-level `duration` semantics compatible; future revision code uses
+the explicit output duration. Return immutable-by-convention JSON data, no paths
+chosen by clients and no success receipt for a failed/incomplete render.
+
+Use one consistent mapping for single and multi-segment content. Preserve the
+source timed-word input; derive ordered, boundary-clipped content-relative words
+and full content text without excluded intervals. Keep editorial transcript words
+distinct from caption-only cleaned words. Preserve word metadata such as speakers.
+Clearly distinguish an explicitly supplied empty words array from unavailable
+transcript input; do not silently claim a full transcript when none was supplied.
+No fallback to current episode/cache belongs in this renderer contract. Reject an
+exact request whose requested caption result cannot be produced from its inputs,
+or explicitly represent the unavailable capability; never claim captions exist.
+
+For exact mode, `crop_keyframes[].t` uses edited-content-relative seconds, matching
+the already-cut video passed to the cropper. Validate its time/position domain and
+report that convention. Preserve supplied keyframes/framing settings without
+applying a source-bound subtraction a second time. Future Library draft conversion
+from `tAbs` is 1B.2 scope, not permission to change today's editor payload now.
+
+**B1-3 — actual composition and media proof.** Probe completed video/audio and
+duration/size after all renderer-owned processing. Distinguish intended segment
+boundaries from codec/frame quantization; choose and document a measured tolerance
+based on the fixture's frame/sample timing. Do not claim sample-perfect cuts from
+rounded duration metadata alone. Missing/unreadable/invalid output is a failure.
+
+Preserve captions, logo, existing format/framing, intro/outro and requested bookend
+fade. If a composition helper clamps a fade or falls back to hard cut, report the
+actual branch/overlap, not the requested one. Do not report a valid exact result
+when video/audio transitions disagree or media sync falls outside the justified
+tolerance. Keep helper compatibility for legacy callers; additive result/telemetry
+is preferable to changing their return type blindly. The Library's 1.5s thumbnail
+card is applied later by the server: explicitly report that it is absent from this
+renderer result, not an implicit offset or a second baked card. 1B.2 must compose
+it once and probe again before committing.
+
+The supported scope here is video sources (with or without an audio track). Keep
+the existing audio-only/audiogram branch unchanged for legacy calls. If exact mode
+cannot support that separate renderer faithfully, return an explicit unsupported
+exact-mode error rather than falling through and claiming the requested segments
+were honored. That does not remove its existing render/playback capability.
+
+**B1-4 — safe integration and compatibility.** Carry exact-mode inputs and the
+result through `backend/main.py` / PythonExecutor create_clip JSON without dropping
+fields. It must be reachable through the internal bridge in the disposable check;
+do not add a public endpoint or enable it in existing UI/CLI/batch paths yet.
+Keep default New Episode, preview, batch and existing render behavior unchanged.
+Failures clean only operation-owned temporary artifacts; no mutation of source,
+history or a previously successful output. Rendering remains outside history locks.
 
 ## Product outcome and proposed defaults
 
@@ -104,7 +244,7 @@ publishing) to Isaac rather than silently expanding this task.
 | `src/ui/web-server.ts` clip PATCH + `backend/cli.py` clips edit | Caption-style save currently updates metadata through the CLI; it does not render the new style | Writing Studio must visibly apply caption changes through a render, not repeat a metadata-only save |
 | Same server, `/clips/:id/rerender` | Writes reframe state before render; trim-only path omits `keep_segments`; success updates some history fields | Draft state must not masquerade as committed state; maintain segment/word mapping and synchronize all committed metadata |
 | Same server, thumbnail/logo routes | Thumbnail prepends a 1.5s card; logo uses a pre-logo backup and replaces the output | Work on staged render copies; replacing a logo/card must not restore outdated trims or accumulate layers |
-| TS and Python clip-history services | Share `clips.json`; TS queues only its own writes; Python uses atomic replacement | Atomic replacement avoids partial files but does not prevent cross-process lost updates; make commit coordination explicit |
+| TS and Python clip-history services | Accepted 1A now shares strict mutation reads and cross-process lock; metrics publication checks expected state | Reuse this accepted protocol for revisions; do not reimplement the solved locking work |
 | Word/recipe/reframe sidecars | Separate files support faithful re-rendering | Version the recipe and timed transcript together with the rendered artifact; retain legacy readers/migration |
 | `src/services/storage-cleanup.ts` | Discovers references under history/assets/reels and rechecks before deletion | New revision/writing references must participate; historical references cannot pin unlimited retired media |
 
@@ -291,18 +431,21 @@ text-only through the configured provider chain; no provider calls on page load.
 These are implementation boundaries, not permission for automatic worker dispatch.
 The coordinating lead refreshes later slices after accepted predecessor results.
 
-**Slice 1A — safe shared history mutation** is the first bounded assignment.
-Implement the contract and checks in `handoff-1a.md` only. It closes concurrent
+**Slice 1A — safe shared history mutation** is accepted predecessor work.
+Its completed contract and checks remain in `handoff-1a.md`. It closes concurrent
 lost updates and mutation after unreadable history across current TS/Python writers.
 It introduces no revision schema, migration, new UI, rendering, or deletion policy.
 This is a prerequisite to the original slice 1, now **1B**, below. Acceptance of
 1A does not authorize 1B automatically.
 
-1. **1B: Reliable saved clip and handoff (provisional).** Define/test legacy adapters, draft/revision
-   types, cross-process mutation protocol, commit/cancel/recovery, and operation
-   status. Add a minimal Library handoff and Writing Studio saved-preview route.
-   Prove one disposable clip saves, reopens without upload, and survives a failed
-   render. Keep old Content and Library panels working during this transition.
+1. **1B: Reliable saved clip and handoff.** Current sequence replaces the provisional
+   partition in preserved `plan-1b.md`: **1B.1 exact render result** (accepted),
+   **1B.2a revision commit core** (bounded below), then **1B.2b production adapters,
+   composition and migration** and **1B.3 visible save and handoff** (both provisional).
+   Reuse accepted 1A locking. Refresh and resize each successor
+   from accepted predecessor evidence. Final 1B proves a disposable clip saves,
+   reopens without upload and survives failure; 1B.1 alone does not claim that UI
+   outcome. Keep Content and Library capabilities during the transition.
 2. **Connected writing workspace.** Add clip/standalone document persistence,
    legacy metadata/browser migration, all main generation/copy/manual-edit actions,
    guided section regeneration, custom writing and explicit source modes. Wire
@@ -323,6 +466,299 @@ This is a prerequisite to the original slice 1, now **1B**, below. Acceptance of
    storage paths appear; slice 5 is end-to-end closure, not permission to defer data
    safety until after use. Independently review the complete migrated workflow.
 
+## 1B.2a bounded assignment: revision commit core
+
+Implement an internal TypeScript save service and prove a disposable clip can save
+a draft, commit a real exact render, and reopen the same immutable saved files after
+restart. This is an AC-3/9/11 foundation, not AC-2 browser handoff or full migration.
+No production route, CLI, MCP or UI opts into revision-backed writes in this slice.
+Existing production callers and data remain unversioned. Tests and the disposable
+check invoke the service explicitly with isolated history/output roots. No automatic
+startup migration or new public endpoint. This boundary prevents the current
+rerender, thumbnail, logo and deletion routes from bypassing the new protocol.
+
+**Transaction and persistence.** Reuse the accepted strict history read, shared
+TS/Python mutation lock and atomic replacement. Extend the history service with a
+focused transaction interface as needed; do not add a parallel history collection,
+lock protocol or unlocked whole-list writer. Render, probe and stage substantial
+dependencies outside that lock. Immutable draft/revision sidecars live beneath
+history; authoritative draft/current/previous and operation state live on the clip
+entry and change through the same atomic `clips.json` commit. Preserve unknown
+fields and concurrent unrelated metadata changes.
+
+Use a record incarnation, monotonic draft/revision versions, and stable operation
+IDs bound to the captured recipe and expected versions. All service mutations
+require expected state. One active save per clip is sufficient; another operation
+returns a surfaced conflict/busy result. Replaying an operation with the same
+request returns its durable state/result without another render; reusing its ID
+for different input conflicts. A draft save leaves committed paths and summaries
+unchanged. A render may commit only if the same clip incarnation, draft, current
+revision and active operation still match. Missing/deleted/recreated clips, changed
+drafts, cancellation and superseded work cannot publish a late pointer.
+
+Publish complete immutable dependencies first, then atomically update current and
+previous revision pointers, legacy summary fields and the operation's success
+receipt together. Failure before that history replacement leaves the last save
+unchanged; loss of acknowledgement after it is resolved by reading the operation
+receipt. Cancellation/recovery explicitly invalidates the operation under the lock
+before any replacement work. After restart a pending operation remains pending
+until it completes or is explicitly invalidated; do not guess death from elapsed
+time or directory shape, automatically resume it, or start a second renderer for
+the same ID. Invalidating a live operation is safe because its eventual commit
+must fail the same expected-state check. Surface actionable states/errors.
+
+**Media and transcript.** Use the accepted `create_clip` exact bridge. Place each
+operation beneath a dedicated app-owned namespace under the configured export
+root, containing the renderer's exclusively created group and returned `final/`
+files. Do not rename, overwrite or delete previous flat/grouped outputs. Validate
+identifiers, recipe shape, source/assets and returned file containment; client-like
+IDs or returned paths cannot escape configured roots or cross clip ownership.
+Consume only an exact v1 receipt with supported branches and existing complete
+artifacts; probe/validate final media outside the history lock before commit.
+Narrow the exact bookend consumer type to exclude the refused branch.
+
+Retain the full caller-supplied source-absolute words separately from the receipt's
+content-relative words, including null/unavailable versus supplied-empty. Retain
+ordered segments and content-domain keyframes without inventing source timing from
+legacy bounds or caches. The isolated initial fixture may reference an existing
+legacy output as version zero, labelled without exact provenance, then explicitly
+supply trustworthy render inputs. This is not a general legacy importer.
+
+This first service supports exact renderer composition only: opening Library
+thumbnail cards are unsupported and must be rejected when requested, never silently
+dropped or reported as applied. Persist the truthful card-absent receipt. Existing
+caption/logo/bookend parameters used by a supported request must be retained; no
+new compositor or restoration from legacy logo backups. Full card composition,
+general unchanged-input render avoidance, legacy recovery/import and all mutator
+adapters remain successor work before production exposure. Durable retry behavior
+and draft-only saves are required now.
+
+**Retention and write area.** Record current/previous/active roots for future
+reference traversal. Introduce no new Cleanup eligibility or automatic orphan
+collection; keep the new export namespace protected by current Cleanup behavior.
+Prove that protection with the real scanner against disposable roots. Failed or
+interrupted media may remain unreferenced; report residuals truthfully and never
+infer permission to delete from shape alone. No changes to user media or writing.
+
+Expected edits: focused revision service/types, the minimum history integration,
+meaningful tests/fixtures and a disposable verification script. Internal filenames,
+typed errors, serialization details and test seams are delegated within these
+contracts. No renderer algorithm/publication redesign, lock redesign, production
+adapters, UI/navigation, writing generation, timeline, general migration, Cleanup
+collector, cloud/provider calls, dependency changes or incidental legacy fixes.
+Report a demonstrated prerequisite conflict to the lead without expanding scope.
+Worker writes its own `reports/1b-2a-worker.md` and new evidence under
+`_local/project/evidence/writing-studio/1b-2a/`; lead-owned records stay untouched.
+No agent dispatch. Stop implementation writes after bound verification/handback;
+fresh independent review and lead disposition precede acceptance or the next slice.
+
+## 1B.2a repair-1 contracts retained (lead-10; partial closure below)
+
+The initial independent review `reports/1b-2a-review.md` confirmed R1..R5 on the
+submitted 1B.2a snapshot. All five blocked that snapshot; current partial closure
+and the next assignment are in the repair-2 section below. The service remains internal and no
+production integration is authorized. Repair the existing service/types and its
+tests/fixtures/check within the original write area. This direction clarifies
+existing B2A contracts, not new product scope. Baseline is the submitted snapshot
+above plus lead-only coordination records; retain original lead-9 evidence.
+
+- R1 / WS-12: establish physical containment of owned history/export roots and
+  descendants, rejecting linked ownership ancestors before writes. Cover draft
+  sidecars, revision documents, namespace creation and returned artifacts, not just
+  regular leaf files. Test real Windows junctions at the root and intermediate
+  directories; refusal must write nothing through them. Do not claim protection
+  against every adversarial concurrent filesystem replacement from static checks.
+- R2 / WS-13: bind every operation mutation to its captured incarnation and operation
+  request identity before changing even failure, cancellation, supersession or
+  residual fields. Extend the internal invalidation request with expected ownership.
+  An old failed or successful completion or stale cancellation must not touch a new
+  incarnation's same-ID operation. Preserve legitimate cancellation and late-residual
+  reporting for the operation actually owned; no new lock/recovery protocol.
+- R3 / WS-14: detach the complete request synchronously before the first asynchronous
+  boundary. Validate, hash, render and persist that captured value consistently,
+  including nested source words, ordered segments, framing and expected state.
+  Apply this to draft saves and invalidation inputs as applicable. Caller mutation
+  during any await must not change the captured request or its result.
+- R4 / WS-15: remove silent operation expiry. For this bounded repair, retain
+  operation identity, request hash and complete terminal result for the record
+  incarnation's lifetime; do not add pruning or a new archival subsystem. The small
+  operation metadata cost is preferable to another retention protocol here. Replay
+  precedes source/asset existence checks needed only for new rendering and returns
+  the original complete result, including revisions older than current/previous.
+  A missing source never triggers another render or destroys a saved retry result.
+  An ID with a different captured request still conflicts. This retention does not
+  authorize deleting media or permanently pin every old video's path for future
+  Cleanup; successor reference traversal must distinguish receipts from live roots.
+- R5 / WS-16: explicitly validate the required exact-v1 receipt shape, enums, finite
+  numeric fields and relationships before arithmetic or persistence. Check ordered
+  source/content placement, durations/offsets, composition, word availability and
+  artifact requirements against the captured request and accepted renderer contract.
+  Missing values and NaN must refuse rather than pass comparisons. Keep the accepted
+  renderer tolerance and unavailable/supplied-empty semantics; reject malformed
+  receipts without moving committed pointers.
+
+Use the review's preserved `review/repro.mjs` and `repro-result.json` as the before
+evidence. Run the unchanged reproduction before edits when feasible; after repair,
+obsolete defect assertions may fail and are not the corrected success criterion.
+Preserve that result and add a separate demonstration/regressions for all five
+required outcomes, including older failed-ID replay, source removal, both late
+completion paths, stale cancellation and nested mutation during awaits. Replace
+the incompatible test asserting a 32-record cap with durable-replay coverage.
+
+The acceptance table remains the single map: R1 maps B2A-5, R2/R4 B2A-2,
+R3 B2A-1/2/4, R5 B2A-4, and fresh evidence/review B2A-6. Record exact commands and
+expected results before edits. Rerun focused revision/process suites, full Node,
+build, client types and `node scripts/verification/check-saved-revision.mjs` on the
+repaired snapshot. Retained Python evidence still requires unchanged covered-input
+hashes and dependency justification; refresh affected checks if inputs change.
+
+Worker report: `reports/1b-2a-repair-1-worker.md`. New evidence/snapshot:
+`_local/project/evidence/writing-studio/1b-2a-repair-1/`. Preserve all earlier records
+and evidence. Do not edit lead-owned records, instructions/inventories, Python,
+production adapters or incidental caption/deletion issues. No agent dispatch,
+commit, push, release or 1B.2b. Hand back after verification with implementation
+writes stopped. Fresh independent follow-up is required before disposition; this
+is repair round one, with reassessment after two unsuccessful rounds on an issue.
+
+## 1B.2a repair-2 direction (lead-11)
+
+Repair-1 independent follow-up closes R2/R3/R4 (WS-13/14/15) on its bound snapshot.
+R1/R5 remain open under `reports/1b-2a-repair-1-review.md`; repair only these gaps
+and necessary affected tests/fixtures/checks. Baseline is that repair-1 manifest,
+tracked patch and seven-file slice patch plus lead bookkeeping. Do not revisit
+correct operation ownership, detached capture or durable replay without a demonstrated
+dependency. Preserve their regressions and all accepted predecessor behavior.
+
+**R1 / WS-12.** Configured history/export roots are included in ownership validation.
+The Worker exemption for linked configured roots is not approved. Check the root
+itself before recursive creation or writing through it, along with owned descendants
+and applicable ownership ancestry. A pre-existing root junction must be refused;
+no automatic realpath substitution that silently changes the owned root. Verify
+root and intermediate junction refusal for draft/revision creation and artifact
+paths, with outside target bytes unchanged. Preserve ordinary real-directory and
+missing-directory behavior. This remains a static ownership check; no new adversarial
+filesystem-swap or power-loss guarantee is introduced.
+
+**R5 / WS-16.** Validate semantic relationships as well as scalar shape. Use the
+accepted Python receipt construction in clip_generator.py and exact_render.py's
+`words_in_intervals`, `map_words_to_content`, `content_text`, `content_intervals`
+and `bookend_region` as contract evidence, without editing Python. Required domain
+keys/values must match actual exact-v1 domains, not a fake fixture's invented map.
+Compare source words to the captured input's retained interval subset and content
+words/text to its ordered, boundary-clipped, content-relative projection. Preserve
+metadata, repeated/reversed intervals, renderer rounding and unavailable versus
+supplied-empty. Validate caption settings against the supported request/bridge
+defaults, keeping cleaned caption words distinct from editorial words. Do not
+implement a new caption cleaner or silently require those two lists to be identical.
+
+For intro and outro, validate the relationship among asset duration, region endpoints,
+applied overlap, requested fade, actual branch and transition endpoints according
+to the accepted renderer. An enumerated branch alone is not proof of a valid join.
+Hard cuts must not claim video overlap or unrelated transition regions. Keep valid
+crossfade/fallback receipts and their documented tolerance; do not widen tolerance
+or weaken the schema to accommodate a fake receipt. Update fake fixtures where they
+misrepresent the accepted renderer. Invalid provenance must leave current/previous
+pointers and prior files unchanged.
+
+Use the preserved repair-1 review `review/repro.mjs` and `repro-result.json` for the
+before case. Preserve reviewer artifacts byte-for-byte. Run before edits when feasible;
+after edits, record the unchanged script's obsolete-assertion/refusal outcome and
+use a separate corrected demonstration. Test the four independent counterexamples
+(configured roots, invented words/caption style, impossible composition, empty
+domains), plus valid near-boundary/rounding receipts and retained R2/R3/R4 schedules.
+The existing single acceptance map applies: R1 B2A-5; R5 B2A-4; B2A-6 requires fresh
+focused service/process and full Node suites, build, client types, and the real
+`check-saved-revision.mjs`. Retain Python only with unchanged covered-input hashes
+and dependency justification. Name exact invocations/expectations before edits.
+
+Scope remains the existing TS revision service/types and necessary tests/fake renderer/
+fixtures/check. No production opt-in, Python/renderer/lock redesign, dependency change,
+UI, Cleanup eligibility, migration, caption-forwarding fix or instruction edits.
+Worker report: `reports/1b-2a-repair-2-worker.md`; evidence/snapshot root:
+`_local/project/evidence/writing-studio/1b-2a-repair-2/`. No lead-owned record or older
+report edits, agent dispatch, commit, push, release or 1B.2b. Stop writes at handback
+for fresh independent follow-up. This is repair round two for WS-12/16; if either
+remains unresolved afterward, the lead must reassess before any further repair relay.
+
+## Reassessment and bounded join-provenance correction (lead-12)
+
+WS-16 remains after two unsuccessful repair rounds. The lead has completed the
+required reassessment against the repair-2 independent report, concat_outro's
+actual clamp/eligibility code, and receipt construction. Do not repeat lead-11's
+TS-only repair with another upper-bound check. A valid range is not the actual
+overlap selected by the renderer. Further, the receipt drops one of each join's
+raw input durations; rounded content video-end timing cannot reconstruct both
+probed media durations near thresholds. This is a producer/consumer contract gap.
+
+Technical decision: preserve the two already-recorded join inputs as additive
+exact-v1 bookend provenance. Each non-null bookend gains
+`join_inputs: { main_duration: number, appended_duration: number }`, copied from
+the existing concat report at original numeric precision, not rounded from regions
+or inferred from requested content duration. These are the actual values used by
+concat_outro, not a new measurement guarantee. Do not change concat's rendering,
+clamp, fallback order or file publication. Validate required source fields before
+claiming this provenance; never fabricate missing durations as zero or a guessed
+content length. The existing producer already records both fields on every branch.
+
+The revision consumer requires this provenance for each bookend in a new save.
+For the currently supported numeric fade request/default, reproduce concat_outro's
+calculation from the captured fade and raw inputs: begin with fade (zero for a
+nonpositive request); clamp to `max(0.05, main_duration - 0.05)` and, when appended
+duration is positive, to `max(0.05, appended_duration - 0.05)`. A crossfade additionally
+requires `max(0, main_duration - clamped_fade) >= 0.05` and `clamped_fade >= 0.05`.
+Its overlap must equal the computed clamp within existing three-decimal receipt
+rounding allowance. Keep supported hardcut fallback with zero overlap even when a
+crossfade was eligible but failed. Check new fields' finite values and consistency
+with their corresponding rounded asset/region provenance. Do not substitute
+composition/A/V slack for the clamp or introduce another tolerance.
+
+Compatibility: this is additive to the internal exact-v1 result, not a version bump
+or a legacy renderer result change. Type the added fields to represent older v1
+records honestly. Existing saved documents remain readable without rewriting or
+upgrading their provenance. A newly submitted bookend receipt lacking join_inputs
+is refused with an actionable typed receipt error; no guessed values or weaker
+validation fallback. Bookend-free exact saves remain supported. No production
+migration, new renderer mode or automatic rerender of old records.
+
+Prevention changes with the reassessment: add a producer-derived contract matrix,
+not only another fake scalar test. Exercise actual Python concat_outro report
+generation with controlled probe/FFmpeg outcomes, preserving its real clamp and
+branch code, and serialize through the real bookend receipt helper. Drive consumer
+cases from those outputs. Cover fade-limited, main-limited and appended-limited
+joins, intro/outro (including intro already in the outro's main input), no fade,
+short-input eligibility, rounding edges and supported fallback. Pair valid cases
+with wrong-overlap mutations whose dependent regions/output/probe are changed
+coherently; rejection must follow the request/clamp relationship. Keep the existing
+real bridge check as actual media coverage, distinguishing synthetic branch tests
+from this installation's hardcut execution. Internal fixture layout is delegated.
+
+Expected write area now explicitly includes backend/services/exact_render.py's
+receipt serialization, minimum producer plumbing if demonstrated necessary,
+src/models/index.ts and revision types/consumer, affected exact Python and Node
+tests, test-only producer fixtures and disposable checks. This narrow Python/type
+scope expansion supersedes the previous no-Python limit only for this correction.
+Do not change rendering algorithms, accepted locks/publication, strict_ai.py,
+production routes/UI, dependencies, Cleanup eligibility, migration or instructions.
+Preserve the other accepted fixes and existing uncommitted work.
+
+Verification map remains B2A-4/6 and affected B1-2/3 compatibility. Record exact
+matrix/reproduction commands and expected outcomes before edits. Preserve the
+repair-2 review reproduction, run it before edits when feasible, and separately
+demonstrate correction. Required fresh: focused revision/process suites, full Node,
+build/client types, focused exact Python, full Python, changed Python syntax,
+`check-exact-render.mjs`, and `check-saved-revision.mjs`. The Python change now
+invalidates affected retained renderer evidence. Preserve and disclose separate
+strict_ai.py work; a failure there is investigated/routed without unauthorized repair
+or being relabelled pass. Passing fresh checks is not acceptance without review.
+
+Use cycle name `1b-2a-repair-3` to preserve chronology, not reset the recurrence
+count. Report `reports/1b-2a-repair-3-worker.md`; new evidence/snapshot under
+`_local/project/evidence/writing-studio/1b-2a-repair-3/`. Budget after reassessment:
+one bounded contract implementation and fresh independent follow-up, then explicit
+disposition/reassessment if unresolved; no automatic follow-on repair. No agents,
+commit, push, release, 1B.2b or lead-record edits. Worker receives this direction
+only through Isaac's manual relay and stops implementation writes at handback.
+
 ## Acceptance criteria and verification
 
 | ID | Observable acceptance criterion | Evidence required |
@@ -338,7 +774,17 @@ This is a prerequisite to the original slice 1, now **1B**, below. Acceptance of
 | AC-9 | Trimming respects kept segments, words, crop keyframes, card and intro/outro timing; no discarded speech returns | Time-mapping unit tests + known visual/audio/word markers in a multi-segment render |
 | AC-10 | Missing media leaves writing usable; deletion detaches it; Cleanup preserves active references and can reclaim retired artifacts | Disposable deletion/relink/cleanup tests, source hashes and outside-root protection |
 | AC-11 | Existing New Episode, Highlights, history readers and old links still work; local policy is unchanged | Relevant regression suites + cross-language serialization and route tests |
-| AC-12 | Worker evidence is bound to current code/spec and independent review is complete before task acceptance | 4.0.6 worker/review reports and incoming lead's disposition |
+| AC-12 | Worker evidence is bound to current code/spec and independent review is complete before task acceptance | 4.1.0 reports bound to their actual preserved inventory, retained historical evidence with its original provenance, and independent review plus lead disposition |
+| B1-1 (AC-9/AC-11 subset) | Explicit opt-in exact mode preserves ordered intervals and legacy defaults; invalid input cannot mutate source or previous outputs | Focused exact tests: noncontiguous/reversed/one-segment, invalid/out-of-bounds inputs, no heuristics, unchanged arrays and legacy defaults; pass with expected errors and no mutation |
+| B1-2 (AC-9 subset) | Timing/word/keyframe provenance truthfully describes exact output, distinguishing unavailable/empty transcript | Focused exact tests and real bridge: clipped ordered words, retained source input for widening, unavailable/null/empty, keyframe domain, receipt/offsets; expected truthful JSON and no excluded content |
+| B1-3 (AC-9 subset) | Completed media, dimensions, composition and actual transition agree with justified tolerance | Focused media cases and real bridge: decoded frame/audio/word markers, all formats, crop keyframes, silent/non-30fps, intro/outro/fade/fallback refusal; valid media or explicit refusal, unchanged source; retain stated VFR limits |
+| B1-4 (AC-3/AC-11 subset; repair-3 WS-11) | Operation-owned group is cleaned from first successful parent acquisition; staging failure preserves original error, removes only owned residue or identifies cleanup denial; existing/colliding/prior flat and grouped outputs stay intact | Before edits record chosen invocations against these IDs in the Worker receipt. Reproduce with the preserved repair-2 reproduction; separate corrected real-directory demonstration injects persistent staging mkdir and cleanup denial, with/without previous outputs. Reuse allocation-exhaustion/collision tests; expected original error, truthful residual, unchanged prior bytes. Run focused exact suite (media/process schedules), full Python, affected syntax and exact bridge as below; all required checks pass. Retain legacy parity/Node/build/types only with unchanged covered-input hashes and dependency justification; refresh affected coverage |
+| B2A-1 (AC-3 subset) | Draft and successful save survive service/process restart; pointer, summaries and success receipt commit together; draft does not alter saved media | Service tests and real bridge check in isolated storage: old output unchanged after draft, real exact revision reopens at the returned paths with matching probe/receipt; no partial committed state |
+| B2A-2 (AC-3 subset) | Retry is durable and idempotent; stale/cancelled/deleted/recreated or conflicting operations cannot commit; restart never guesses ownership | Deterministic barriers and real child-process interruption before and after history commit, repeated operation IDs, changed request with reused ID, concurrent draft/save, explicit invalidation and late completion; no second render for replay, prior output intact, acknowledged commit recoverable |
+| B2A-3 (AC-3/11 subset) | Shared mutation preserves unrelated TS/Python changes; corrupt history cannot be overwritten | Two real processes using production mutation paths, including Python metadata mutation during save; existing cross-process/history regressions plus fault injection at manifest/history publication; unknown fields preserved, failed reads unchanged |
+| B2A-4 (AC-9 subset) | Saved recipe retains full source words and exact ordered mapping, truthful transcript availability and card/transition provenance | Narrow/widen/reversed fixtures, supplied-empty/unavailable and caption/editorial distinction; exact bridge decoded markers; unsupported/malformed receipts rejected. Lead-12 adds producer-derived join-input/clamp/eligibility matrix, coherent wrong-overlap mutations, valid fallbacks/rounding, missing-provenance new-save refusal and older-document read compatibility |
+| B2A-5 (AC-10/11 subset) | Only operation-owned isolated artifacts are created; current/previous/active outputs remain protected; legacy production callers are unchanged | Real Cleanup scan/execution against isolated current/previous/active/interrupted groups and original outputs; malformed identifiers/path traversal/linked-root cases; no new deletion candidates, no source/prior-output changes; production opt-in/callsite audit |
+| B2A-6 (AC-11/12 subset) | Evidence covers the changed service on its bound snapshot, with independent review required | Fresh focused revision tests, full Node suite including cross-process tests, build, client types and disposable saved-revision bridge check; changed Python inputs require affected focused/full Python and exact bridge reruns, otherwise retained Python evidence needs covered-input hashes and dependency justification; fresh non-author review then lead disposition |
 
 Use existing `src/services/clips-history.test.ts`, `storage-cleanup.test.ts`,
 `src/config/policy.test.ts`, `src/server-policy.test.ts`, Python history/render/
@@ -347,7 +793,28 @@ behavior. `tests/test_local_reframe.py` covers scene detection, not the full edi
 additional time mapping and browser evidence are needed. Add tests for the gaps
 above, not cosmetic changes or tests that only repeat implementation details.
 
-Candidate commands, to be selected and recorded by the implementation owner:
+The table above is the single acceptance-to-check map. For 1B.2a, record chosen
+focused commands and the new disposable check command before execution, mapped to
+B2A-1..6 with expected outcomes. Fresh Node/build/client-type commands are listed
+below. Run the actual configured Python bridge from the new check, not only a mock.
+No general browser flow is claimed by this internal slice. Retain unaffected
+predecessor evidence only with explicit covered-input comparison and justification.
+
+Accepted repair-3 invocation history is retained here for reproducibility, not as
+an instruction to repeat an old repair or as the active 1B.2a check set:
+
+`node scripts/verification/run-tests.mjs python -k exact_render`;
+`node scripts/verification/run-tests.mjs python`;
+`node scripts/installation/run.mjs python repair-3-1b-1-py-compile -m py_compile backend/services/clip_generator.py tests/test_exact_render.py`
+(include other Python inputs if changed); and
+`node scripts/verification/check-exact-render.mjs`.
+The defect reproduction is
+`node scripts/installation/run.mjs python repair-3-1b-1-before-repro _local/project/writing-studio/1b-1-repair-2-review-repro.py`;
+its assertions prove the old defect, so preserve expected obsolete-assertion failures
+and use a separate corrected demonstration. Name that demonstration's exact command
+in the receipt before running it. No check result is asserted by this refresh.
+
+Candidate commands for broader feature checks, selected as their slices become active:
 
 ```powershell
 node scripts/verification/run-tests.mjs node
@@ -373,51 +840,11 @@ TS/Python history updates; failed render/provider/save/restart. Use synthetic me
 not destructive changes to Isaac's Library. Record actual frame/audio observations,
 durations, commands and limitations. There is no universal test-runtime promise.
 
-## Workflow and handoff
-
-The coordinating Project Lead owns this task's Status. Lead-Worker relays remain
-manual through Isaac. No Worker was dispatched and no application implementation,
-commit, server launch, or independent implementation review occurred at kickoff.
-Each substantial slice gets a fresh review-only assessment after Worker handoff,
-then lead disposition. Budget: two unsuccessful repair/review rounds on the same
-issue before reassessment; never a fourth identical failed approach.
-
-Use one task directory and per-cycle reports. Worker reports use the installed
-report template and identify checks before substantial implementation. A fresh
-independent reviewer uses the lead role in review-only mode, without inheriting
-the planning/implementation conversation. If subagents are unavailable, use a
-fresh separate session. The coordinating lead owns acceptance and any findings
-ledger updates; a Worker does not self-approve. Apply the installed two-round
-review reassessment and three-identical-attempt circuit breaker.
-
-The Project Lead should assess the proposed render-commit protocol, TS/Python
-locking coverage, legacy timing recovery, deletion retention policy, and timeline
-scope before slice 1. Routine internal choices remain delegated. No mandatory new
-user approval is introduced for naming/components or already-authorized planning.
-Implementation authorization and any unresolved material product choices must be
-recorded honestly before Worker dispatch.
-
-## Decisions and durable records
-
-Isaac confirmed captions/logos in Writing Studio, detached writing after clip
-deletion, and Cleanup eligibility beyond current-plus-previous renders on
-2026-09-11. Single-video timeline and explicit ready handoff remain scoped as above.
-The lead selects shared JSON locking for slice 1A rather than a new database.
-Later interfaces remain provisional and require freshness checks, verification
-and independent review; these decisions do not authorize implementation.
-
-Companion files: `feature-map.md`, `planning-baseline.json`, and
-`project-lead-prompt.md`. The latter is a fresh-session prompt, not an executed task.
-
-## Lead-2 technical refinements
+## Current technical constraints
 
 These constraints refine the draft's design; they do not authorize later slices.
 Evidence and product decisions are in `reports/kickoff-assessment.md`.
 
-- Freshness: all 46 original hashes match 710b4d4 on 2026-09-11. No application
-  changes found. Planning files remain uncommitted. Generic media-app references
-  still apply; no added domain reference is needed. Relevant ignored project
-  inventory contains reference-study materials, not accepted task outcomes.
 - History mutation must distinguish missing history from corrupt/unreadable or
   invalid-shaped history. Only a missing file initializes empty. Never turn a
   read failure into a successful overwrite. The lock covers fresh read through
@@ -431,7 +858,7 @@ Evidence and product decisions are in `reports/kickoff-assessment.md`.
 - Do not expose revision-backed clips to legacy mutating routes that can bypass
   this protocol. Adapters must join it as revisions become writable, including
   thumbnail/logo/CLI/MCP operations; moving their UI may wait until slice 3.
-- The renderer currently sorts segments, snaps ends, can remove pauses/fillers,
+- The legacy renderer sorts segments, snaps ends, can remove pauses/fillers,
   and does not return its effective segment map. `preserve_timing` only controls
   transition autofix; it does not freeze editorial boundaries. Before 1B accepts
   a render, establish an explicit exact-edit mode preserving ordered segments and
@@ -469,3 +896,32 @@ Evidence and product decisions are in `reports/kickoff-assessment.md`.
 - D1/D2 are confirmed by Isaac. Readiness is a saved-revision
   marker, not a gate on editing writing or evidence of publication. A missing-media
   document remains accessible without being falsely marked render-ready.
+
+## Workflow and handoff
+
+Workflow 4.1.0 governs 1B.2a and its review, bound to inventory 4.1.0-local-1.
+The earlier repair-3 instruction switch is retained in spec-log.md and its reports.
+An active Worker encountering changed instructions explicitly rereads them, records
+the actual boundary and continues independently authorized work. Reports use the installed
+templates and actual execution receipts; this spec owns the single acceptance map.
+Earlier reports, plans and accepted evidence keep their original bodies and provenance.
+The coordinating lead owns Status/ledger and acceptance. No implementation, commit,
+push, release or automatic Worker dispatch is authorized by workflow maintenance.
+1B.2a retains the no-agent-dispatch limit; the lead arranges fresh bounded independent
+review after handback (fresh separate-session fallback if necessary). Keep the
+two-unsuccessful-round reassessment and three-identical-attempt circuit breaker.
+
+## Approved exceptions currently in force
+
+Existing evidence storage under `_local/project/writing-studio/` is retained,
+including the assigned repair-3 snapshot path, under README's storage policy.
+No acceptance or review waiver. Isaac's settled product choices remain: captions
+and logos in Writing Studio, detached writing after deletion, explicit Cleanup for
+eligible older revisions, single-video timeline and explicit saved-revision readiness.
+Later slices remain provisional. Missing media never makes writing inaccessible or
+falsely render-ready. Routine implementation details remain delegated.
+
+Accepted 1A metrics publication uses the conservative expected-state rule: publish
+only while clip, attribution and current metrics equal the captured snapshot. Any
+intervening change, even without fetched_at, is a skipped conflict; unchanged legacy
+metrics still refresh. This remains the accepted no-lost-update constraint.
