@@ -38,6 +38,12 @@ import { FileManager } from "../services/file-manager.js";
 import { StorageCleanup } from '../services/storage-cleanup.js';
 import { AssetManager, inferType, safeName } from "../services/asset-manager.js";
 import { ClipsHistory } from "../services/clips-history.js";
+import { registerEditorContextRoute } from "./editor-context-route.js";
+import {
+  registerClipWriteFence, sendFenceRefusal, cliFenceRefusal, checkedClip, adaptedClip, sendAdapterRefusal, bridgeFenceRefusal,
+} from "./clip-write-fence-route.js";
+import { ClipWriteFenceError, isRevisionTracked } from "../services/clip-write-fence.js";
+import { CAPTION_STYLES, ClipLegacyAdapters, LegacyAdapterError, type AdapterBase } from "../services/clip-legacy-adapters.js";
 import { KnowledgeBase } from "../services/knowledge-base.js";
 import { paths, pythonEnv } from "../config/paths.js";
 import { webServerPort } from "../config/server.js";
@@ -93,6 +99,8 @@ const cache = new TranscriptCache();
 const fileManager = new FileManager();
 const assetManager = new AssetManager();
 const clipsHistory = new ClipsHistory();
+// Finishing actions on tracked clips save revisions through this (Writing Studio 1B.2b.4a).
+const legacyAdapters = new ClipLegacyAdapters({ history: clipsHistory });
 const knowledgeBase = new KnowledgeBase();
 
 // --- Path Traversal Protection ---
@@ -1995,6 +2003,15 @@ app.get("/api/clips/:id/download", (req, res) => {
   void serveClipById(req, res, req.params.id, "download");
 });
 
+// GET /api/clips/:id/editor-context (Writing Studio 1B.2b.2): everything an
+// editor needs to open one saved clip, and an explicit account of what is not
+// known about it. Read-only; it adopts nothing and advertises no save route.
+registerEditorContextRoute(app);
+
+// Writing Studio 1B.2b.3: legacy writes to a tracked clip, or into the revision
+// trees, are refused ahead of the handlers below (after the policy middleware).
+registerClipWriteFence(app, clipsHistory);
+
 /**
  * GET /api/stream-source — Stream the source video for in-browser preview
  * Accepts ?path= query param (must be a file previously validated via /select-file or /upload)
@@ -2591,16 +2608,46 @@ async function resolveLogoPath(input: unknown): Promise<string | null> {
 
 // Composite a thumbnail PNG onto the start of a clip. stripStart > 0 removes a
 // prior card first (avoids stacking on re-bake). Returns the bake's success.
-async function bakeThumbnailCard(clipPath: string, image: string, stripStart = 0): Promise<{ ok: boolean; error?: string }> {
+async function bakeThumbnailCard(clipPath: string, image: string, stripStart = 0): Promise<{ ok: boolean; error?: string; fence?: ReturnType<typeof cliFenceRefusal> }> {
   const r = await runCli([
     "bake-thumbnail", clipPath, image, "--position", "start",
     ...(stripStart ? ["--strip-start", String(stripStart)] : []),
   ]);
-  return r.code === 0 ? { ok: true } : { ok: false, error: stripAnsi(r.stderr || r.stdout) };
+  return r.code === 0 ? { ok: true } : { ok: false, error: stripAnsi(r.stderr || r.stdout), fence: cliFenceRefusal(r) };
+}
+
+/**
+ * A caption-style PATCH on a tracked clip (1B.2b.4a): any style `clips edit` accepts
+ * saves a revision with only that change, or nothing when it is already the style;
+ * anything else, null included, answers 400 and writes nothing. A title in the same
+ * request is written after the style outcome, as a title-only PATCH would.
+ */
+async function patchTrackedClip(res: Response, clip: ClipHistoryEntry, body: Record<string, unknown>): Promise<void> {
+  try {
+    const style = body.caption_style;
+    if (typeof style !== "string" || !CAPTION_STYLES.includes(style)) throw new LegacyAdapterError("INVALID_CAPTION_STYLE");
+    const base = await legacyAdapters.prepare(clip);
+    await legacyAdapters.commit(base, { recipe: (recipe) => { recipe.caption_style = style; } });
+  } catch (error) {
+    if (sendAdapterRefusal(res, error, clip.id, "edit")) return;
+    throw error;
+  }
+  if (body.title != null) {
+    const r = await runCli(["clips", "edit", clip.id, `--title=${body.title}`]);
+    if (r.code !== 0) {
+      const fence = cliFenceRefusal(r);
+      if (fence) { sendFenceRefusal(res, fence, clip.id, "edit"); return; }
+      res.status(400).json({ error: stripAnsi(r.stderr || r.stdout) || "edit failed" });
+      return;
+    }
+  }
+  res.json({ ok: true });
 }
 
 app.patch("/api/clips/:id", async (req, res) => {
   if (DEMO) { res.json({ ok: true }); return; } // fixtures are read-only
+  const tracked = adaptedClip(res);
+  if (tracked) { await patchTrackedClip(res, tracked, req.body || {}); return; }
   const { title, caption_style, thumbnail_config } = req.body || {};
   const args = ["clips", "edit", req.params.id];
   if (title != null) args.push(`--title=${title}`);
@@ -2612,6 +2659,8 @@ app.patch("/api/clips/:id", async (req, res) => {
   }
   const r = await runCli(args);
   if (r.code !== 0) {
+    const fence = cliFenceRefusal(r);
+    if (fence) { sendFenceRefusal(res, fence, req.params.id, "edit"); return; }
     res.status(400).json({ error: stripAnsi(r.stderr || r.stdout) || "edit failed" });
     return;
   }
@@ -2622,6 +2671,8 @@ app.delete("/api/clips/:id", async (req, res) => {
   if (DEMO) { res.json({ ok: true }); return; } // fixtures are read-only
   const r = await runCli(["clips", "delete", req.params.id, "--yes"]);
   if (r.code !== 0) {
+    const fence = cliFenceRefusal(r);
+    if (fence) { sendFenceRefusal(res, fence, req.params.id, "delete"); return; }
     res.status(400).json({ error: stripAnsi(r.stderr || r.stdout) || "delete failed" });
     return;
   }
@@ -2638,11 +2689,41 @@ app.post("/api/clips/:id/reopen", async (req, res) => {
   res.json({ ok: true });
 });
 
+/** The checked base of a tracked clip's finishing action (1B.2b.4a), or null once its
+ * refusal has been answered. With `inputs`, the files it keeps are checked too, for an
+ * action that writes a new image before saving. */
+async function trackedBase(res: Response, clip: ClipHistoryEntry, operation: string, inputs = false): Promise<AdapterBase | null> {
+  try {
+    return await legacyAdapters.prepare(clip, { inputs });
+  } catch (error) {
+    if (sendAdapterRefusal(res, error, clip.id, operation)) return null;
+    throw error;
+  }
+}
+
+/** Save `image` as a tracked clip's opening card (1B.2b.4a): a new revision composes it
+ * instead of baking it into the served file, storing the thumbnail settings the legacy
+ * action stores. Answers the route's success keys; `preview_path` is the committed card. */
+async function saveTrackedCard(res: Response, base: AdapterBase, image: string, settings: Record<string, unknown>, operation: string, extra: Record<string, unknown> = {}): Promise<void> {
+  try {
+    const outcome = await legacyAdapters.commit(base, { card: await legacyAdapters.cardFrom(image), thumbnailMetadata: settings });
+    res.json({ ok: true, preview_path: outcome.entry?.thumbnail_config?.preview_path ?? null, ...extra });
+  } catch (error) {
+    if (sendAdapterRefusal(res, error, base.clipId, operation)) return;
+    throw error;
+  }
+}
+
 app.post("/api/clips/:id/thumbnail", async (req, res) => {
-  const clip = await clipsHistory.findById(req.params.id);
+  const clip = DEMO ? await clipsHistory.findById(req.params.id) : checkedClip(res);
   if (!clip) {
     res.status(404).json({ error: "clip not found" });
     return;
+  }
+  let base: AdapterBase | null = null;
+  if (adaptedClip(res)) {
+    base = await trackedBase(res, clip, "thumbnail", true);
+    if (!base) return;
   }
   const tc = clip.thumbnail_config || {};
   // Standalone thumbnail generation — produces variation PNGs, never touches the clip video.
@@ -2675,21 +2756,25 @@ app.post("/api/clips/:id/thumbnail", async (req, res) => {
     res.status(500).json({ error: "no thumbnails generated" });
     return;
   }
+  if (base) { await saveTrackedCard(res, base, variations[0], { ...tc, variations }, "thumbnail", { variations }); return; }
   // Bake the chosen thumbnail into the clip as the opening card (stripping any prior card).
   if (existsSync(clip.output_path)) {
     const bake = await bakeThumbnailCard(clip.output_path, variations[0], clip.thumbnail_config?.card_seconds || 0);
+    if (bake.fence) { sendFenceRefusal(res, bake.fence, clip.id, "thumbnail"); return; }
     if (!bake.ok) {
       res.status(500).json({ error: `thumbnail generated but bake into clip failed: ${bake.error}` });
       return;
     }
   }
   const merged = { ...tc, preview_path: variations[0], variations, card_seconds: 1.5 };
-  await runCli(["clips", "edit", String(clip.id), "--thumbnail-config", JSON.stringify(merged)]);
+  const edit = await runCli(["clips", "edit", String(clip.id), "--thumbnail-config", JSON.stringify(merged)]);
+  const fence = edit.code !== 0 ? cliFenceRefusal(edit) : null;
+  if (fence) { sendFenceRefusal(res, fence, clip.id, "thumbnail"); return; }
   res.json({ ok: true, preview_path: variations[0], variations });
 });
 
 app.post("/api/clips/:id/thumbnail/select", async (req, res) => {
-  const clip = await clipsHistory.findById(req.params.id);
+  const clip = DEMO ? await clipsHistory.findById(req.params.id) : checkedClip(res);
   if (!clip) { res.status(404).json({ error: "clip not found" }); return; }
   const tc = clip.thumbnail_config || {};
   const pick = String(req.body?.path || "");
@@ -2697,14 +2782,22 @@ app.post("/api/clips/:id/thumbnail/select", async (req, res) => {
     res.status(400).json({ error: "unknown variation" });
     return;
   }
+  if (adaptedClip(res)) {
+    const base = await trackedBase(res, clip, "thumbnail-select");
+    if (base) await saveTrackedCard(res, base, pick, { ...tc }, "thumbnail-select");
+    return;
+  }
   if (existsSync(clip.output_path)) {
     const bake = await bakeThumbnailCard(clip.output_path, pick, tc.card_seconds || 0);
+    if (bake.fence) { sendFenceRefusal(res, bake.fence, clip.id, "thumbnail-select"); return; }
     if (!bake.ok) {
       res.status(500).json({ error: `bake into clip failed: ${bake.error}` });
       return;
     }
   }
-  await runCli(["clips", "edit", String(clip.id), "--thumbnail-config", JSON.stringify({ ...tc, preview_path: pick, card_seconds: 1.5 })]);
+  const edit = await runCli(["clips", "edit", String(clip.id), "--thumbnail-config", JSON.stringify({ ...tc, preview_path: pick, card_seconds: 1.5 })]);
+  const fence = edit.code !== 0 ? cliFenceRefusal(edit) : null;
+  if (fence) { sendFenceRefusal(res, fence, clip.id, "thumbnail-select"); return; }
   res.json({ ok: true, preview_path: pick });
 });
 
@@ -2738,7 +2831,7 @@ app.get("/api/clips/:id/thumbnail/options", async (req, res) => {
 
 // Render one final thumbnail from a chosen frame + headline (empty lines = AI writes the text).
 app.post("/api/clips/:id/thumbnail/render", async (req, res) => {
-  const clip = await clipsHistory.findById(req.params.id);
+  const clip = DEMO ? await clipsHistory.findById(req.params.id) : checkedClip(res);
   if (!clip) { res.status(404).json({ error: "clip not found" }); return; }
   const tc = clip.thumbnail_config || {};
   const { line1, line2, frame_path, frame_info } = req.body || {};
@@ -2747,6 +2840,11 @@ app.post("/api/clips/:id/thumbnail/render", async (req, res) => {
   // never an arbitrary server path passed through to the renderer.
   const resolvedFrame = resolveFrameInRoots(frame_path, [join(paths.output, "thumbnails", String(clip.id)), uploadDir]);
   if (!resolvedFrame) { res.status(400).json({ error: "invalid frame" }); return; }
+  let base: AdapterBase | null = null;
+  if (adaptedClip(res)) {
+    base = await trackedBase(res, clip, "thumbnail-render", true);
+    if (!base) return;
+  }
   const outDir = join(paths.output, "thumbnails", String(clip.id));
   await mkdir(outDir, { recursive: true });
   const out = join(outDir, `thumb_${uuidv4().slice(0, 8)}.png`);
@@ -2761,12 +2859,19 @@ app.post("/api/clips/:id/thumbnail/render", async (req, res) => {
   let outPath = "";
   try { outPath = JSON.parse(jsonLine || "{}").path || ""; } catch { /* no path */ }
   if (!outPath || !existsSync(outPath)) { res.status(500).json({ error: "no thumbnail produced" }); return; }
+  if (base) {
+    await saveTrackedCard(res, base, outPath, { ...tc, line1: line1 || undefined, line2: line2 || undefined }, "thumbnail-render");
+    return;
+  }
   if (clip.output_path && existsSync(clip.output_path)) {
     const bake = await bakeThumbnailCard(clip.output_path, outPath, tc.card_seconds || 0);
+    if (bake.fence) { sendFenceRefusal(res, bake.fence, clip.id, "thumbnail-render"); return; }
     if (!bake.ok) { res.status(500).json({ error: `rendered but bake into clip failed: ${bake.error}` }); return; }
   }
   const merged = { ...tc, line1: line1 || undefined, line2: line2 || undefined, preview_path: outPath, card_seconds: 1.5 };
   const edit = await runCli(["clips", "edit", String(clip.id), "--thumbnail-config", JSON.stringify(merged)]);
+  const editFence = edit.code !== 0 ? cliFenceRefusal(edit) : null;
+  if (editFence) { sendFenceRefusal(res, editFence, clip.id, "thumbnail-render"); return; }
   if (edit.code !== 0) { res.status(500).json({ error: stripAnsi(edit.stderr || edit.stdout) || "thumbnail metadata update failed" }); return; }
   res.json({ ok: true, preview_path: outPath });
 });
@@ -2777,9 +2882,12 @@ app.get("/api/clips/:id/logo/previews", async (req, res) => {
   if (!clip.output_path || !existsSync(clip.output_path)) { res.status(400).json({ error: "rendered file missing" }); return; }
   const logo = await resolveLogoPath(req.query.logo_path);
   if (!logo) { res.status(400).json({ error: "select a logo first" }); return; }
-  const baseVideo = clip.logo_backup_path && existsSync(clip.logo_backup_path)
-    ? clip.logo_backup_path
-    : clip.output_path;
+  // A tracked clip previews from its current revision, never a legacy backup (1B.2b.4a).
+  const baseVideo = isRevisionTracked(clip)
+    ? await legacyAdapters.previewBase(clip)
+    : clip.logo_backup_path && existsSync(clip.logo_backup_path)
+      ? clip.logo_backup_path
+      : clip.output_path;
   const outDir = join(paths.output, "logo-previews", String(clip.id));
   await mkdir(outDir, { recursive: true });
   const previews = [];
@@ -2805,10 +2913,39 @@ app.get("/api/clips/:id/logo/previews", async (req, res) => {
   res.json({ previews });
 });
 
+/**
+ * Logo apply and remove on a tracked clip (1B.2b.4a): a revision with only the logo
+ * changed, which the renderer draws; the opening card stays logo-free. Nothing is
+ * backed up or restored, so `backup_path` and `restored_from` answer null.
+ */
+async function logoTrackedClip(req: Request, res: Response, clip: ClipHistoryEntry): Promise<void> {
+  try {
+    if (String(req.body?.action || "apply") === "remove") {
+      const base = await legacyAdapters.prepare(clip);
+      if (!base.recipe.logo_path) { res.status(400).json({ error: "This clip has no logo to remove." }); return; }
+      await legacyAdapters.commit(base, { recipe: (recipe) => { delete recipe.logo_path; } });
+      broadcastSSE("history-updated", { jobId: null, count: 1 });
+      res.json({ ok: true, restored_from: null });
+      return;
+    }
+    const logo = await resolveLogoPath(req.body?.logo_path);
+    if (!logo) { res.status(400).json({ error: "select a logo first" }); return; }
+    const position = LOGO_POSITIONS.includes(req.body?.logo_position) ? req.body.logo_position as LogoPosition : "top-right";
+    const base = await legacyAdapters.prepare(clip);
+    await legacyAdapters.commit(base, { recipe: (recipe) => { recipe.logo_path = logo; recipe.logo_position = position; } });
+    broadcastSSE("history-updated", { jobId: null, count: 1 });
+    res.json({ ok: true, logo_path: logo, logo_position: position, backup_path: null });
+  } catch (error) {
+    if (sendAdapterRefusal(res, error, clip.id, "logo")) return;
+    throw error;
+  }
+}
+
 app.post("/api/clips/:id/logo", async (req, res) => {
   if (DEMO) { res.json({ ok: true }); return; }
-  const clip = await clipsHistory.findById(req.params.id);
+  const clip = DEMO ? await clipsHistory.findById(req.params.id) : checkedClip(res);
   if (!clip) { res.status(404).json({ error: "clip not found" }); return; }
+  if (adaptedClip(res)) { await logoTrackedClip(req, res, clip); return; }
   if (!clip.output_path || !existsSync(clip.output_path)) { res.status(400).json({ error: "rendered file missing" }); return; }
   const action = String(req.body?.action || "apply");
   if (action === "remove") {
@@ -2818,7 +2955,12 @@ app.post("/api/clips/:id/logo", async (req, res) => {
       return;
     }
     await copyFile(backup, clip.output_path);
-    await clipsHistory.update(clip.id, { logo_path: "", logo_backup_path: "", logo_position: "" });
+    try {
+      await clipsHistory.update(clip.id, { logo_path: "", logo_backup_path: "", logo_position: "" });
+    } catch (error) {
+      if (error instanceof ClipWriteFenceError) { sendFenceRefusal(res, error, clip.id, "logo"); return; }
+      throw error;
+    }
     broadcastSSE("history-updated", { jobId: null, count: 1 });
     res.json({ ok: true, restored_from: backup });
     return;
@@ -2853,12 +2995,17 @@ app.post("/api/clips/:id/logo", async (req, res) => {
   }
   await rename(tmp, clip.output_path);
   const size = statSync(clip.output_path).size / 1024 / 1024;
-  await clipsHistory.update(clip.id, {
-    logo_path: logo,
-    logo_backup_path: backup,
-    logo_position: position,
-    file_size_mb: Math.round(size * 10) / 10,
-  });
+  try {
+    await clipsHistory.update(clip.id, {
+      logo_path: logo,
+      logo_backup_path: backup,
+      logo_position: position,
+      file_size_mb: Math.round(size * 10) / 10,
+    });
+  } catch (error) {
+    if (error instanceof ClipWriteFenceError) { sendFenceRefusal(res, error, clip.id, "logo"); return; }
+    throw error;
+  }
   broadcastSSE("history-updated", { jobId: null, count: 1 });
   res.json({ ok: true, logo_path: logo, logo_position: position, backup_path: backup });
 });
@@ -3148,7 +3295,7 @@ app.get("/api/clips/:id/cuts", async (req, res) => {
 });
 
 app.post("/api/clips/:id/rerender", async (req, res) => {
-  const clip = await clipsHistory.findById(req.params.id);
+  const clip = DEMO ? await clipsHistory.findById(req.params.id) : checkedClip(res);
   if (!clip) {
     res.status(404).json({ error: "clip not found" });
     return;
@@ -3222,6 +3369,7 @@ app.post("/api/clips/:id/rerender", async (req, res) => {
     if (tnail && existsSync(tnail) && existsSync(outPath)) {
       const bake = await bakeThumbnailCard(outPath, tnail);
       thumbnailBaked = bake.ok;
+      if (bake.fence) { sendFenceRefusal(res, bake.fence, clip.id, "rerender"); return; }
       if (!bake.ok) {
         res.status(500).json({ error: `reframe rendered but thumbnail bake failed: ${bake.error}` });
         return;
@@ -3237,6 +3385,10 @@ app.post("/api/clips/:id/rerender", async (req, res) => {
     });
     res.json({ ok: true, output_path: outPath, file_size_mb: result.data.file_size_mb, thumbnail_baked: thumbnailBaked });
   } catch (e: any) {
+    if (e instanceof ClipWriteFenceError) { sendFenceRefusal(res, e, clip.id, "rerender"); return; }
+    // WS-23: the renderer refused a derived output sink inside the revision trees.
+    const refusal = bridgeFenceRefusal(e);
+    if (refusal) { sendFenceRefusal(res, refusal, clip.id, "rerender"); return; }
     res.status(500).json({ error: e.message });
   }
 });

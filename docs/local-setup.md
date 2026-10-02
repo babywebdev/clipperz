@@ -36,6 +36,14 @@ interfaces. Claude fallback requires its own valid sign-in. Never put credential
 in repository configuration. AI client flags can change; rerun the client check
 after upgrades.
 
+If generation reports that the Codex executable is missing after a client update,
+check `PODCLI_CODEX_PATH` in `_local/clipperz/config/clipperz.env`. The desktop
+client's executable lives in a versioned directory that can change on update.
+Verify the newly installed native executable and its sign-in, update the explicit
+pin, and restart Studio when idle. Running Studio retains its startup environment;
+editing the configuration alone does not update it. Keep strict provider routing
+and the isolated inference flags enabled.
+
 ## 2. Configure storage
 
 From the repository root, copy `config/windows/clipperz.env.example` to

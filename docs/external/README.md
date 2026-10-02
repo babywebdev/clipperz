@@ -16,7 +16,7 @@ Copy this block to each topic file, replacing quoted placeholders. Follow `docs/
 ```yaml
 ---
 record: "external"
-author: "[responsible role]"
+author: "agent"
 date: "[YYYY-MM-DD]"
 state: "active"
 summary: "[Outcome first; at most 40 words]"

@@ -11,7 +11,7 @@ The header knew all along. This is the part that reads it.
 """
 
 import os
-from typing import Optional
+from typing import Callable, Optional
 
 import numpy as np
 
@@ -151,11 +151,16 @@ def render_audiogram(
     fps: int = 30,
     bars: int = 48,
     progress_callback=None,
+    check_sinks: Optional[Callable[[list], None]] = None,
 ) -> dict:
     """One clip from an episode with no picture.
 
     Returns what generate_clip returns, because it is called in its place and
     nothing above it should have to know which road the file took.
+
+    check_sinks, when given, receives every place this renders to outside its
+    private work folder, as the exact paths it is about to use, before anything
+    is written; it refuses by raising.
     """
     import json
     import shutil
@@ -166,9 +171,12 @@ def render_audiogram(
             progress_callback(percent, message)
 
     out_dir = output_dir or os.path.join(os.getcwd(), "output")
-    os.makedirs(out_dir, exist_ok=True)
     safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in title)[:60] or "clip"
     final_path = os.path.join(out_dir, f"{safe}.mp4")
+    if check_sinks:
+        # The shared temp folder takes the waveform WAV and Remotion's silent video.
+        check_sinks([out_dir, final_path, tempfile.gettempdir()])
+    os.makedirs(out_dir, exist_ok=True)
 
     say(10, "Reading the waveform")
     levels = envelope(audio_path, start_second, end_second, fps=fps, bars=bars)

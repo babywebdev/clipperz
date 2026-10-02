@@ -3,6 +3,10 @@
 
 Accept only the flat quoted-scalar schema in docs/workflow/record-frontmatter.md.
 Never backfill metadata, emit record bodies, or traverse links/reparse points.
+Exit 0: index complete, or the output states there are no records yet. Exit 2: refused.
+Exit 3: index printed; skipped linked folders, linked records and unreadable entries named.
+Exit 1 is not used.
+Use --diagnostic-offset for further skipped identities; concatenate consecutive fragments of long diagnostics.
 """
 
 import argparse
@@ -13,7 +17,7 @@ import re
 import stat
 import sys
 
-KINDS = {'spec', 'spec-log', 'worker-report', 'review', 'disposition', 'assignment',
+KINDS = {'spec', 'spec-log', 'implementation-report', 'self-audit', 'worker-report', 'review', 'disposition', 'assignment',
          'direction', 'phase-report', 'adr', 'external', 'ledger'}
 FIELDS = {'record', 'task', 'cycle', 'spec_revision', 'snapshot', 'author', 'date',
           'state', 'summary', 'read_when', 'evidence', 'workflow_version',
@@ -31,7 +35,9 @@ def is_link(path):
 
 def safe_root(raw):
     """Check ancestors before resolution, so even an explicitly named link is refused."""
-    path = Path(os.path.abspath(raw))
+    path = Path(raw)
+    if not path.is_absolute():
+        path = Path.cwd() / path
     if any(part.casefold() == 'archive-dnr' for part in Path(raw).parts + path.parts):
         raise ValueError('archive-dnr roots are excluded')
     current = Path(path.anchor)
@@ -45,8 +51,12 @@ def safe_root(raw):
     return resolved
 
 
-def walk_records(root, warnings):
-    """Prune forbidden names before inspecting their contents; do not follow links."""
+def walk_records(root, warnings, skipped=None):
+    """Prune forbidden names before inspecting their contents; do not follow links.
+
+    Linked folders and linked record files are never entered or read; a caller that passes
+    a skipped list receives their paths so it can name them.
+    """
     def onerror(error):
         warnings.append(str(error))
     for directory, dirs, names in os.walk(root, followlinks=False, onerror=onerror):
@@ -57,6 +67,8 @@ def walk_records(root, warnings):
             try:
                 if not is_link(Path(directory) / name):
                     kept.append(name)
+                elif skipped is not None:
+                    skipped.append(Path(directory) / name)
             except OSError as error:
                 warnings.append(str(error))
         dirs[:] = kept
@@ -65,7 +77,10 @@ def walk_records(root, warnings):
                 continue
             path = Path(directory) / name
             try:
-                if not is_link(path) and path.is_file():
+                if is_link(path):
+                    if skipped is not None:
+                        skipped.append(path)
+                elif path.is_file():
                     yield path
             except OSError as error:
                 warnings.append(str(error))
@@ -122,7 +137,7 @@ def metadata(path):
         template = any(is_placeholder(value) for value in data.values())
         for key, choices in (
                 ('record', KINDS), ('state', {'active', 'historical', 'superseded'}),
-                ('author', {'worker', 'coordinating-lead', 'reviewer', 'isaac', 'unknown'})):
+                ('author', {'agent', 'worker', 'coordinating-lead', 'reviewer', 'isaac', 'unknown'})):
             if not is_placeholder(data[key]) and data[key] not in choices:
                 raise ValueError('invalid ' + key + ': ' + data[key])
         for key, cap in (('summary', 40), ('read_when', 25)):
@@ -136,7 +151,7 @@ def metadata(path):
             raise ValueError('superseded_by is only valid for superseded state')
         if data['record'] == 'spec-log' and 'spec_revision' in data:
             raise ValueError('spec-log revisions belong in dated entries')
-        if data['record'] in {'worker-report', 'review', 'phase-report'}:
+        if data['record'] in {'implementation-report', 'self-audit', 'worker-report', 'review', 'phase-report'}:
             if not data.get('workflow_version') or not data.get('instruction_inventory'):
                 raise ValueError('report requires workflow_version and instruction_inventory')
         return data, 'template' if template else data['state'], template
@@ -145,20 +160,12 @@ def metadata(path):
 
 
 def word_count(path):
-    count, inside = 0, False
     try:
-        with path.open('r', encoding='utf-8-sig') as stream:
-            while True:
-                chunk = stream.read(65536)
-                if not chunk:
-                    break
-                for char in chunk:
-                    if char.isspace():
-                        inside = False
-                    elif not inside:
-                        count += 1
-                        inside = True
-        return str(count)
+        with path.open('rb') as stream:
+            data = stream.read(2 * 1024 * 1024 + 1)
+        if len(data) > 2 * 1024 * 1024:
+            return '>2MB / INCOMPLETE'
+        return str(len(data.decode('utf-8-sig').split()))
     except (OSError, UnicodeError):
         return 'unavailable'
 
@@ -169,31 +176,42 @@ def cell(value, limit=220):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__)
+    for stream in (sys.stdout, sys.stderr):
+        try:  # Windows pipes default to a code page that cannot hold record text
+            stream.reconfigure(encoding='utf-8', errors='backslashreplace')
+        except (AttributeError, ValueError):
+            pass
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('root', nargs='?', default='.',
                         help='task root; with --all, project root (default: current directory)')
     parser.add_argument('--all', action='store_true', help='explicitly scan only docs/project, docs/adr, docs/external')
     parser.add_argument('--active', action='store_true', help='known active plus unclassified/malformed; exclude templates')
     parser.add_argument('--offset', type=int, default=0)
+    parser.add_argument('--diagnostic-offset', type=int, default=0, help='offset in skipped-link and unreadable-entry diagnostics')
     parser.add_argument('--limit', type=int, default=20, help='rows per page, 1–100 (default: 20)')
     args = parser.parse_args(argv)
-    if args.offset < 0 or not 1 <= args.limit <= 100:
+    if args.offset < 0 or args.diagnostic_offset < 0 or not 1 <= args.limit <= 100:
         parser.error('offset must be nonnegative and limit must be between 1 and 100')
     try:
         root = safe_root(args.root)
+    except FileNotFoundError:
+        print(f'No records yet at {args.root}.')
+        return 0
     except (OSError, ValueError) as error:
         parser.error(str(error))
-    warnings, roots = [], [root]
+    warnings, roots, skipped, notes = [], [root], [], []
     if args.all:
         roots = []
         for name in ('docs/project', 'docs/adr', 'docs/external'):
             try:
                 roots.append(safe_root(root / name))
+            except FileNotFoundError:
+                notes.append(f'{name}: not present')
             except (OSError, ValueError) as error:
                 warnings.append(f'{name}: {error}')
     rows, scanned, eligible = [], 0, 0
     for scan_root in roots:
-        for path in walk_records(scan_root, warnings):
+        for path in walk_records(scan_root, warnings, skipped):
             scanned += 1
             data, lifecycle, template = metadata(path)
             if args.active and (template or lifecycle in {'historical', 'superseded'}):
@@ -209,15 +227,22 @@ def main(argv=None):
         print('\t'.join(cell(value) for value in row))
     remaining = max(0, eligible - args.offset - len(rows))
     print(f'Total scanned: {scanned}; eligible: {eligible}; shown: {len(rows)}; '
-          f'omitted: {eligible - len(rows)} (before page: {min(args.offset, eligible)}; after: {remaining}).')
+          f'omitted: {eligible - len(rows)} (before page: {min(args.offset, eligible)}; after: {remaining}); '
+          f'skipped links: {len(skipped)}; unreadable entries: {len(warnings)}.')
     if remaining:
         print(f'Next page: repeat this invocation with --offset {args.offset + len(rows)} --limit {args.limit}')
     print('Metadata routes reading; it does not establish acceptance. Cells over 220 characters are clipped.')
-    for warning in warnings[:10]:
-        print('Warning: ' + cell(warning))
-    if len(warnings) > 10:
-        print(f'{len(warnings) - 10} additional traversal warnings omitted; narrow the root to investigate.')
-    return 0
+    for note in notes:
+        print('Note: ' + cell(note))
+    diagnostics = ['skipped link, never followed: ' + repr(link.relative_to(root).as_posix() if link.is_relative_to(root) else str(link))
+                   for link in skipped] + ['unreadable entry: ' + repr(warning) for warning in warnings]
+    # Chunk unusually long identities too; concatenating consecutive fragments recovers the exact diagnostic.
+    fragments = [line[i:i+400] for line in diagnostics for i in range(0, len(line), 400)]
+    for fragment in fragments[args.diagnostic_offset:args.diagnostic_offset+20]:
+        print('INCOMPLETE: ' + fragment)
+    if len(fragments) > args.diagnostic_offset + 20:
+        print(f'INCOMPLETE: further diagnostics; repeat this invocation with --diagnostic-offset {args.diagnostic_offset+20}.')
+    return 3 if skipped or warnings else 0
 
 
 if __name__ == '__main__':

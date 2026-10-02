@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
+import { createHash } from "crypto";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { dirname, join, resolve } from "path";
@@ -203,5 +204,61 @@ describe("revision save across real processes", () => {
     expect(after.revisions.draft_version).toBe(1);
     expect(after.revisions.operations[0]).toMatchObject({ operation_id: "op-1", state: "superseded" });
     expect(groups()).toHaveLength(1);
+  }, 120_000);
+});
+
+// Writing Studio 1B.2b.1: the same interruption boundaries with an opening card,
+// composed by the fake composer in the worker process.
+describe("opening card saves across real processes", () => {
+  const image = join(tmp, "card.png");
+  function cardEnv() {
+    writeFileSync(image, "card-image-bytes");
+    return { CLIPPERZ_TEST_CARD_IMAGE: image, CLIPPERZ_TEST_CARD_SHA256: createHash("sha256").update(readFileSync(image)).digest("hex") };
+  }
+  const runCard = (args: string[], env: Record<string, string>) => start(process.execPath, [tsx, worker, ...args], childEnv(env));
+
+  it("a worker killed right after composing leaves both groups unreferenced and the last save intact; replay composes nothing until explicit invalidation", async () => {
+    const env = cardEnv();
+    const state = clip().revisions;
+    const killed = await runCard(["save", "clip-p", "op-1", "kill-after-compose", ...exp(state)], env).done;
+    expect(killed.code === 0 ? "exited 0" : "died").toBe("died");
+    const after = clip();
+    expect([after.output_path, after.revisions.current.version]).toEqual([legacyOutput, 0]);
+    expect(after.revisions.operations[0]).toMatchObject({ operation_id: "op-1", state: "pending" });
+    expect(groups()).toHaveLength(2);
+    expect(groups().filter((g) => g.includes("_card-"))).toHaveLength(1);
+    const docs = join(historyDir, "revisions", "clip-p");
+    expect(existsSync(docs) ? readdirSync(docs) : []).toEqual([]);
+    rmSync(image);
+    const replay = await runCard(["replay", "clip-p", "op-1", ...exp(state)], env).done;
+    expect(replay, replay.stderr).toMatchObject({ code: 0 });
+    expect(out(replay)).toMatchObject({ outcome: "pending", replayed: true, renders: 0, composes: 0 });
+    const inv = await runWorker(["invalidate", "clip-p", "op-1", state.incarnation]).done;
+    expect(out(inv)).toMatchObject({ outcome: "invalidated", operation: { state: "cancelled" } });
+    expect([clip().revisions.current.version, groups().length]).toEqual([0, 2]);
+    expect(readFileSync(legacyOutput, "utf-8")).toBe("legacy-output-bytes");
+  }, 120_000);
+
+  it("a worker killed after committing a card save left a committed revision that a fresh process replays without its image or source and reopens", async () => {
+    const env = cardEnv();
+    const state = clip().revisions;
+    const killed = await runCard(["save", "clip-p", "op-1", "kill-after-commit", ...exp(state)], env).done;
+    expect(killed.code === 0 ? "exited 0" : "died").toBe("died");
+    const after = clip();
+    expect(after.revisions.current).toMatchObject({ version: 1, operation_id: "op-1", provenance: "exact" });
+    expect(after.revisions.current.groups).toHaveLength(2);
+    const committedCard = JSON.parse(readFileSync(after.revisions.current.path, "utf-8")).thumbnail_card.image.path;
+    expect([after.output_path, after.thumbnail_config]).toEqual([after.revisions.current.output_path, { card_seconds: 1.52, preview_path: committedCard }]);
+    rmSync(image);
+    rmSync(source);
+    const replay = await runCard(["replay", "clip-p", "op-1", ...exp(state)], env).done;
+    expect(replay, replay.stderr).toMatchObject({ code: 0 });
+    expect(out(replay)).toMatchObject({ outcome: "committed", replayed: true, renders: 0, composes: 0, revision_id: after.revisions.current.revision_id });
+    const verify = await runWorker(["verify", "clip-p", after.revisions.current.revision_id]).done;
+    expect(verify, verify.stderr).toMatchObject({ code: 0 });
+    const checks = out(verify).checks as Array<{ path: string; ok: boolean }>;
+    expect(checks.map((c) => c.ok)).toEqual([true, true, true]);
+    expect(checks[0].path).toBe(after.revisions.current.output_path);
+    expect([groups().length, readFileSync(legacyOutput, "utf-8")]).toEqual([2, "legacy-output-bytes"]);
   }, 120_000);
 });

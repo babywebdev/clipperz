@@ -1,11 +1,11 @@
 ---
 record: "spec-log"
 task: "writing-studio"
-author: "coordinating-lead"
-date: "2026-09-14"
+author: "agent"
+date: "2026-09-23"
 state: "active"
-summary: "Repair-2 closes root containment; WS-16 survives two rounds. Lead-12 records required reassessment and bounded additive join-provenance correction, preserving prior evidence and instruction boundaries."
-read_when: "Investigating historical baselines, review dispositions, instruction changes or repair-3 reconciliation."
+summary: "Lead-27 records the 1B.2b.4a review disposition: WS-23 audio-only sink (F-1) goes to repair-1, D-1 and D-2 accepted, WS-25 and WS-26 deferred; earlier history retained."
+read_when: "Investigating historical baselines, review dispositions, instruction changes, lead-23 to lead-27 decisions or repair-3 reconciliation."
 ---
 
 # Spec log: Writing Studio
@@ -840,3 +840,1247 @@ budget is one bounded contract implementation and fresh independent follow-up;
 unresolved results need explicit disposition/reassessment before any further relay.
 No automatic Worker dispatch, application edits, commit, push, release or 1B.2b
 occurred in this coordinating turn. Workflow 4.1.0/inventory 4.1.0-local-1 unchanged.
+
+## 2026-09-14 — lead-12 — reassessed repair-3 handback and base reconciliation
+
+Existing coordinating lead read reports/1b-2a-repair-3-worker.md and reconciled
+Handoff with the current tree. Snapshot recheck: 12 file entries, 88 local evidence,
+11 contract/dependency inputs and 16 workflow files, zero drift and no unrecorded
+status lines before lead bookkeeping. Current HEAD fed8ed13dcb2aade06bee341953d6b10d58bff13,
+tree b0d7d5c8e62c440fca5d1e4b6dfaa65ebd179f2c, independently read from Git.
+Tracked patch 6b5b57bfbed008f8a203a09d53c0f2c98b3b05e1fb39c465253424b75983d407;
+slice patch a06b4a8365f0cfd265be13914d9dd535f65f5ee29287abb533db54befdb6d6ad.
+
+Isaac reports an accidental pre-edit commit. Worker head-drift evidence compares
+80 pre-edit status entries with the commit's 80 paths, no additions/omissions, and
+nine planned files' committed blobs with pre-edit copies. Lead checked the reported
+base/tree and comparison artifact; fresh review also assesses binding. Commit
+identity change is not an application acceptance or a reason to erase work.
+No amend/reset/reword/commit/push occurred here. A first unquoted PowerShell tree-ref
+query misparsed the braces; the quoted read-only query returned the correct tree.
+
+Worker reports 43 focused/309 full Node, 77 exact/977 full Python (six skips),
+build/types/syntax and both real bridges pass, plus a producer-derived matrix and
+genuine old-document compatibility demonstration. Fresh full Python now includes
+the preserved strict_ai.py change; evidence still needs independent assessment.
+No application writer active after Handoff; WS-16 remains open pending disposition.
+
+Assigned fresh /root/review_1b2a_repair3 without inherited history, review-only,
+to reports/1b-2a-repair-3-review.md and cycle review/ evidence. Neutral scope:
+remaining WS-16 contract correction, compatibility, producer-derived checks,
+retained closures and base/snapshot evidence. It may inspect relevant dependencies
+and run isolated checks, but not implement, delegate or edit shared records. Lead
+updates only Status/log during review. This is the one follow-up in the reassessed
+budget; unresolved results need explicit reassessment, not an automatic repair.
+No release, production opt-in, 1B.2b or instruction/inventory changes.
+
+Additional base check by lead: compared fed8ed1 Git blob hashes against all 29
+repair-2 application entries. Twenty-eight match byte-for-byte; video_processor.py
+differs only CRLF-to-LF normalization (working 157175 bytes, committed blob 153446).
+Its normalized text is identical and current working bytes still match the repair-2
+manifest. The commit preserves application source content, with this explicit
+byte-identity qualification. The independent reviewer received the comparison;
+no source change, normalization write or commit amendment was performed.
+
+## 2026-09-14 — lead-12 — WS-16 closure and internal 1B.2a acceptance
+
+Coordinating lead read the completed reports/1b-2a-repair-3-review.md, independent
+binding results and verification against current lead-12 requirements and Worker
+evidence. Accepted reassessed repair-3, closed WS-16 and accepted 1B.2a B2A-1..6.
+Retain WS-12/13/14/15, 1A and 1B.1 closures. No supported blocking finding remains
+within this internal slice. Worker implementation was not accepted automatically:
+fresh /root/review_1b2a_repair3 inspected all 12 changed/new inputs, actual producer,
+consumer and compatibility paths, and independently ran 43/43 service/process/matrix
+tests and 77 exact Python tests with 123 subtests. Worker full suites (309 Node,
+977 Python/six skips), build/types/syntax, both bridges and genuine old-document
+demonstration were assessed on bound unchanged inputs. Initial environmental failures
+remain recorded separately from approved-context passing execution.
+
+Independent binding corroborates patches, all three untracked copies, 12 application,
+88 evidence and 11 contract/dependency inputs, plus sampled actual bridge media bytes.
+Only lead-owned spec/log bookkeeping differed during review. The reviewer's assessment
+and provenance remain unchanged; the lead filled its designated disposition section.
+No author-lead closure conflict: no coordinating-lead application authorship.
+
+Acceptance limit: join_inputs prove what the actual producer recorded, not an
+independent attestation of every input file's media duration. This is the explicit
+lead-12 scope, not a new waiver. Existing rounding cannot distinguish arbitrarily
+close overlaps; supported hardcut fallback and static ownership checks remain.
+The actual producer-derived matrix and real-media tests establish the implemented
+contract; no demonstrated additional production defect warrants another validation
+system. The reassessed correction is complete and the repair loop ends here.
+
+Ledger moves WS-16 to Closed while preserving its three-cycle recurrence and
+prevention links. Five legacy/integration classes WS-03/04/05/06/09 remain Open.
+No full feature-map acceptance is claimed; the service is not publicly enabled.
+Current accepted application snapshot is fed8ed1 plus repair-3 tracked patch and
+untracked copies. Commit message/history are untouched; CRLF/LF qualification and
+separate strict_ai.py provenance remain recorded. Full Python evidence is fresh
+but does not constitute live provider verification or approval of unrelated work.
+
+Next owner/action: existing coordinating lead refreshes 1B.2b from the accepted
+service, including legacy mutators, migration/composition, retention/reference
+boundaries and reader duration semantics, before another manual Worker handoff.
+No production exposure, next-slice implementation, agent dispatch, commit, push or
+release occurs through this acceptance. Proposed local-setup documentation remains
+for the next coordinated update with instruction inventory handling; no installed
+instruction or preserved inventory was changed here.
+
+## 2026-09-14: lead-13 successor planning and manual handoff
+
+Isaac requested planning for implementation after acceptance of 1B.2a. Refreshed
+against the current service/models, exact renderer, thumbnail helpers and CLI bake,
+server thumbnail/logo/rerender paths, history/cleanup boundaries, and accepted
+repair-3 review/disposition. HEAD remains fed8ed1; all 23 accepted application and
+contract manifest entries match. No application implementation was changed by the
+lead. `baseline-1b2b1.json` binds current relevant interfaces/configuration (hashes
+only), dependencies and accepted snapshot. Previous planning baselines stay intact.
+
+The broad provisional production-adapter/composition/migration partition is resized:
+1B.2b.1 proves an immutable opening-card save through the internal revision service;
+remaining production adapters/migration and visible handoff get a later freshness
+check. Existing CLI baking overwrites its input and defaults the card to portrait
+geometry; the accepted service refuses cards. Direct route wiring now would either
+lose the existing card behavior or expose saved revisions to unsafe legacy mutators.
+This is a technical sequencing decision within approved product intent, not a new
+product gate. No new domain reference applies to this local-media capability.
+
+Lead-13 explicitly replaces only the successor card refusal, preserving raw exact
+receipts and adding separate final composition provenance. The card choice uses an
+expected image hash and owned immutable copy. Final timing/size projection must
+use final probes, while content-relative assets keep explicit domains. Composition
+publishes a new group, never changes the renderer's or earlier groups, and accounts
+for all dependencies/residuals. Old document/replay behavior, no-card request hashes,
+static ownership limits, locks, incarnation and cancellation safeguards remain.
+Later cleanup must use the resulting dependency graph, not infer a single group.
+No collector or production opt-in is added in this slice.
+
+Current spec holds B2B1-1..5, write boundaries and required verification. Worker owns
+implementation upon Isaac's manual relay, writes its own 1b-2b-1 report/evidence,
+and stops writes at handback. Fresh independent review remains required; the
+existing two-unsuccessful-round reassessment and no-agent-dispatch boundary remain.
+No additional product decision or approval is needed for this handoff. Workflow
+4.1.0/inventory 4.1.0-local-1 govern this planning; preserved earlier inventories,
+reports, accepted evidence and actual instruction-version boundaries are unchanged.
+
+## 2026-09-15: 1B.2b.1 handback and independent review
+
+Read the complete Worker report/Handoff against lead-13 and the actual tree. HEAD
+remains fed8ed1. Before lead bookkeeping, the Worker snapshot check passed: 25 files,
+57 local evidence, 22 contract inputs and 16 workflow-group entries, zero drift and
+no unrecorded status paths. Manifest SHA-256 32ca283f9521a485bdef5fc422108647277c0d1e078fab2a4aa2ec3a0184c899.
+Worker reports required verification passed; this is not yet acceptance.
+
+Corrected stale Status: the older repair-3 workflow grouping included lead-owned
+spec/log/ledger whose later bookkeeping changed. That grouping is distinct from the
+22 installed inventory identities, reported unchanged before/after this cycle.
+Current planning-baseline assertions describe pre-implementation freshness, not
+unchanged application code after 1B.2b.1. Acceptance map and requirements unchanged.
+
+Implementation writes stopped. Fresh non-author /root/review_1b2b1 was assigned with
+no inherited conversation, bounded review-only authority, its own report/evidence
+and no repairs/delegation. Review covers design, producer/consumer media and timing,
+compatibility and publication safeguards, not just check counts. Lead keeps
+coordination; no Worker dispatch or successor implementation. Retain the existing
+two-unsuccessful-round reassessment budget. Proposed setup documentation is deferred
+pending disposition and separate handling of the preserved instruction inventory.
+
+## 2026-09-15: lead-14 composition R1 disposition and repair-1
+
+Fresh /root/review_1b2b1 recommends changes for R1. Independent 22 Node and 14 Python
+checks pass, but the real-composer reproduction commits contradictory audio claims
+and missing required timing facts. Lead inspected the report, reproduction output
+and validator: actual media relationships remain checked; unchecked retained
+producer fields cause durable contradictory provenance. Uphold R1; B2B1-2 fails.
+
+Reopened WS-16 for this new composition-boundary occurrence, preserving accepted
+raw exact lead-12 closure and all prior occurrence links. Reassessment identifies
+incomplete consumer validation, not missing producer measurements; no new media
+attestation or tolerance policy is needed. Lead-14 bounds full supported-schema
+validation, measured-claim comparisons and a field/mutation inventory with real
+producer controls, preventing an examples-only patch. Existing compatible documents
+and operation replay must remain unchanged. This is first repair of this occurrence;
+two unsuccessful rounds require reassessment, and prior history remains searchable.
+
+Status, ledger and designated review disposition reconciled. Worker receives a
+manual repair prompt; no automatic implementation or agent dispatch. Lead authored
+no application edits. Fresh independent follow-up remains required. Worker report
+and reviewer findings/provenance unchanged. Required affected checks and permitted
+hash-justified evidence reuse are recorded in the spec. No product decision pending.
+
+## 2026-09-19: repair-1 handback and instruction boundary
+
+Read complete 1b-2b-1-repair-1 Worker report/Handoff (executed September 15) against
+lead-14. Snapshot manifest 6daecc8b8e8258c57335440863535ea2a3681817bc62741e158d320001a4fe39
+remains on fed8ed1. Recheck: application files, 39 local evidence and 22 contract
+inputs match. Three drift rows are ledger (twice) and docs/local-setup.md; new
+external AI-client repair record explains the separately authorized September 16
+configuration repair and eight-line setup addition. Preserve that work. No product
+implementation drift from this repair was found. Worker verification claims remain
+historical, not rebound to today's environment or instruction identities.
+
+Reread changed setup guidance. Created immutable inventory 4.1.0-local-2 capturing
+22 current installed/context/source identities, with README successor pointer.
+Local-1, earlier reports/inventories and instruction bodies remain preserved; roles,
+contract, review safeguards and storage policy unchanged. Worker September 15 work
+retains local-1; September 19 coordination/follow-up uses local-2. No live AI call
+or acceptance of unrelated configuration work is part of this review.
+
+Fresh non-author /root/review_1b2b1_repair1, no inherited conversation, assigned
+review-only of actual snapshot/design and R1 closure, own report/evidence only.
+Application writes frozen. Status reconciled; composition WS-16 remains unresolved
+until independent follow-up and disposition. No successor/repair auto-dispatch.
+
+## 2026-09-19: accept composition repair-1 and 1B.2b.1
+
+Read complete fresh /root/review_1b2b1_repair1 report, binding and recommendation.
+Independent200 tests pass; unchanged reproduction commits valid control and rejects
+both defects. Coherent numeric mutations and full supported-schema inventory close
+R1 beyond shape-only checks. Worker505 Node/build/types/real bridge evidence and
+retained Python/exact/parity remain applicable by covered input/dependency review.
+Initial sandbox EPERM preserved, approved rerun passes. No new actionable finding.
+
+Accept repair-1 and B2B1-1..5; close composition WS-16 with all prior recurrence links
+and raw exact lead-12 closure preserved. Lead authored no application implementation.
+Snapshot remains manifest6daecc8b.../patch52ae6d10... on fed8ed1; no commit or release.
+Worker actual instruction local-1 and current follow-up local-2 stay distinct.
+Current media tool versions match; separate AI-pin environment edit is not a claim
+of whole historical environment identity. Accepted limits: strict versioned producer
+schema, configured same-build probe comparisons, static path ownership and decoded
+audio proof in tests/bridge rather than per-save sample attestation.
+
+Status and designated disposition updated. Broader task remains partial; production
+adapters/migration require fresh planning using multiple dependency groups, final
+served duration, immutable image/receipt and no-card/old-replay compatibility before
+any manual successor handoff. No successor authorized automatically by acceptance.
+Setup-documentation proposals remain deferred; today's inventory only preserves
+the already existing independently authorized AI-pin guidance and README boundary.
+
+## 2026-09-19: lead-15 editor-context successor refresh and handoff
+
+Isaac requested proceeding after 1B.2b.1 acceptance. Refreshed current revision
+reader/state/draft APIs, TS/Python history and sidecars, server preview/download,
+source/reframe/rerender/thumbnail/logo routes, local policy and accepted evidence.
+41 non-document application/contract entries (overlapping categories) match accepted
+repair-1; HEAD fed8ed1 unchanged. baseline-1b2b2.json binds relevant current inputs
+including ignored configuration by hash only and instruction inventory local-2.
+No new domain reference is applicable to this local-media read capability.
+
+Bound 1B.2b.2 as an actual read-only editor-context HTTP API, the first production
+reader for the revision model and an honest legacy recovery description. Existing
+loadWords/loadRecipe/loadReframe collapse absence and corruption; requested legacy
+segments and bounded words cannot prove effective rendered edits. A faithful
+migration must discover these capabilities before deciding a write. No silent
+ensureTracked/adoption on GET. This preserves functioning old mutation routes until
+all mutating adapters can join the accepted save/invalidation protocol.
+
+The technical sequencing does not alter product intent: old media and writing stay
+usable, insufficient source/timing is explicit, and new exact/card-bearing revisions
+have a canonical context. Known source/content/final domains, optional artifact
+placements and snapshot identities remain distinct. Exact route chosen in spec;
+internal service/type layout delegated. Actual metadata migration, mutating adapters,
+writing persistence and visible UI remain provisional successor scope, not omitted
+requirements or automatically authorized work. No new product decision required.
+
+Lead-15 supplies B2B2-1..5 and bounded write area/verification. Worker owns application
+implementation on Isaac's manual relay; no application edits or dispatch by lead.
+Fresh independent review, local-only policy, source preservation, no-agent rule and
+existing repair/reassessment safeguards remain. No commit, push or release.
+
+## 2026-09-20: editor-context handback and fresh review
+
+Read the complete 1b-2b-2 Worker report/Handoff against lead-15. Current HEAD fed8ed1;
+manifest6f8a714072fcae7d30e91d67e8594f08dfc31ad746952db83bddb9bbf8c69875,
+patch1d8efe77c3fe69d47c5b81fb4c28b985fc8cd9ab38d4369147f4f8585ecbf2e0.
+Correct invocation of snapshot-capture.mjs with explicit repository argument and
+--check reports No drift. Lead first omitted the root argument; the script treated
+--check as cwd and its first read-only git call failed ENOENT. No capture/mutation
+occurred and the corrected call succeeded; this was not a product failure.
+
+Worker reports70 focused/575 full Node, build/types and actual HTTP restart proof.
+Implementation writes stopped. Fresh review-only /root/review_1b2b2 assigned with
+no inherited conversation, own report/evidence only; application/criteria frozen.
+Status updated to implemented/review pending. Local-2 remains actual instructions.
+No Worker dispatch, successor or acceptance yet. Retained evidence citations and
+coverage will be assessed, including the saved-revision row's older log reference
+and the distinction between starting a server and exercising preview/export parity.
+
+## 2026-09-20: lead-16 reader findings and repair-1
+
+Fresh /root/review_1b2b2 recommends changes. Independent70 focused tests pass; copied
+real revision fixtures reproduce ancestor junction escape, exact null-path fallback,
+malformed nested authoritative fields/serialization and invalid legacy word filtering.
+Lead read complete report/reproduction and affected code; uphold R1-R3. No application
+writes by lead. Reviewer disclosed early reading of Worker summary; independent
+non-author reproduction supports the findings without claiming perfectly blind order.
+
+WS-12/16 reopened only for new reader occurrences, prior writer/composer closures
+preserved. WS-17 records malformed recovery classification. Reassessed repeated
+classes immediately: duplicated ownership checking begins too low, and broad casts
+validate outer shape rather than consumed fields. Lead-16 requires full configured
+ownership chain and consumed-field/capability validation inventory, stable failures,
+old-document compatibility controls and whole-list legacy-word classification. No
+new-save validator retroactively imposed on old documents, no path-swap guarantee,
+no source mutation, policy change or new product decision.
+
+Retained evidence correction is in the review disposition: accepted composition
+repair-1 bridge supersedes the pre-repair log cited in the Worker row for retained
+save coverage. Starting Studio does not implicitly run parity; existing parity is
+retained on unchanged-flow dependency grounds. Preserve author report, no fabricated
+historical execution or redundant full-suite requirement solely for citation repair.
+
+Repair-1 manual relay is next. Reader/types/necessary route mapping/tests/HTTP check
+only; no save/renderer/legacy-writer/UI/Cleanup/dependency changes. Fresh required
+checks and unchanged reproduction plus corrected demonstration; independent follow-up
+before acceptance. Existing retry/reassessment limits remain, no automatic dispatch.
+
+## 2026-09-21: reader repair-1 handback and follow-up
+
+Read repair-1 Worker report/Handoff against lead-16. Rechecked submitted manifest
+ca104bfb968514288e720a2ee2ae759c3e27594533f392e2de5aeba223bd284d using the script
+with explicit repository argument: No drift. Base fed8ed1 unchanged. Application
+writes stopped; no acceptance yet. Fresh non-author /root/review_1b2b2_repair1
+assigned without inherited history; its own report/evidence only, no repairs or
+delegation. Requirements/application frozen; only Status/log bookkeeping by lead.
+
+Explicit evidence limitation: Worker temporarily moved and restored original review
+fixture-HO9pKq. Seven reviewer files have verified hashes, but original fixture
+contents have no before-hash baseline. A same-volume rename is the Worker's account,
+not independent byte-integrity proof. Follow-up must use fresh isolated fixtures and
+must not mutate original reviewer evidence. No speculative historical hash claim.
+The report's pre-edit reproduction row says final snapshot despite running before
+edits; preserve report and clarify actual binding in review/disposition. Initial
+control rejection is a recorded failed implementation attempt, not an independently
+returned second repair round; all failures remain subject to circuit-breaker policy.
+Narrowed invariants must be judged against supported protocol, not test convenience.
+
+No pending product decision. R1-R3 / reader WS-12/16/17 remain open pending review.
+
+## 2026-09-21: reader repair-1 disposition and lead-17 repair-2
+
+Fresh /root/review_1b2b2_repair1 independently runs105 passing tests but confirms
+remaining root-before-history-read, numeric-range, playback identity and committed
+pointer failures using new isolated fixtures. R3 complete legacy-word classification
+is verified; close WS-17 only. WS-12/16 read occurrences remain open, accepted writer
+closures intact. Lead read complete report and actual writer transitions; no code edits.
+
+Reassessed coverage now: the repair protected sidecars after an unprotected history
+read, finite checks did not establish ranges, and a fixture-cleared pointer was
+mistaken for protocol support. Lead-17 requires read-order and claim/invariant tables,
+full configured-root checks before consumption, stable OWNERSHIP_ESCAPE for linked
+legacy sidecars, valid timing ranges/relationships and document/pointer file identity.
+Entry-summary drift retains context but disables committed play/download and clears
+media.serves. Positive revision counter cannot have null current; initial zero/no-output
+remains valid. No new cryptographic, migration or concurrent-swap guarantee.
+
+Before-reproduction binding clarified in disposition: pre-edit sources, not final
+snapshot. Original moved fixture lacks historical hash proof; fresh review fixtures
+support current findings without erasing that limitation. Future reruns use separate
+identified scripts/fixtures only, no original artifact moves or overwrite/restore.
+
+Manual repair-2 is next, independent follow-up afterward. A second unsuccessful
+repair on the same issue requires explicit reassessment before any third relay.
+No application writes, automatic dispatch, successor, commit or release by lead.
+
+## 2026-09-21: reader repair-2 handback and fresh follow-up
+
+Read repair-2 report/Handoff, separately bound pre-edit/final evidence, delegated
+choices and failed-attempt disclosures. Rechecked final snapshot with explicit-root
+--check: No drift. HEAD fed8ed1 unchanged; five untracked application files carry
+the repair, so unchanged tracked patch alone is not the repair identity. Manifest
+01e88e25... and27 untracked copies identify final work;69189dfe... identifies pre-edit.
+Worker reports135 focused/640 Node/build/types/HTTP pass, original evidence hashes
+preserved. No application edits by lead. Prior historical fixture limitation remains.
+
+Fresh non-author /root/review_1b2b2_repair2 assigned no inherited history, review-only
+own report/evidence, no repairs/delegation. Criteria/app frozen; Status updated.
+R3/WS17 remains closed; R1/R2 await assessment. Second unsuccessful follow-up on the
+same issue requires explicit reassessment before any third relay. No automatic loop,
+successor work, commit or release. Inventory local-2 remains applicable.
+
+## 2026-09-21: repair-2 partial closure and mandatory reassessment
+
+Fresh /root/review_1b2b2_repair2 independently passes135 tests but reproduces remaining
+R2a/R2b on new fixtures. Lead read complete report: missing/empty entry output leaves
+unreachable URLs advertised; mutually contradictory card/raw/final/bookend/artifact
+records still become authoritative claims. Close R1/WS12 and R2c as independently
+verified; retain R3/WS17 closure and prior writer closures. WS16 remains open.
+
+This is the second unsuccessful R2 follow-up. No third repair prompt or automatic
+implementation. Reassessment: field/scalar inventories have not represented the
+cross-record relationships that make a response claim true. Next lead design must
+map claims to writer/serving semantics and compatible historical profiles, then use
+valid real-writer and coherent cross-field counterexamples. Consider pure shared
+contracts rather than duplicated partial validators; no mutation-service import or
+broad refactor is authorized by this checkpoint. Scope/verification must be refreshed
+before a new manual relay. Existing constraints and independent closure remain.
+
+Worker before/final snapshot identities are adequate; current independent fixtures
+preserve original evidence. Earlier moved fixture still has no historical content
+proof. No application writes, commits, push, release, acceptance or successor work.
+
+## 2026-09-21: lead-18 reader relationship-contract reassessment
+
+Isaac requested proceeding after repair-2's unsuccessful R2 follow-up. Lead traced
+the response, actual by-ID serving gate, writer raw-bookend validation and final
+composition construction/probe checks. Field inventories and additional scalar
+examples failed to capture the relationships underlying authoritative response
+claims. The new direction validates one aggregate before projection, separates
+revision identity from served-URL availability, and defines old/current read profiles
+without changing accepted producers or using current-save admission for old data.
+
+Considered extraction of shared writer validation, but rejected it for this bounded
+repair: it would change accepted write paths and couple historical reads to stricter
+new-save admission. A pure reader contract boundary is authorized instead, with
+producer-backed controls and cross-record contradiction tests. Unknown unconsumed
+fields remain outside strict admission. Required exact-v1 precision cannot disappear
+merely because an object is described as old. No media attestation is added.
+
+Refreshed baseline audit compares 47 unique non-document application/configuration/
+contract entries against repair-2, zero drift; HEAD and manifest hash match. Four
+genuine prior current/previous documents retain tolerance and lack final composition.
+Read-only evidence: `_local/project/evidence/writing-studio/1b-2b-2-reassessment/`
+`lead-baseline-check.json` and `historical-profiles.json`. This sample is not an
+exhaustive historical survey. No tests rerun for coordination-only changes.
+
+Lead-18 updates the single B2B2 acceptance map, current baseline and prospective
+repair-3 scope. Fresh review-only agent `/root/review_reader_reassessment` receives
+the candidate and current implementation without inherited conversation; its own
+report is `reports/1b-2b-2-reassessment-review.md`. Application remains frozen.
+This is design scrutiny, not application acceptance. One subsequent manual relay,
+then fresh independent implementation follow-up; no automatic fourth attempt or
+reset of existing recurrence history. Workflow 4.1.0/local-2, settled product choices,
+storage, disabled verification delegation and no-agent Worker restriction retained.
+
+Fresh design review completed with no blocking finding, independently confirming
+47 matching input hashes and four historical records. Lead read and accepted its
+recommendation for one manual repair-3 relay; application acceptance remains
+changes-requested. The reviewed design does not claim packet-level evidence from
+stored summaries or conflate artifact-local domains with served-file placement.
+Status assigns implementation to Worker upon Isaac's relay, and WS-16 links the
+design review without closing the finding. Final post-review spec edits reconcile
+Status/disposition only; the reviewed technical contract is unchanged. Fresh
+independent implementation follow-up remains necessary. No application writes,
+commit, push, release or automatic dispatch occurred.
+
+## 2026-09-21: reader repair-3 handback and fresh independent follow-up
+
+Worker report `reports/1b-2b-2-repair-3-worker.md` hands off implementation on
+manifest `6b7807c1411dbf1005309d7c2dde3add7530b5a48d0f0c116bfeb86536018c84`, HEAD
+fed8ed13dcb2aade06bee341953d6b10d58bff13. Before evidence separately binds manifest
+e6beabcc3bbbf9bab06a994114fde26a9ae8373f2dff1ed6c43e4343e48f966a.
+Lead read full report/Handoff and independently matched 73 unique recorded file
+inputs before bookkeeping, zero drift. Pre-edit/final comparison confirms exactly
+seven changed/new application/test paths within lead-18's scope. Audit evidence:
+`_local/project/evidence/writing-studio/1b-2b-2-repair-3/lead/`.
+
+Submitted 186 focused/691 full Node, two builds, types and 20-group actual HTTP
+check pass; these are Worker results pending independent assessment. Same tracked
+patch on before/after is expected because the seven files are untracked and their
+copies/hashes capture changes. Prior evidence and retained Python/media citations
+remain preserved, not re-executed or freshly certified by this reconciliation.
+
+Fresh /root/review_reader_repair3 assigned review-only without inherited history;
+own report `reports/1b-2b-2-repair-3-review.md` and isolated evidence only. Review
+includes actual read/producer/serving relations, supported historical profiles and
+Worker counterevidence concerning the earlier applied-card-without-composition
+control and 221 old test-run documents. Disclosure alone grants no compatibility
+exception or acceptance. Application frozen; Status reconciled to pending review.
+WS-16 R2a/R2b remain open, prior WS-12/17/R2c closures retained. No automatic fourth
+repair, recurrence reset, implementation dispatch, successor, commit or release.
+
+## 2026-09-21: repair-3 disposition, remaining aggregate relationships
+
+Fresh /root/review_reader_repair3 passed186 focused tests but reproduced inconsistent
+editorial words/text versus source words, old raw/probe duration1.021 versus999,
+and a published bookend measurement999 beside raw duration3.135. Empty retained
+source words correctly disable widening; the transcript inconsistency, not widening,
+is the finding. A real nominal.mp4 symlink to actual.avi also yields true media
+capabilities while the unchanged serving route's resolved-file predicate rejects
+it. That check used the actual predicate directly, not a new HTTP server.
+
+Lead read full review/evidence and relevant code and requests changes. B2B2-1/3
+fail; slice remains unaccepted. Prior examples repaired, WS-12/17/R2c and prior
+writer closures remain. WS-16 links this follow-up. No automatic fourth repair:
+lead must audit coverage of each returned claim against producer and route predicates
+before further direction; moving checks into an aggregate did not alone make the
+45-row table complete. No application writes or new implementation owner.
+
+Historical counterevidence independently supports refusal of the applied-card with
+composition deleted: no accepted writer produces it. All221 alternate-domain
+artifacts reference fake-render headers; only34 directly reside under step-4-tests,
+the remainder are fixture copies. Preserve Worker and earlier review assessments
+with this attributed clarification; all719 canonical-map records are not necessarily
+genuine untouched saves. No supported historical compatibility regression established.
+The unpromoted huge-container and missing-media identity observations add no new
+requirement. Scope/provenance limits and no attestation guarantee remain.
+
+Status, ledger and designated review disposition reconciled. No acceptance, fourth
+relay, successor, commit, push or release. Application snapshot unchanged.
+
+## 2026-09-21: lead-19, executable contract proof before further repair
+
+Isaac requested proceeding with the lead audit. Lead traced the actual projections
+to accepted producer/admission and serving code. Missing edges: full versus selected
+source words, editorial mapping/text normalization; historical raw/probe relationship;
+copied bookend records and stage measurements; realpath/stat/resolved-extension
+versus recorded filename. Other projections include recorded requests and diagnostic
+facts that must not be misclassified as guarantees of effective output. This is the
+reason to audit per-claim dependencies rather than add blanket whole-object equality.
+
+Rechecked51 unique application/configuration inputs against repair-3, zero drift,
+HEAD unchanged; evidence `1b-2b-2-contract-proof/lead-baseline.json` under the normal
+task evidence root. Lead-19 preserves application freeze and all previous acceptance
+states, supplies a concrete expectation-source table and modifies the single check
+map to include executable conformance coverage. No new product decision/reference,
+historical migration, attestation or concurrency guarantee.
+
+Changed work sequencing: one manually relayed verification-only Worker assignment,
+new isolated check script/support plus own report/evidence, no edits to existing
+application/tests/scripts. The runner asserts intended outcomes and must fail for
+unresolved product defects; it cannot turn known failures into passing expectations.
+Positive controls and the independent producer make the oracle reviewable. Existing
+coverage is reused by named case. New script is outside default test discovery;
+there is no new package/harness change or requirement to make the frozen product green.
+
+Fresh independent review of expectations, historical profiles and coverage precedes
+any later application repair direction. This is not a fourth repair, no retry-budget
+reset, and no automatic tests-to-fixes handoff. Report is
+`reports/1b-2b-2-contract-proof-worker.md`, lead-19/workflow4.1.0/local-2. Status and
+ledger reflect the new bounded artifact ownership upon Isaac's manual relay. No
+application writes, agent dispatch, commits, push, release or successor work.
+
+## 2026-09-22: lead-19 verification-artifact handback and independent review
+
+Worker hands back two new verification files, own report and evidence against the
+unchanged repair-3 application. Bound run4 reports35 pass/14 fail/0 harness errors,
+exit1. These are application failures, not green verification or another attempted
+application repair. Submitted projection ledgers compare253 tracked/230 legacy
+response leaves and disclose eight limits/gaps; completeness requires review of
+the expectations and state coverage, not merely those counts.
+
+Lead independently rehashed all24 artifact-manifest entries (two new project files,
+21 evidence files and report), zero drift; manifest identity
+def5cf0a460ee5c1789ebe9b5de1394db221dc5a395d7a7559e01b463d2ec4c8.
+All51 unique frozen non-document inputs match the lead-19 baseline. HEAD remains
+fed8ed13dcb2aade06bee341953d6b10d58bff13; no rebuild or application write by lead.
+Evidence: `1b-2b-2-contract-proof/lead/handback-audit.json` under the task evidence root.
+
+Read full Worker report/Handoff and submitted logs/binding. Assigned fresh
+/root/review_contract_proof without inherited history, review-only own report and
+isolated evidence. Review covers producer-derived oracles, historical records,
+actual HTTP route expectations, failure classifications and gaps (including whether
+the >20000-word control really requires a full render). Artifact/application writes
+remain stopped, no fourth repair or successor. Status records pending review;
+existing application changes-requested and WS-16 findings remain unchanged.
+
+## 2026-09-22: contract-proof disposition and lead-20 artifact correction
+
+Fresh review supports the14 reported product failures and their external oracles,
+but CP-1 shows parent coverage markers credit unasserted capability reasons and
+future descendants; tracked coverage gaps do not affect exit. CP-2 shows retained
+optional-artifact tests are unmatched/dangling negatives, not valid present-state
+controls. Lead inspected the accounting and renderer publication paths, requests
+artifact changes and records WS-18 separately from product WS-16. No application
+fix or acceptance occurs. Two small verification-artifact writes remain the base;
+new lead-20 direction bounds their correction and new support/evidence only.
+
+Supplemental reviewer check supplies a passing20,001-word producer-derived control
+without rendering:20,000 prefix words, true count, full text and diagnostic. It also
+confirms both last-stage bookend copies can claim999 beside raw duration3.929.
+Preserve the original Worker report and correct its large-fixture premise through
+the review/disposition. The253/230 figures are not evidence of complete semantic
+comparison. Reused legacy/junction/draft and bounded crossfade coverage remain
+acceptable, while no-attestation and selected-response scope remain explicit limits.
+
+Lead-20 requires exact actually-executed assertion accounting, fatal required gaps,
+verifier self-checks, valid present caption/crop artifacts and isolated relationship
+negatives, plus reused/adapted supplemental evidence in a new owned output root.
+It does not demand fixed counts or hide newly exposed application defects. Original
+snapshots/evidence remain immutable. The application is still bound to repair-3;
+verification artifacts receive separate pre/final identities. No product decision
+or reference selection change. Manual artifact-only relay then fresh independent
+follow-up; artifact round one does not reset the application repair history.
+
+Status, WS-18 and review disposition updated. WS-16 remains open with this proof
+and paired-stage occurrence linked. No fourth application repair, automatic agent
+dispatch, successor, commit, push or release. All implementation stays with Worker.
+
+## 2026-09-22: contract-proof artifact repair-1 handback
+
+Worker hands back one changed runner (dd04e3587010d65f98d2a105cd02ac3469de539fc9f13cb0e457ed3efd0258dd),
+unchanged Python oracle and new evidence. Artifact manifest
+7f7febd81ac7fa7b72de9f8919eb91c6f1eb7c88423cb9b664018e7f889166a6 binds run3;
+lead matched all23 manifest entries and51 frozen application inputs, zero drift.
+HEAD remains fed8ed1. Lead audit is in this cycle's `lead/handback-audit.json`.
+
+Full report/Handoff read. Submitted run3 reports42 application passes/16 failures,
+verifier checks passing and complete declared coverage; these conclusions await
+fresh independent assessment. Run2 was stopped after an edit during execution and
+is explicitly unusable as a final result; its log is retained. No lead rebuild or
+application write. Worker reports CP-1/2 corrected and supplemental tests integrated.
+
+Fresh /root/review_contract_proof_repair1, no inherited history, reviews only its
+own report/evidence and may run bounded checks on new fixtures. Assignment includes
+whether A-X5's live-size expectation is supported by the recorded optional-artifact
+contract; report disclosure is not approval of a new requirement. Status records
+handback/freeze/pending review. No automatic application repair or successor.
+
+## 2026-09-22: lead-21 independent artifact follow-up disposition
+
+Fresh review `reports/1b-2b-2-contract-proof-repair-1-review.md` independently
+verified CP-1/WS-18 and CP-2; lead closes both on runner dd04e358... and the
+repair-1 artifact snapshot. Lead audit matched23 snapshot entries and51 frozen
+application inputs; reviewer matched15 source/build/artifact identities and ran
+five verifier self-checks. The stopped run2 remains excluded; historical run3 is
+unchanged at42 pass/16 fail/zero harness errors.
+
+The supported interpretation is15 application failures plus one unsupported
+A-X5 oracle expectation. The documented optional-artifact subtree projects saved
+metadata, whereas media.output describes current file status. CPR-1/WS-19 therefore
+requires a test correction, not an application fix or new live-byte guarantee.
+The reviewer's counterevidence resolves that question without a product decision.
+WS-16 remains open, including paired-stage B-X6/CP-3; no slice is accepted.
+
+Lead-21 authorizes manual artifact correction round2 only: convert A-X5 to a
+successful recorded-byte projection control, preserve A-C1 and A-X1..4, retain all
+supported failures and accounting checks, and produce a new bound run/report.
+Only the runner and new Worker evidence/report are writable. Earlier reports,
+results and inventories remain preserved; no application implementation, build,
+agent dispatch, commit or release is authorized. Fresh independent follow-up and
+lead disposition remain required. Application history and recurrence budget are
+not reset. No active implementation writer until Isaac relays the prompt.
+
+## 2026-09-22: lead-21 artifact repair-2 handback reconciliation
+
+Worker report `reports/1b-2b-2-contract-proof-repair-2-worker.md` handed back;
+runner4ee3ae7d... and unchanged oracle0a03ba7a... are separately bound to frozen
+repair-3 application. Lead checked51 unique non-document application inputs with
+zero drift and21/22 artifact/evidence entries matching. The one exception is the
+capture log: its recorded644-byte prefix hashes exactly; the final capture appended
+322 diagnostic bytes afterwards. Original manifest/log preserved. This limited
+self-capture defect does not represent changed runner or conformance evidence.
+Audits: cycle `lead/handback-audit.json` and `lead/capture-log-reconciliation.json`;
+the latter binds the Worker report fdfdb7c4... separately.
+
+Submitted result43 application passes/15 failures, zero harness errors, eight
+verifier rows pass and complete selected coverage remains pending independent
+follow-up. Fresh review-only agent /root/review_contract_proof_repair2 assigned
+one bounded inspection of CPR-1, preservation, evidence and closure recommendation;
+no implementation or delegation authority. All application/artifact writes remain
+stopped. Optional live-artifact size is not a pending requirement or approval gate;
+the existing recorded-metadata contract remains in force.
+
+## 2026-09-22: lead-21 artifact correction accepted
+
+Fresh independent review `reports/1b-2b-2-contract-proof-repair-2-review.md`
+verified the A-X5 correction, retained cases, five verifier self-checks and15
+source/build/artifact hashes. Lead accepts runner4ee3ae7d... as the conformance
+artifact and closes CPR-1/WS-19. Prior CP-1/WS-18 and CP-2 closures remain.
+Application result43 pass/15 fail/zero harness errors remains failed; no B2B2
+slice acceptance, implementation dispatch or release follows.
+
+The21/22 matching artifact/evidence entries and exactly matching644-byte capture-log
+prefix establish the remaining322 bytes as the snapshot command's own appended
+diagnostic. This nonblocking evidence qualification is preserved, not hidden by a
+zero-drift claim. Future capture excludes actively written capture logs or finalizes
+them before a separate capture. Original reports/manifests/results remain unchanged.
+
+Application and artifact writes remain stopped. Lead owns next bounded repair
+scoping against the now-accepted producer-derived conformance evidence; the
+application recurrence history and independent-review requirement remain in force.
+Optional live artifact sizes are not a pending requirement or product gate.
+
+## 2026-09-22: lead-22 producer-derived application repair reassessment
+
+Isaac requested proceeding after artifact acceptance. Lead inspected current pure
+aggregate validation and filesystem projection, accepted writer transcript/probe
+admission and Python transcript/bookend producers, and actual by-ID serving routes.
+51 unique non-document application inputs and accepted runner4ee3ae7d... still match;
+audit `1b-2b-2-repair-4-plan/baseline.json` under the task evidence root. No selected
+reference change is needed for this local reader-only repair.
+
+Lead-22 scopes transcript derivation, historical raw-media stored consistency,
+producer-defined duplicate/transition/terminal bookend relationships and resolved
+serving eligibility. Accepted independent oracle stays frozen. Retrospective new-save
+requirements, live optional-artifact byte attestation and owned-link bypass are
+excluded. This is repair4 after explicit independent conformance reassessment, not
+a fourth identical field-check attempt or a reset of the earlier repair budget.
+One bounded Worker relay, fresh verification and independent application review;
+any remaining same-class failure returns to lead reassessment before another relay.
+
+Fresh review-only /root/review_reader_repair4_plan is assigned the bounded design
+review before manual relay. No application implementation owner active; lead edits
+only coordination records. Worker internal choices remain delegated within the
+specified boundaries. No commit, release, agents for Worker, successor work or user
+media changes are authorized.
+
+## 2026-09-22: lead-22 design accepted for manual relay
+
+Fresh review `reports/1b-2b-2-repair-4-plan-review.md` finds no blocking design
+issue and independently matches51 baseline inputs. Lead accepts the bounded
+direction for Isaac's manual Worker relay. Final reviewed refinements name the
+terminal join as outro else intro, preserve optional absent/null historical
+measurements and existing join allowance, and reuse the accepted pre-edit failing
+run only with matching source/build/verifier hashes. Final rebuilt conformance,
+Node/types and isolated HTTP proof plus fresh application review remain required.
+
+This accepts the plan only; all15 application failures and WS-16 remain open.
+No application writes, Worker dispatch, commit or release were performed by the
+lead. Current authorization needs no repeated approval. Worker ownership starts
+on manual relay and stops at handback. A failed same-class follow-up returns to
+lead reassessment rather than an automatic further repair.
+
+## 2026-09-22: lead-22 application repair-4 handback
+
+Worker report `reports/1b-2b-2-repair-4-worker.md` submitted with58 passing
+application cases, eight verifier rows and complete selected coverage,228 focused
+and733 full Node tests, build/types and isolated HTTP proof passing. Accepted
+runner/oracle unchanged; all15 prior failures reportedly flip and51 other case
+statuses remain. Lead audit matches98 unique manifest entries with zero drift,
+manifest af85e7ce1548469bc50566be177dc03bb46368a9444466759a7e595fc298f968;
+evidence `1b-2b-2-repair-4/lead/handback-audit.json` under task evidence root.
+
+Fresh review-only /root/review_reader_repair4 assigned application correctness,
+producer contracts, four existing fixture corrections and historical compatibility.
+No acceptance follows the passing Worker receipt. Implementation ownership is
+inactive after handback. A stale model comment is held for bounded lead correction
+after review, preserving the bound snapshot during inspection.
+
+Worker's plan.md was written after edits; this is not represented as a pre-edit
+Worker plan. The accepted lead-22 design/check set and pre-edit freshness capture
+preceded implementation, and final checks follow that set. Preservation of the old
+repair-3 Worker report lacks a historical content hash; its mtime and no-write
+statement are supporting claims, not cryptographic proof. Review must retain this
+limitation. The frozen runner's hard-coded lead-21 metadata describes its artifact
+provenance; this execution is bound to lead-22 by the Worker receipt and source/build
+hashes. No prior report or evidence is rewritten to conceal these distinctions.
+
+## 2026-09-22: repair-4 accepted; slice1B.2b.2 complete
+
+Fresh independent application review `reports/1b-2b-2-repair-4-review.md`
+recommends acceptance, independently passes228 focused tests and corroborates all
+four producer-derived relationships, corrected fixtures, historical compatibility
+and ownership boundaries. Lead accepts B2B2-1..5 and closes reader WS-16 on
+manifest af85e7ce... plus the separately recorded comment delta. All15 prior
+conformance failures become passes;58 application cases/eight verifier rows pass,
+selected coverage complete. Full Node733, build/types and isolated HTTP evidence
+remain bound. Legacy WS-03/04/05/06/09 are unaffected.
+
+Lead corrected only the stale model comment after handback, preserving before
+bytes under cycle/lead and recording before29576397.../after05dfb65c.... Fresh
+reviewer independently verified identical non-documentation text and accurate
+wording. No executable change or rebuild was needed for this correction.
+
+Post-edit Worker plan timing, absent historical repair-3 report hash and frozen
+verifier lead-21 label retain their qualified interpretation from the review; no
+historical proof is fabricated and no original report/snapshot is rewritten.
+Acceptance covers the read-only endpoint, not adoption, write routes, UI, migration,
+Cleanup or release. Writes stopped; next integration planning belongs to the lead,
+with fresh baseline assessment and manual Worker relay. No successor was dispatched,
+committed, pushed or released.
+
+## 2026-09-22: workflow 5.0.0 migration boundary (maintenance)
+
+Author: Claude Code maintenance session (Opus 5.5) under Isaac's explicit
+workflow-maintenance assignment; not the Writing Studio task-state owner. Scope is
+the instruction migration plus needed task metadata only: no application, criterion,
+evidence, report or acceptance change, and no dispatch, commit, push or release.
+
+- Instructions: installed 4.1.0, byte-verified against inventory 4.1.0-local-2 before
+  replacement, became 5.0.0 with inventory 5.0.0-local-1. Replaced, edited and retired
+  files, including this spec and log, are backed up byte-for-byte at
+  `_local/generate-init-backup/20260922-5.0.0/`.
+- This spec stays lead-22: requirements and the acceptance map are unchanged. Status
+  changes: v5 owner labels naming the same Codex owner, explicit report pointers, the
+  maintenance gate in Next action, the inventory boundary and an attribution note.
+  `Workflow and handoff` gained an appended 5.0.0 boundary paragraph; earlier text is
+  untouched.
+- Historical bindings stay: 1B.2b.2 reports and reviews remain on 4.1.0-local-2 and
+  earlier work on its recorded revisions. No report header, lifecycle, ledger row or
+  evidence was edited, and no metadata was backfilled.
+- Gate: Writing Studio planning resumes only after the fresh independent maintenance
+  review and its disposition in `docs/project/tasks/workflow-maintenance/spec.md`.
+  Before/after manifests and checks: `_local/generate-init-refresh/20260922/`.
+
+## 2026-09-22: lead-23 tracked-clip write-fence plan (1B.2b.3)
+
+Author: Claude Code desktop session (claude-opus-5-5), assigned by Isaac on 2026-09-22
+as Writing Studio task-state owner to plan only, after the workflow 5.0.0 maintenance
+disposition accepted the migration. It loaded only 5.0.0-local-1 (doctor: identities
+and effective configuration match) and never 4.1.0. Ownership: the Codex coordinating
+session's last task-state write is the lead-22 acceptance entry above; the maintenance
+session's later edits were bookkeeping; no implementation writer is active. No
+application file, report, evidence or ledger row changed; nothing was dispatched,
+committed or pushed.
+
+Freshness: HEAD fed8ed1. All 98 unique repair-4 manifest paths are explained (85
+match; comment delta 1; 5.0.0 migration 7 edited and 2 retired; bookkeeping 3).
+Lead-22 plan rows differ only by the five accepted repair-4 writes and the comment
+delta. Against the maintenance final capture (591 files) only its two disposition
+records changed and its review report was added. Audit, doctor and brief output and
+byte copies of this log and the spec before editing:
+`_local/project/evidence/writing-studio/1b-2b-3-plan/`. Planning manifest:
+`baseline-1b2b3.json`. The superseded lead-22 Status facts (1B.2b.2 results,
+4.1.0-local-2 binding, maintenance note) remain in the entries above and in the spec's
+`Workflow and handoff`.
+
+Current code: no production path tracks clips or imports the save service; legacy
+logo, thumbnail-bake and rerender routes write `output_path` media in place; `clips
+edit`, rerender and logo summaries change fields `applyLegacySummary` owns; legacy
+deletion unlinks `output_path`; `logo_backup_path` and legacy `thumbnail_config`
+preview fields survive a revision commit. Any of these reaching a tracked clip would
+rewrite immutable revision media or drift its summary. The real Library was not read.
+
+Decisions, within delegated authority and without product change:
+- The next slice is a write fence that refuses rather than routes. Routing legacy
+  actions through the protocol needs recipe derivation, version-zero handling and
+  operation identity for legacy callers, which belong to 1B.2b.4. Refusal cannot reach
+  a clip created through the app, because no production code path tracks one.
+- Deleting a tracked clip stays refused until 1B.2b.5 defines revision-aware deletion.
+- The field fence is anchored on the accepted commit projection plus identity and
+  legacy media bookkeeping; metadata-only writers keep working.
+- The path fence covers the configured owned trees for the same operations and the
+  path-based CLI commands; revision files under a previously configured export root
+  rely on the entry fence.
+- Accepted residual: a legacy media operation already past its early check when a clip
+  becomes tracked can change the legacy files it captured. It cannot occur before
+  production adoption; 1B.2b.5 must close or re-decide it.
+- Provisional partition: 1B.2b.4 revision-backed legacy adapters (including stale
+  `logo_backup_path`, `thumbnail_config.preview_path` and logo previews for tracked
+  clips), 1B.2b.5 adoption and save API with revision-aware deletion and editor
+  capability updates, then 1B.3 visible save and handoff.
+- Reference: `local-app.md` applies and is carried as filesystem and link boundaries,
+  no write on refusal, compatible older entries, path-free diagnostics, real binaries
+  in controls and an identified runtime. Installer, update, offline, capacity and
+  release checks do not apply: no launcher, network, storage-format or distribution
+  change. README selection unchanged.
+- Lane recorded substantial. No focused fresh plan assessment is required before relay:
+  the change is reversible, migrates no data, and its design and implementation get a
+  fresh non-author review. Isaac may still request one.
+- Records: Status now uses the 5.0.0 field list, with all three report pointers reset
+  (C-9) and single-line routing bullets (C-2). Headings keep their pre-5.0.0 names
+  (C-1) because reports cite them; the spec head says where acceptance and scope live.
+  The behavioral-slices bullet, baseline, exceptions and workflow notes were refreshed.
+
+No Isaac decision is required. Next: Isaac relays the bounded assignment to a separate
+implementation session in this checkout.
+
+## 2026-09-23: lead-24 1B.2b.3 handback disposition and correction-1
+
+Author: the Writing Studio task-state session (Claude Code desktop, claude-opus-5-5),
+acting on the implementation session's handback relayed at Isaac's request, under
+5.0.0-local-1. Coordination and requirements only: no application, test, report or
+evidence file of the implementation writer was changed, and nothing was dispatched,
+committed or pushed.
+
+Handback reconciliation: HEAD fed8ed1; all 149 unique paths of snapshot `b88984be...`
+match the tree, and git status differs only by the two reports the snapshot excludes.
+The report handoff, receipt and self-audit agree with that state: B2B3-1..4 pass; full
+Node fails 2 of 772 in `src/services/clip-revisions.test.ts` at fixture steps that call
+fenced legacy writers; the self-audit is BLOCKED on that alone (F-1), with F-2 low.
+Audit and pre-edit byte copies of this spec and log:
+`_local/project/evidence/writing-studio/1b-2b-3/lead/`.
+
+Decisions, within delegated authority and without product change:
+- DR-1 approved exactly as proposed. The byte diff is two hunks with no assertion
+  changed. The first test asserts that the late commit is superseded and a recreated
+  clip untouched; none of its assertions read the files legacy `remove` unlinked. The
+  second reaches the save with identical entry state. A test broken by the intended
+  fence is in scope; "sources" in B2B3-5 means non-test modules. Retained evidence for
+  that file now rests on the rerun.
+- F-2 corrected, not deferred: the owned-tree wording is untrue for an unresolvable
+  target, which fails lead-23's "plain, actionable" rule exactly when the user must
+  act, and the local-app reference asks diagnostics to separate environment limits
+  from defects. Same code, distinct message, optional path-free log reason. Fail-closed
+  stays; the untracked exception it implies is now stated, and deletion of such entries
+  is revisited in 1B.2b.5.
+- `ClipsHistory.record` refuses a caller-supplied `revisions`, closing the self-audit's
+  blind spot at negligible cost; no accepted verifier plants tracked state through it.
+- Sequencing: correction-1 comes before the initial review, so one fresh review covers
+  the final snapshot; this task's fresh follow-up after each relayed correction would
+  otherwise add a second round.
+- Nonblocking, for successors: hard links and junction swaps after the check stay
+  outside the static path check (U-1; the accepted static-boundary limit, local actor
+  only). A clip tracked between `record` and `persistClipRecipe` would refuse the
+  recipe step; 1B.2b.5 plans it with the accepted residual.
+- Ledger: the implementer's pre-handoff fix of the guard and handler re-read gap, and
+  F-2, are indexed at the review disposition, Closed if the review confirms them, as
+  WM-01 was.
+- Records: spec lead-24 adds the correction-1 section, amends B2B3-2/4/5 and the
+  exceptions note, and sets Status's implementation-report pointer to none until a
+  lead-24 report exists (C-9). The lead-23 reports stay frozen.
+
+Next: Isaac relays correction-1 to the implementation session; the task-state owner
+then arranges the fresh non-author review.
+
+## 2026-09-23: lead-25 1B.2b.3 review disposition and repair-1
+
+Author: the Writing Studio task-state session (Claude Code desktop, claude-opus-5-5),
+assigned by Isaac on 2026-09-23 to take over task-state ownership for 1B.2b.3 from the
+"Writing-studio integration plan refresh" session (author of lead-23 and lead-24), which
+makes no further writes. Coordination and disposition only, under 5.0.0-local-1: no
+application, test, other author's report or evidence changed; nothing dispatched,
+committed or pushed; no provider call.
+
+Transfer reconciliation: HEAD fed8ed1. `spec.md` and this log hash-equal the lead-24
+record (`lead/records-post-lead-24.sha256`), so the prior owner wrote nothing after
+lead-24. The correction-1 handback (`reports/1b-2b-3-correction-1-implementation.md` and
+its self-audit; snapshot `a7048a8b...`; implemented, receipts pass, self-audit PASS) and
+the fresh review `reports/1b-2b-3-review.md` (lead-24, same snapshot, changes-requested
+on R1) agree with the tree: the correction-1 helper's `--check` flags only the review
+report. Lead-24 Status still showed correction-1 pending; lead-25 brings it current. The
+implementation writer stopped at its correction-1 handback. Pre-edit copies, check log
+and ledger script: `_local/project/evidence/writing-studio/1b-2b-3/lead/`
+(`*.pre-lead-25.md`, `lead-25-snapshot-check.log`, `ledger-lead-25.py`).
+
+Decisions, within delegated authority; requirements and acceptance rows unchanged:
+- R1 supported (WS-22). Lead-23 refuses the whole request carrying `caption_style` or
+  `thumbnail_config` and exempts only a title-only request; the fence elsewhere counts
+  key presence (TS own keys, including undefined). An explicit null gets no exemption.
+  The Studio `ClipDetail` save always sends `caption_style`, so its title save already
+  refuses on a tracked clip; client handling stays with 1B.2b.5 and 1B.3.
+- The lead-23 pre-handoff re-read fix is not closed (WS-20). The guard calls `next()`
+  when it finds no entry and the five TS media handlers look the clip up again. The
+  review's probe r1, not among its findings, planted a tracked entry between the reads:
+  logo remove overwrote owned output before the 409. The accepted residual assumes a
+  route acts on the entry its early check captured, outside the owned trees, so this is
+  a recurrence of the same class and is repaired now.
+- F-2 closed (WS-21), confirmed by the fresh review.
+- Probe r2, also not among the findings (WS-23): rerender writes a title-derived file in
+  the checked directory, and a link planted at that name reaches the owned tree.
+  Nonblocking for 1B.2b.3: it needs a deliberately planted link; the hard-link form of
+  the same write is the accepted U-1 limit; production writes nothing to the namespace
+  before adoption; the fix is in `clip_generator.py`, excluded by lead-23 and would
+  invalidate retained render evidence. 1B.2b.4 or 1B.2b.5 closes it before adoption,
+  with the accepted residual.
+- Commit-time scope unchanged: locked checks guard revision-owned fields. A
+  null-carrying PATCH that races tracking after its guard can at most write the title,
+  which lead-23 already allows on tracked clips.
+- This task's fresh independent follow-up after each relayed correction (spec `Workflow
+  and handoff`) applies to repair-1; it is also warranted because WS-20's recurrence
+  was not a review finding. Round 1 of 2 on R1 and WS-20.
+
+Repair-1, by manual relay; lead-23 and lead-24 limits apply unless stated:
+- HTTP: on a tracked clip (any lead-23 fixture state, malformed included), a PATCH whose
+  parsed body has an own `caption_style` or `thumbnail_config` key, whatever its value
+  including null, answers 409 `CLIP_REVISION_TRACKED` with the existing message, runs no
+  CLI and writes nothing, also when that key is the only one. Title-only PATCH still
+  answers 200 and writes only the title. Untracked and DEMO keep the `fed8ed1` contract
+  (`src/ui/web-server.ts` 2602-2612): null fields ignored, title applied; a null-only
+  body answers 400 `nothing to update`.
+- CLI: `clips edit` on a tracked clip with `--caption-style` or `--thumbnail-config`
+  supplied, including `null` or an empty value, exits non-zero naming
+  `CLIP_REVISION_TRACKED` and writes nothing, title included, also as the only option.
+  `--title` alone still succeeds. Untracked keeps the `fed8ed1` contract
+  (`backend/cli.py` 3353-3370).
+- Guard miss: on thumbnail, thumbnail/select, thumbnail/render, logo (apply and remove)
+  and rerender, when the guard found no entry the route answers its existing 404
+  `clip not found` with no second lookup and no write, even if a matching tracked or
+  namespace-pointing entry appears afterwards. DEMO and found-clip behavior unchanged.
+- Out of scope: WS-23, `clip_generator.py`, client, messages, codes, policy, save
+  service, reader, renderer, composer and Cleanup.
+- Evidence: reproduce both failures on the unchanged build first; deterministic
+  guard-miss route tests for all five routes; null-field HTTP and CLI rows in
+  `check-revision-fence.mjs` final mode, untracked expectations from the `fed8ed1`
+  source; focused Node and Python, full Node (exit 0), full Python, build, client types,
+  `py_compile`, protected sources (DR-1 file still equal to the proposal) and a new
+  `repair-1/` snapshot with a drift-free `--check`. Reports
+  `reports/1b-2b-3-repair-1-implementation.md` and `-self-audit.md`, bound to lead-25.
+
+Follow-up question, after handback (`reports/1b-2b-3-repair-1-review.md`): on the
+repair-1 snapshot, do tracked-clip PATCH requests carrying either fenced key (any value)
+and `clips edit` supplying either option refuse before any side effect while title-only
+and untracked behavior keep the `fed8ed1` contract; do the five TS media routes act only
+on a guard-checked entry; and does the delta leave the other B2B3-1..5 outcomes, F-2
+wording and the `record()` refusal intact? Scope: the repair delta, callers it touches
+and refreshed receipts. Complete when each part is answered supported or not, with
+evidence and any findings in template form.
+
+Records: spec lead-25 changes Status and frontmatter only; the ledger adds WS-20, WS-22
+and WS-23 (Open) and WS-21 (Closed); the review report gains a separately attributed
+disposition with its assessment unchanged. No Isaac decision is required.
+
+Next: Isaac relays repair-1 to an implementation writer in this checkout.
+
+## 2026-09-23: lead-25 repair-1 handback reconciliation
+
+Author: the lead-25 task-state session (Claude Code desktop, claude-opus-5-5), on the
+repair-1 handback Isaac relayed. Reconciliation only: spec revision stays lead-25
+because requirements are unchanged and the repair-1 reports bind to it; Status and
+frontmatter were refreshed. No application, test, report or evidence of another author
+changed; nothing dispatched, committed or pushed; no provider call.
+
+Handback: a fresh Codex implementation session (the assignment's permitted fallback,
+not the author of lead-23 or correction-1) wrote
+`reports/1b-2b-3-repair-1-implementation.md` and its self-audit (PASS), bound to lead-25
+and snapshot `repair-1/snapshot/manifest.json` (sha256 `43ffa1eb...`).
+
+Checked here: the manifest hash matches; the repair-1 helper's `--check` reports "No
+drift."; the four lead-25 task-state records still match `lead/records-post-lead-25.sha256`;
+no file under the earlier `review/`, `correction-1/`, `lead/`, `pre-change/`, `final/` or
+`snapshot/` evidence changed after its own cycle. The receipts agree with their logs: full
+Node 47 files and 795 tests passed; Python JUnit 1356 tests, 0 failures or errors, 6
+skipped; `check-revision-fence.mjs` passed with controls matching the pre-change capture;
+protected sources report only the DR-1 file changed. Both defects were reproduced first
+(`repair-1/before/`). These are author-run results. This session did not rerun them.
+
+Scope: six files, all within the expected writes (`clip-write-fence-route.ts`,
+`web-server.ts`, `backend/cli.py`, their two test files and the check script); no
+history-writer, client, `clip_generator.py` or protected-source change. Two in-scope
+implementation choices are named for the follow-up review. First, the PATCH guard now
+resolves the ID exactly, then by a unique prefix, as Python `_find_in` does; the writer
+found that a unique-prefix PATCH also bypassed the fence with a null field, and treated
+it as the same WS-22 defect. Second, `clips edit --caption-style` checks its choices after
+parsing, so any value on a tracked clip reaches the refusal; invalid values on untracked
+clips are reparsed with the original choices to keep argparse's error and exit 2. The
+CLI refusal is an early check outside the history lock, which lead-25 allows because a
+race can write only the title.
+
+Record slip: the lead-25 Status report pointers were not machine-parseable (a
+backticked task-relative path, and "none until ..." for the repair pointer), so
+`brief.py` refused and the writer used the direct-read fallback. There was no
+requirement effect. The pointers now use the exact values: the repair-1 implementation
+report as the current implementation report, repair report `none`, snapshot `not
+applicable`. `brief.py` accepts the Status. The ledger indexes it as WS-24 (Closed). The
+post-lead-25 spec bytes are reproducible from the repair-1 tracked patch. Pre-edit copies
+of this log and the ledger, and the ledger script, are in `lead/`.
+
+Ledger: WS-20 and WS-22 are marked repaired on `43ffa1eb...` and stay Open until the
+follow-up confirms them. WS-23 is unchanged. WS-24 is added as Closed.
+
+Follow-up: the fresh non-author review `reports/1b-2b-3-repair-1-review.md` asks the
+lead-25 question, including the two choices above. Eligible reviewers exclude the
+lead-23/correction-1 implementation session, the repair-1 Codex session, the original
+review session and this session. `review-packet.py` refuses Git tree inspection here
+because leftover evidence fixtures contain links. The reviewer uses the manifest
+`--check` and direct reads instead.
+
+Next: Isaac relays the follow-up review; the task-state owner then dispositions it.
+
+## 2026-09-23: task-state transfer for the repair-1 follow-up
+
+Author: a new Claude Code desktop session (claude-opus-5-5), assigned by Isaac on
+2026-09-23 to resume writing-studio 1B.2b.3 as task-state owner and to review and fix
+repair-1 within the approved scope. Isaac states that every earlier session for this task
+has ended and will not resume. This session inherits no planning, implementation or
+review conversation and wrote none of lead-23, correction-1, repair-1 or the lead-25
+records.
+
+Transfer reconciliation: HEAD fed8ed1. `spec.md`, this log, the ledger and
+`reports/1b-2b-3-review.md` hash-equal `lead/records-post-repair-1-reconciliation.sha256`,
+so the lead-25 owner wrote nothing after its reconciliation. The repair-1 helper's check
+(`snapshot-capture.mjs . --check`; the root argument is required) reports seven drift
+lines, all from those three task-state records, and a per-file compare of `git diff HEAD
+--binary` with the repair-1 tracked patch differs only in them. The code snapshot is
+still `43ffa1eb...`. `reports/1b-2b-3-repair-1-review.md` did not exist. Pre-edit copies
+and the check log: `repair-1-review/records/` and `repair-1-review/transfer-snapshot-check.log`.
+
+Already current, so not repeated: the Status report pointers use the exact values
+(`brief.py` accepts them; the lead-25 reconciliation fixed them, WS-24), and that
+reconciliation already folded the repair-1 reports into Status.
+
+Status changes only. The spec revision stays lead-25 because requirements are unchanged
+and the repair-1 reports bind to it. Task-state owner and implementation writer: this
+session. The follow-up is review and fix: this session reviews repair-1 as a non-author
+and may then write in-scope repairs, which conditional closure covers and which are not
+independently reviewed. Evidence root for this cycle:
+`_local/project/evidence/writing-studio/1b-2b-3/repair-1-review/`.
+
+Next: this session completes the follow-up review, repairs supported findings and applies
+conditional closure.
+
+## 2026-09-23: 1B.2b.3 accepted
+
+Author: the task-state session recorded in `task-state transfer for the repair-1
+follow-up` (Claude Code desktop, claude-opus-5-5), under Isaac's review-and-fix
+assignment. No application, test, build or dependency file changed; nothing dispatched,
+committed or pushed; no provider call.
+
+Follow-up review: `reports/1b-2b-3-repair-1-review.md`, on the unchanged repair-1
+snapshot `43ffa1eb...`, answers all three parts of the lead-25 question as supported and
+records no finding. Two optional suggestions (an unreachable DEMO arm in the logo
+handler; a source-slicing test harness) are left for the next edit of those files. This
+session reran focused Node (378), full Node (47 files, 795), full Python (JUnit 1356
+tests, 0 failures or errors, 6 skipped), client types, protected sources,
+`check-revision-fence.mjs` in final mode (72 HTTP and 48 CLI refusals; 14 controls
+match the capture) and a CLI parity probe against `git show fed8ed1:backend/cli.py`
+(10 of 10). All counts match the author's receipts. Build and `py_compile` were not rerun:
+`dist` still matches the manifest. The review is by a non-author with no inherited
+conversation, but the same session holds task-state ownership and wrote this
+disposition. The report records that limit. No repair was made, so conditional closure
+needs no further assessment.
+
+Decision: B2B3-1..5 are met and slice 1B.2b.3 (tracked-clip write fence) is accepted on
+`43ffa1eb...`. WS-20 and WS-22 move to Closed. WS-23 stays Open as the lead-25
+nonblocking deferral and must close in 1B.2b.4 or 1B.2b.5 before adoption. The accepted
+pre-adoption residual and U-1 stay interim limits under `Approved exceptions currently in
+force`. Acceptance covers the fence only, not adoption, adapters, save routes, UI,
+Cleanup, integration or release.
+
+Records: Status reconciled; spec revision stays lead-25 (Status and frontmatter only, as
+at the 1B.2b.2 acceptance). The `Behavioral slices` wording ("bounded below") is refreshed
+by the next planning revision. The eight 1B.2b.3 cycle reports are marked `historical`
+(header `state` only); originals and the old-to-new identity mapping are in
+`repair-1-review/records/pre-historical/` and `historical-identity-mapping.json`. Five of
+them are hashed in the repair-1 manifest, so its `--check` now reports those as expected
+bookkeeping drift. Ledger edit script and pre-edit copies are in `repair-1-review/records/`.
+
+Next: Isaac assigns a task-state session to refresh and plan 1B.2b.4 from this accepted
+evidence. This session makes no further writes.
+
+## 2026-09-23: lead-26 1B.2b.4 partition refresh and 1B.2b.4a plan
+
+Author: a new Claude Code desktop session (claude-opus-5-5), assigned by Isaac on
+2026-09-23 to resume writing-studio as task-state owner, plan only, for 1B.2b.4. It
+inherits no planning, implementation or review conversation and wrote none of the
+1B.2b.3 records. Planning only, under 5.0.0-local-1 (doctor: identities match): no
+application, test, build, other author's report or prior evidence changed; nothing
+dispatched, committed or pushed; no provider call.
+
+Transfer reconciliation: the accepting session's last write is the entry above.
+`spec.md`, this log, the ledger and the eight 1B.2b.3 reports still hash-equal
+`repair-1-review/records/records-post-acceptance.sha256`, so it wrote nothing after
+acceptance. The repair-1 manifest still hashes `43ffa1eb...`; its `--check` reports drift
+only in those eleven records. All 46 planning inputs equal their manifest entry or HEAD
+blob; configuration and six `dist` files match. Audit, doctor, brief, drift log and
+pre-edit copies: `_local/project/evidence/writing-studio/1b-2b-4a-plan/`. Planning
+manifest: `baseline-1b2b4a.json`.
+
+Current code: the fence refuses every legacy media action on a tracked clip; no production
+module imports the save service or calls `ensureTracked`; each save renders from a
+caller-supplied recipe (no render reuse); a commit re-projects the summary but leaves
+`logo_backup_path` and `thumbnail_config.preview_path` stale; version zero has no recipe
+and the reader reports `known_effective_cuts` false; the legacy `generate_clip` branch
+writes its title-derived sink unchecked (WS-23). Clients read only `error` from these
+routes.
+
+Decisions, within delegated authority and without product change:
+- Split 1B.2b.4. 4a adapts caption style, logo and opening-card actions, which keep the
+  committed timing, and closes WS-23; 4b (provisional) adapts `rerender` trim and
+  reframe, whose single-range editor, keyframe and widening mapping onto exact recipes is
+  a distinct risk. 1B.2b.2 needed four repair rounds; thinner slices keep each review
+  bounded. `rerender` on tracked clips stays refused until 4b.
+- Adapters act only on an exact current revision. Version zero refuses with
+  `REVISION_BASE_UNAVAILABLE`: rebuilding it from requested inputs would flatten or
+  change unrecorded cuts, which the constraints forbid doing silently. What adoption
+  offers for version zero moves to 1B.2b.5.
+- The next recipe is the current document's recipe with only the requested change,
+  retained source words and the carried card (owned copy and recorded hash). No-op
+  requests render nothing, which also makes legacy retries harmless without client
+  operation IDs. A present draft refuses (`REVISION_BUSY`) until 1B.2b.5 defines draft
+  routes.
+- A tracked caption-style PATCH renders a new revision, as the spec requires caption
+  changes to render; `thumbnail_config` PATCH keeps refusing (a caller-chosen preview path
+  has no safe revision meaning). The WS-22 presence rule holds: a present style is never
+  ignored on a tracked clip; invalid values, null included, answer 400.
+- The Python CLI and MCP keep refusing tracked media edits and deletion: the CLI has no
+  render-and-commit path, and its legacy style edit is metadata-only (WS-06).
+- The commit projection clears `logo_backup_path` and sets `preview_path` from the
+  committed card; thumbnail metadata lands in the same transaction. This edits the save
+  service, so 4a reruns its focused, bridge and full suites.
+- WS-23 closes in 4a, in `generate_clip`'s legacy sinks, as its ledger prevention states;
+  it shares 4a's bridge reruns. U-1 remains the accepted static limit.
+- Carried to 1B.2b.5 unchanged: the pre-adoption residual, the `record()` to
+  `persistClipRecipe` observation, deletion of untracked unresolvable targets,
+  revision-aware deletion, stale pending-operation recovery and draft interplay. To 1B.3:
+  the Library logo-remove button keys on `logo_backup_path`, and a tracked style change
+  renders during PATCH.
+- Reference: `local-app.md` applies (filesystem and link boundaries, real binaries,
+  path-free diagnostics, failure recovery, identified runtime); installer, update,
+  offline and release checks do not. README selection unchanged.
+- No focused fresh plan assessment before relay: the change is reversible, migrates no
+  data, is unreachable in production before adoption, and gets a fresh non-author
+  review. Isaac may still request one.
+
+Records: spec lead-26 adds the 1B.2b.4a section, B2B4A-1..6, an exceptions note and a
+refreshed behavioral-slices bullet, replaces the lead-23 freshness paragraph (its content
+remains in that entry above), and resets Status (implementation report pointer `none`
+until a lead-26 report exists). The ledger's WS-23 row names 4a as its closing slice.
+No Isaac decision is required.
+
+Next: Isaac relays the 1B.2b.4a assignment to a separate implementation session in this
+checkout.
+
+## 2026-09-23: lead-27 1B.2b.4a review disposition and repair-1
+
+Author: the Writing Studio task-state owner (Claude Code desktop, claude-opus-5-5), the
+lead-26 planning session. Isaac resumed it on 2026-09-23 after the 1B.2b.4a writer
+handed off. It did coordination, review arrangement and disposition only, under
+5.0.0-local-1. It changed no application code, test, check, `dist`, other author's
+report header or evidence, and it committed and pushed nothing.
+
+Resume reconciliation: HEAD fed8ed1, and the tree matched the handed-off snapshot
+`6391643c...` with no drift (`1b-2b-4a-review/owner-resume-snapshot-check.log`). The
+implementation report's Handoff (writes stopped, next action review) agreed with the
+tree. Lead-26 Status still showed the slice as not started; lead-27 brings it current.
+Pre-edit copies and hashes are in `_local/project/evidence/writing-studio/1b-2b-4a-lead/`.
+
+Review arrangement: a fresh general-purpose subagent, spawned by this session with a
+neutral prompt and no planning or implementation history, wrote
+`reports/1b-2b-4a-review.md`. It confirmed the snapshot binding and reran the focused
+and full Node suites, full Python, `check-legacy-adapters.mjs` and the protected hashes,
+all passing. Recommendation: request-changes on F-1.
+
+Decisions, within delegated authority:
+- F-1 is supported, and the owner confirmed it in code (`clip_generator.py` 1296-1316
+  versus 1838 and 1856; `audiogram.py` 169). It is WS-23's second occurrence and blocks
+  B2B4A-4. The lead-26 sink list was incomplete. Lead-27 corrects the requirement's
+  coverage to every legacy-road sink, adds a bounded repair-1, and extends the B2B4A-4
+  row. Round 1 of 2 on WS-23 in this slice.
+- F-2 (self-audit A-1) is supported and nonblocking: the reader was frozen by lead-26
+  and its code is still accurate. Indexed as WS-25 for 1B.2b.5.
+- D-1 accepted: the local policy refuses the routes, the local 403 is asserted, and the
+  upstream phase runs the same build with no possible provider call. D-2 accepted as
+  the intended B2B2-4 expectation update that lead-26 omitted from its list; the
+  protection is preserved.
+- A-9 has two parts. The save-service test timeouts are environmental, and serialized
+  runs are an accepted runner setting. The lock `EPERM` is a pre-existing product defect
+  in the same class as WS-07: TS `tryCreate` and Python `_try_create` treat only an
+  existing file as contention. It is indexed as WS-26, scheduled for 1B.2b.5 before
+  adoption, and outside 4a scope.
+- A-2, A-4..A-8, O-A and O-B are nonblocking. A-2, O-A and O-B are noted for 1B.2b.5,
+  and A-3 for 1B.3.
+- WS-23 is not closed.
+
+Repair-1 is relayed manually to a separate implementation writer, following the
+`1B.2b.4a repair-1: audio-only derived sinks (lead-27)` section.
+
+Follow-up question after handback, for a focused fresh non-author assessment: on the
+repair-1 snapshot, does every sink on `generate_clip`'s legacy road, including the
+audio-only road and any other early hand-off in the sink inventory, get the path verdict
+before its first write? Is the checked path the one the renderer writes? Do link, case
+and missing-root fixtures refuse with owned bytes unchanged through `create_clip`,
+`batch_clips` and `rerender` over HTTP, while outside controls and exact mode are
+unchanged? And does the delta leave B2B4A-1, -2, -3 and -5 intact? Scope: the repair
+delta, `audiogram.py`, the callers it touches, and the refreshed receipts. The
+assessment is complete when each part is answered supported or not, with evidence.
+
+Records: spec lead-27 adds the repair-1 section and changes the B2B4A-4 row, the
+exceptions note, Status and the frontmatter. The review report gains a separately
+attributed disposition, with its assessment unchanged. The ledger updates WS-23 and adds
+WS-25 and WS-26 (Open). No Isaac decision is required.
+
+Next: Isaac relays repair-1 to an implementation writer in this checkout.
+
+## 2026-09-27 — 5.2.0 workflow boundary; lead-27 unchanged
+
+Codex maintenance session, under Isaac's repository-only upgrade assignment.
+The 4.x Lead/Worker relays and 5.0.0 hub returns above remain historical precedent
+only. Later work follows the 5.1.0 forward lanes as incorporated in 5.2.0; no
+intermediate 5.1.0 installation occurred. The former hub does not resume. The last
+recorded owner remains identified pending Isaac's actual forward relay to a fresh
+reviewer-owner; maintenance acquires no product-task ownership or writing rights.
+
+The pre-upgrade Status was stale: it called repair-1 not started, while Isaac's
+assignment and the 2026-09-23 implementation Handoff record completed repair-1,
+stopped writes and snapshot `84c74067...`. Status now points to that repair report
+and snapshot, records reported checks and PASS-WITH-FINDINGS (A-1..A-3 nonblocking),
+and retains changes-requested pending the required fresh assessment/disposition.
+No findings are closed. The original implementation report remains lead-26 history. The current implementation
+pointer selects the lead-27 repairer implementation report. The separate repair pointer
+is `none` and final repair snapshot `not applicable`: those helper fields select a
+reviewer-authored repair section, not a repairer implementation report. The current
+repair-1 snapshot remains explicit in Status and the implementation report. Requirements, acceptance rows, scope, exceptions, historical
+reports and their 5.0.0 bindings are unchanged. The pre-edit spec/log bytes and
+identity mapping are in `_local/generate-init-backup/20260927-5.2.0/manifest.json`.

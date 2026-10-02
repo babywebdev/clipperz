@@ -265,6 +265,24 @@ def _reserve_output_path(output_dir: str, stem: str, ext: str) -> str:
         return candidate
 
 
+def _refuse_revision_sinks(targets: list) -> None:
+    """Refuse a legacy output sink inside the Writing Studio revision trees (WS-23).
+
+    The legacy branch writes its title-derived file (whatever suffix the reservation
+    gives it), the kept caption-overlay and source copies and the autofix temporaries
+    into the caller's directory; the audio-only road's renderer passes its output
+    folder, title-derived file and shared temp folder. A link or junction planted at one
+    of those names, or a directory inside `<export root>/writing-studio/` or
+    `<history>/revisions/`, would carry that write into revision-owned media. Each target
+    is compared after resolving links; an owned or unresolvable one raises
+    ClipRevisionFenceError (REVISION_PATH_PROTECTED) before anything is written. Exact
+    mode never calls this.
+    """
+    from services.clips_history import assert_outside_revision_trees
+
+    assert_outside_revision_trees(targets)
+
+
 def _reframe_can_jump(
     reframe: bool,
     crop_strategy: str,
@@ -1289,6 +1307,8 @@ def generate_clip(
                 "render it without timing_mode for the audiogram"
             )
         from services.audiogram import render_audiogram
+        # WS-23: the renderer derives its own output names, so it hands this check
+        # the paths it will write before its first write.
         return render_audiogram(
             audio_path=video_path,
             start_second=start_second,
@@ -1299,6 +1319,7 @@ def generate_clip(
             title=title,
             output_dir=output_dir,
             progress_callback=progress_callback,
+            check_sinks=_refuse_revision_sinks,
         )
 
     plan = None
@@ -1817,15 +1838,32 @@ def generate_clip(
             group = _ExactOutputGroup.create(output_dir or tempfile.gettempdir(), stem)
             final_path = group.final_path(f"{stem}.mp4")
         elif output_dir:
-            os.makedirs(output_dir, exist_ok=True)
             final_path = _reserve_output_path(output_dir, stem, ".mp4")
         else:
+            _refuse_revision_sinks([tempfile.gettempdir()])
             fd, final_path = tempfile.mkstemp(prefix=f"{stem}_", suffix=".mp4")
             os.close(fd)
 
         base, _ = os.path.splitext(final_path)
         persisted_overlay = f"{base}_captions.mov" if want_overlay else None
         persisted_source = f"{base}_source.mp4" if want_source else None
+        if not exact:
+            # Optional bounded QA/autofix pass for transition jumps, run after the copy below.
+            # Hard-capped to avoid any infinite rerender loop.
+            max_autofix_passes = _render_transition_autofix_passes(
+                preserve_timing=preserve_timing,
+                reframe=spec.reframe and foreground_framing is None,
+                crop_strategy=crop_strategy,
+                crop_keyframes=crop_keyframes,
+                keep_segments=keep_segments,
+            )
+            # WS-23: every sink this branch writes is checked before the first write.
+            _refuse_revision_sinks([
+                output_dir, final_path, persisted_overlay, persisted_source,
+                *(f"{final_path}.autofix{i + 1}.mp4" for i in range(max_autofix_passes)),
+            ])
+            if output_dir:
+                os.makedirs(output_dir, exist_ok=True)
 
         def _result(file_size: int) -> dict:
             out = {
@@ -1890,15 +1928,6 @@ def generate_clip(
 
         shutil.copy2(final_video_path, final_path)
 
-        # Optional bounded QA/autofix pass for transition jumps.
-        # Hard-capped to avoid any infinite rerender loop.
-        max_autofix_passes = _render_transition_autofix_passes(
-            preserve_timing=preserve_timing,
-            reframe=spec.reframe and foreground_framing is None,
-            crop_strategy=crop_strategy,
-            crop_keyframes=crop_keyframes,
-            keep_segments=keep_segments,
-        )
         if max_autofix_passes > 0:
             if progress_callback:
                 progress_callback(97, "Quality gate: checking transitions...")

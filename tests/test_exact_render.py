@@ -1374,6 +1374,125 @@ class ConcatReportTests(unittest.TestCase):
         self.assertEqual(report["applied_overlap"], 0.8)
 
 
+def _load_join_matrix():
+    import importlib.util
+    path = os.path.join(ROOT, "scripts", "verification", "fixtures", "exact_join_matrix.py")
+    spec = importlib.util.spec_from_file_location("exact_join_matrix", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+class JoinProvenanceTests(unittest.TestCase):
+    """Exact receipts keep the join inputs concat_outro actually used (lead-12).
+
+    The matrix runs the real create_clip exact path through the producer fixture
+    scripts/verification/fixtures/exact_join_matrix.py: concat_outro's clamp,
+    eligibility and fallback, bookend_region and the receipt assembly, with only
+    media I/O controlled. The Node suite drives the revision consumer from the
+    same cases.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.matrix = _load_join_matrix()
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="podcli-join-matrix-")
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+        self.assets = {name: os.path.join(self.tmp, f"{name}.mp4") for name in ("source", "intro", "outro")}
+        for path in self.assets.values():
+            with open(path, "wb") as f:
+                f.write(b"synthetic asset")
+
+    def _render(self, case, mutate=None):
+        params = {
+            "timing_mode": "exact", "video_path": self.assets["source"], "title": "join matrix",
+            "keep_segments": case["keep_segments"], "start_second": 0, "end_second": 0,
+            "caption_style": "karaoke", "crop_strategy": "center", "format": "vertical", "clean_fillers": False,
+            "output_dir": tempfile.mkdtemp(prefix="out-", dir=self.tmp), "bookend_fade": case["bookend_fade"],
+        }
+        for kind in ("intro", "outro"):
+            if case["media"][kind] is not None:
+                params[f"{kind}_path"] = self.assets[kind]
+        return self.matrix.render(params, case["media"], mutate)
+
+    def test_bookend_region_keeps_both_join_inputs_unrounded(self):
+        report = {"branch": "xfade_acrossfade", "requested_fade": 0.3333333, "applied_overlap": 0.3333333,
+                  "main_duration": 1.23456789, "appended_duration": 2.0004000001, "output_duration": 2.90163460}
+        region = er.bookend_region(kind="intro", report=report, output_start=0.0)
+        self.assertEqual(region["join_inputs"], {"main_duration": 1.23456789, "appended_duration": 2.0004000001})
+        self.assertEqual((region["asset_duration"], region["applied_overlap"]), (1.235, 0.333))
+        self.assertEqual(json.loads(json.dumps(region))["join_inputs"], region["join_inputs"])
+
+    def test_a_report_without_usable_join_inputs_is_refused(self):
+        base = {"branch": "hardcut", "requested_fade": 0.0, "applied_overlap": 0.0,
+                "main_duration": 2.0, "appended_duration": 1.0, "output_duration": 3.0}
+        for key in ("main_duration", "appended_duration"):
+            missing = dict(base)
+            del missing[key]
+            for label, report in [("missing", missing)] + [
+                (repr(value), dict(base, **{key: value}))
+                for value in (None, "2.0", True, float("nan"), float("inf"), -1.0)
+            ]:
+                for kind in ("intro", "outro"):
+                    with self.subTest(key=key, value=label, kind=kind):
+                        with self.assertRaises(er.ExactRenderVerificationError):
+                            er.bookend_region(kind=kind, report=report, output_start=1.0)
+
+    def test_matrix_receipts_carry_the_inputs_their_joins_were_clamped_from(self):
+        self.assertEqual(len(self.matrix.CASES), 15)
+        for case in self.matrix.CASES:
+            with self.subTest(case=case["label"]):
+                response = self._render(case)
+                tl = response["result"]["render_timeline"]
+                media = case["media"]
+                reports = {join["kind"]: join["report"] for join in response["joins"]}
+                self.assertEqual(sorted(reports), sorted(case["expect"]))
+                for kind, (branch, overlap) in case["expect"].items():
+                    bookend = tl["bookends"][kind]
+                    self.assertEqual([bookend["branch"], bookend["applied_overlap"]], [branch, overlap])
+                    self.assertEqual(bookend["join_inputs"], {"main_duration": reports[kind]["main_duration"],
+                                                              "appended_duration": reports[kind]["appended_duration"]})
+                    self.assertEqual(bookend["asset_duration"], round(media[kind], 3))
+                if "intro" in reports:
+                    self.assertEqual(tl["bookends"]["intro"]["join_inputs"],
+                                     {"main_duration": media["intro"], "appended_duration": media["content"]})
+                if "outro" in reports:
+                    outro = tl["bookends"]["outro"]["join_inputs"]
+                    self.assertEqual(outro["appended_duration"], media["outro"])
+                    # Its first input is everything before it: the intro join's probed output, or the content.
+                    first = tl["bookends"]["intro"]["measured_output_duration"] if "intro" in reports else media["content"]
+                    self.assertEqual(outro["main_duration"], first)
+
+    def test_wrong_overlap_mutations_stay_coherent_through_the_producer(self):
+        # The producer's own output proof accepts each mutated join, which is why
+        # the consumer must check the overlap against the clamp of its inputs.
+        for case in self.matrix.CASES:
+            if not case["wrong"]:
+                continue
+            valid = self._render(case)["result"]["render_timeline"]
+            for mutate in case["wrong"]:
+                with self.subTest(case=case["label"], mutate=mutate):
+                    response = self._render(case, mutate)
+                    tl = response["result"]["render_timeline"]
+                    kind = mutate["kind"]
+                    bookend, before = tl["bookends"][kind], valid["bookends"][kind]
+                    self.assertEqual([j["mutated"] for j in response["joins"] if j["kind"] == kind], [True])
+                    self.assertEqual(bookend["applied_overlap"], round(mutate["applied_overlap"], 3))
+                    self.assertEqual(bookend["branch"], mutate.get("branch", before["branch"]))
+                    self.assertEqual(bookend["join_inputs"], before["join_inputs"])
+                    shift = before["applied_overlap"] - bookend["applied_overlap"]
+                    self.assertAlmostEqual(tl["output_duration"], valid["output_duration"] + shift, delta=0.002)
+                    if kind == "intro":
+                        self.assertEqual(bookend["transition"]["output_start"], bookend["output_end"])
+                        self.assertAlmostEqual(tl["content_to_output_offset"],
+                                               valid["content_to_output_offset"] + shift, delta=0.002)
+                    else:
+                        self.assertAlmostEqual(bookend["output_start"],
+                                               bookend["transition"]["output_end"] - bookend["applied_overlap"], delta=0.002)
+
+
 class BridgeTests(unittest.TestCase):
     """backend/main.py create_clip carries the mode in and the timeline out."""
 
@@ -1826,6 +1945,11 @@ class ExactRenderMediaTests(unittest.TestCase):
         self.assertEqual(intro["transition"]["output_end"], intro["asset_duration"])
         self.assertLessEqual(abs(outro["transition"]["output_end"] - (offset + 2.0)),
                              tl["tolerance"]["composition_seconds"])
+        # Each join keeps the real inputs it was clamped from (lead-12): the rounded
+        # asset is one of them, and the outro's first input is the intro join's output.
+        self.assertEqual(intro["asset_duration"], round(intro["join_inputs"]["main_duration"], 3))
+        self.assertEqual(outro["asset_duration"], round(outro["join_inputs"]["appended_duration"], 3))
+        self.assertEqual(outro["join_inputs"]["main_duration"], intro["measured_output_duration"])
 
     def test_bookend_fallback_reports_a_hard_cut_not_the_requested_fade(self):
         real_run = vp.proc_run
@@ -1843,6 +1967,11 @@ class ExactRenderMediaTests(unittest.TestCase):
         self.assertEqual(tl["bookends"]["outro"]["branch"], "hardcut_soft_audio")
         self.assertEqual(tl["bookends"]["intro"]["applied_overlap"], 0.0)
         self.assertEqual(tl["bookends"]["requested_fade"], 0.3)
+        # The fallback is recorded with the real inputs of a crossfade that was eligible (lead-12).
+        intro, outro = tl["bookends"]["intro"], tl["bookends"]["outro"]
+        self.assertGreaterEqual(intro["join_inputs"]["main_duration"] - 0.3, 0.05)
+        self.assertEqual(intro["asset_duration"], round(intro["join_inputs"]["main_duration"], 3))
+        self.assertEqual(outro["join_inputs"]["main_duration"], intro["measured_output_duration"])
         self.assertLessEqual(abs(tl["content_to_output_offset"] - 1.0), tl["tolerance"]["composition_seconds"])
         self.assertLessEqual(abs(tl["output_duration"] - 4.0), tl["tolerance"]["composition_seconds"])
         path = out["output_path"]

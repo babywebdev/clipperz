@@ -152,6 +152,12 @@ const exact = (await executor.execute('create_clip', { ...common, timing_mode: '
   const expectedOverlap = outroJoin.branch.startsWith('xfade') ? 0.25 : 0;
   assert(Math.abs(outroJoin.applied_overlap - expectedOverlap) < 0.001, JSON.stringify(outroJoin));
   assert.equal(outroJoin.requested_fade, 0.25);
+  // The receipt keeps the two inputs concat_outro joined, unrounded (lead-12): the
+  // outro asset is its second input, and its first is the cut content here.
+  const joinInputs = outroJoin.join_inputs;
+  assert(joinInputs && Number.isFinite(joinInputs.main_duration) && Number.isFinite(joinInputs.appended_duration), JSON.stringify(outroJoin));
+  assert(Math.abs(outroJoin.asset_duration - joinInputs.appended_duration) <= 0.002, JSON.stringify(outroJoin));
+  assert(Math.abs(joinInputs.main_duration - tl.content_duration_measured) <= tl.tolerance.composition_seconds + tl.tolerance.av_sync_seconds, JSON.stringify(outroJoin));
   const expectedOutput = tl.content_duration_measured + outroJoin.asset_duration - outroJoin.applied_overlap;
   assert(Math.abs(tl.output_duration - expectedOutput) <= tl.tolerance.composition_seconds, `output ${tl.output_duration}s, expected ${expectedOutput}s`);
   assert(Math.abs(tl.output.video_duration - tl.output.audio_duration) <= tl.tolerance.av_sync_seconds, 'A/V disagree');

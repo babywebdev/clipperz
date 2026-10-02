@@ -1,19 +1,16 @@
 # Claude Project Startup
 
-Default to **Worker** unless Isaac or an explicit session/task assignment selects another installed role. Use only that role for this assignment; inspecting another role as data does not activate it or rewrite defaults.
+Use the active user or task assignment with the same project process on every host. Assignments such as plan only, implement, review as reviewer-owner, repair round, review only, review and fix, and resume determine authority under `docs/workflow/contract.md`; reading a procedure or reference grants none. No coding role selection is required.
 
-Before substantive work, read in this order:
+Before substantive work, read `docs/workflow/README.md` and its exact Process configuration. If a task is assigned and Python and the helper are available, run `python docs/workflow/scripts/brief.py --activity [plan|implement|verify|self-audit|review|repair|complete|resume] --task [task]` using the actual assignment; if `python` is not on PATH, use the host's own Python 3 interpreter when one exists, and name it in the report. Read every required section the packet names but does not include in full. A missing, malformed, or refused packet does not waive startup or action requirements. Without the helper, read in this order:
 
-1. `docs/workflow/README.md`.
-2. The contract core, Part A of `docs/workflow/contract.md`.
-3. The selected role from the README role map.
-4. Shared project context in `CLAUDE.md` and applicable additional sources named by README.
-5. Selected project references with their applicability; read their requirements before settling affected design, implementation or review.
-6. The assigned spec's Status or established phase-state owner; preserve existing phase procedures.
-7. A bounded index: `python docs/workflow/scripts/record-index.py docs/project/tasks/<task>`, or bounded header reads without Python. For phases use the assigned phase-record root.
+1. Contract Part A in `docs/workflow/contract.md`.
+2. `Orient` and applicable activity sections from the configured process, using the README's exact H2 headings; read `Communicate` when preparing a handoff. For self-audit, read the configured audit's `Audit method` and its template.
+3. Shared facts and standing protections in `CLAUDE.md`, plus applicable additional context named in README.
+4. Selected project references from README, according to their `Applies to` values.
+5. Assigned task Status in `docs/project/tasks/[task]/spec.md`, or the established phase-status owner.
+6. A bounded metadata index, for example `python docs/workflow/scripts/record-index.py docs/project/tasks/[task]`, or bounded header reads without Python.
 
-Read relevant requirements, acceptance criteria, constraints, current baseline and approved exceptions before implementation. Read complete applicable Part B procedures before their named actions: scope/design decisions, plan authoring/start/resume, verification/receipts, report snapshot binding, review/disposition, recurrence/repair/STUCK, authorized edits, and checkpoints/handoff/risky steps. Follow the core's section-first read discipline; no unconditional whole-contract startup read. Metadata routes reading, never authority/acceptance; unrelated references do not activate.
+Before implementation, read relevant requirements, acceptance criteria, constraints, current baseline, approved exceptions, and predecessor results. Read complete applicable contract Part B procedures before their named actions, including design changes, verification, evidence binding, review, repair, recurrence, checkpoints, and handoff. Section-first reading avoids an unconditional whole-manual startup read. Metadata routes reading; it never establishes authority or acceptance. An applicable reference adds scrutiny without changing the assignment.
 
-Explicit overrides include “For this session, act as Worker. Implement slice 2 of [task]”, “Act as Project Lead in review-only mode for [task]”, and “Act as coordinating lead and implementation owner for [task] slice N”. Review-only grants no coordination, repairs, Status/ledger edits or delegation. Solo selects the lead's bounded procedure and independent-closure rule, not consequential work.
-
-These paths are explicit reading instructions, not automatic imports. A missing selected role/reference is a configuration gap to resolve from project records or Isaac, not permission to guess a replacement. AGENTS.md and the Claude entrypoint have different defaults; do not import one into CLAUDE.md or adopt the other tool's default. Reread changed instructions before using them. After compaction follow the core's recovery rule instead of blindly repeating retained startup content.
+Review-only work produces its assigned findings/evidence and does not gain implementation, shared-state, acceptance, or delegation authority. An explicit review-and-fix assignment can authorize in-scope repairs under the contract. A handoff that transfers task ownership or writing rights makes you their holder: stop if Status shows your rights have moved on, never route results back to an earlier session, and as reviewer-owner edit no product file. A missing configured process, audit, selected reference, or README is a visible compatibility gap: resolve it from project records or the user instead of guessing a replacement. Reread changed instructions before relying on them. After compaction, use the contract's recovery rule and retained reliable context.

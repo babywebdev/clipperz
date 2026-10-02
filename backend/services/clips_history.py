@@ -21,8 +21,16 @@ Rules
   from the fresh read and id resolution through the atomic replacement.
 - A missing file initializes to an empty list. Invalid JSON, an invalid shape,
   or an unreadable file aborts the mutation without changing a byte.
+- Write fence (Writing Studio 1B.2b.3): an entry whose ``revisions`` value is
+  present and not None is tracked. ``update_clip`` refuses any revision-owned
+  field on it and ``delete_clip`` refuses to remove it, under the lock, writing
+  nothing; no legacy writer adds ``revisions``, and no legacy removal or
+  path-based command touches the revision export namespace or sidecar tree.
+  Mirrors src/services/clip-write-fence.ts; a Node test proves the field sets
+  agree. ``mutate_clips_history`` stays the unfenced protocol seam.
 """
 
+import errno
 import json
 import os
 import shutil
@@ -58,6 +66,178 @@ class HistoryLockError(ClipsHistoryError):
         self.code = cause.code
         self.lock_path = cause.lock_path
         self.owner = cause.owner
+
+
+# Fields a legacy writer may not change on a tracked clip: identity and
+# provenance, and every field the revision commit projects.
+REVISION_OWNED_FIELDS = (
+    "revisions",
+    "id",
+    "created_at",
+    "source_video",
+    "logo_backup_path",
+    "output_path",
+    "duration",
+    "file_size_mb",
+    "start_second",
+    "end_second",
+    "caption_style",
+    "crop_strategy",
+    "format",
+    "keep_segments",
+    "logo_path",
+    "intro_path",
+    "outro_path",
+    "logo_position",
+    "transcript_slice",
+    "thumbnail_config",
+)
+# The save service's directory names: <export root>/writing-studio/ and <history>/revisions/.
+REVISION_NAMESPACE_DIR = "writing-studio"
+REVISION_SIDECAR_DIR = "revisions"
+
+CLIP_REVISION_TRACKED = "CLIP_REVISION_TRACKED"
+REVISION_PATH_PROTECTED = "REVISION_PATH_PROTECTED"
+# The same strings as FENCE_MESSAGES in src/services/clip-write-fence.ts (a Node
+# test proves they agree); the web server recognises the unresolvable one in CLI output.
+FENCE_MESSAGES = {
+    "tracked": (
+        "This clip is saved with Writing Studio revisions, so this legacy action cannot change it. "
+        "Rerender, delete, thumbnail settings and command-line caption or thumbnail edits are not available "
+        "for it; its title and other details can still be edited."
+    ),
+    "owned": (
+        "This action would change a file in the Writing Studio revision folders, which legacy tools "
+        "cannot modify. Use a clip file outside those folders."
+    ),
+    "unresolvable": (
+        "Clipperz could not confirm that this file is outside the Writing Studio revision folders, so the "
+        "action was stopped and nothing was changed. Check that the file, its drive and any link to it are "
+        "available, then try again."
+    ),
+    "start": "Revision tracking can only be started by Writing Studio, not by a legacy edit.",
+}
+
+
+class ClipRevisionFenceError(ClipsHistoryError):
+    """A refused legacy write. ``str()`` is ``"<code>: <message>"``, the stable
+    form the CLI prints and the web server maps to HTTP 409. No path in it.
+    For a path refusal, ``reason`` is ``owned`` or ``unresolvable`` and
+    ``error_code`` names the failed lookup (path-free diagnostics)."""
+
+    def __init__(self, code: str, message: Optional[str] = None, reason: Optional[str] = None,
+                 error_code: Optional[str] = None):
+        self.code = code
+        self.reason = (reason or "owned") if code == REVISION_PATH_PROTECTED else None
+        self.error_code = error_code
+        if code == CLIP_REVISION_TRACKED:
+            fallback = FENCE_MESSAGES["tracked"]
+        else:
+            fallback = FENCE_MESSAGES["unresolvable" if self.reason == "unresolvable" else "owned"]
+        self.message = message or fallback
+        super().__init__(f"{code}: {self.message}")
+
+
+def is_revision_tracked(entry: dict) -> bool:
+    """Present and not None. A malformed value counts as tracked (fail safe)."""
+    return entry.get("revisions") is not None
+
+
+def _assert_patch_allowed(entry: dict, keys: list[str]) -> None:
+    if is_revision_tracked(entry):
+        if any(key in REVISION_OWNED_FIELDS for key in keys):
+            raise ClipRevisionFenceError(CLIP_REVISION_TRACKED)
+    elif "revisions" in keys:
+        raise ClipRevisionFenceError(CLIP_REVISION_TRACKED, FENCE_MESSAGES["start"])
+
+
+class _Unresolvable(Exception):
+    """A component exists but could not be resolved; ``error_code`` names the failure."""
+
+    def __init__(self, cause: Optional[OSError] = None):
+        super().__init__()
+        number = getattr(cause, "errno", None)
+        self.error_code = errno.errorcode.get(number) if number else None
+        if not self.error_code:
+            self.error_code = type(cause).__name__ if cause is not None else "UNKNOWN"
+
+
+def _within(child: str, root: str) -> bool:
+    child, root = os.path.normcase(child), os.path.normcase(root)
+    return child == root or child.startswith(root.rstrip(os.sep) + os.sep)
+
+
+def _resolve_through_links(target: str) -> str:
+    """Resolve every link and junction along ``target``; a missing tail stays
+    beneath its deepest existing ancestor. A component that exists but cannot
+    be resolved (a dangling link, a denied lookup) raises, so callers fail closed."""
+    current = os.path.abspath(target)
+    tail: list[str] = []
+    while True:
+        try:
+            real = os.path.realpath(current, strict=True)
+            return os.path.join(real, *reversed(tail))
+        except (FileNotFoundError, NotADirectoryError) as exc:
+            missing = exc
+        except OSError as exc:
+            raise _Unresolvable(exc) from exc
+        try:
+            os.lstat(current)
+        except (FileNotFoundError, NotADirectoryError):
+            parent = os.path.dirname(current)
+            if parent == current:
+                return os.path.join(current, *reversed(tail))
+            tail.append(os.path.basename(current))
+            current = parent
+            continue
+        except OSError as exc:
+            raise _Unresolvable(exc) from exc
+        # It exists, yet resolving it failed as if missing: a dangling link.
+        raise _Unresolvable(missing)
+
+
+def _revision_roots() -> list[str]:
+    lexical = [
+        os.path.abspath(os.path.join(paths["output"], REVISION_NAMESPACE_DIR)),
+        os.path.abspath(os.path.join(paths["history"], REVISION_SIDECAR_DIR)),
+    ]
+    roots = list(lexical)
+    for root in lexical:
+        try:
+            roots.append(_resolve_through_links(root))
+        except _Unresolvable:
+            pass  # the lexical form still guards it
+    return roots
+
+
+def revision_path_verdict(target: str) -> Optional[tuple[str, Optional[str]]]:
+    """Whether writing, replacing or deleting ``target`` touches a revision-owned
+    tree, compared after resolving links and junctions, case-insensitively on
+    Windows: ``("owned", None)`` when it resolves inside one, ``("unresolvable",
+    <error code name>)`` when it exists but cannot be resolved (fail closed),
+    None when it is outside both."""
+    roots = _revision_roots()
+    if any(_within(os.path.abspath(target), root) for root in roots):
+        return ("owned", None)
+    try:
+        real = _resolve_through_links(target)
+    except _Unresolvable as exc:
+        return ("unresolvable", exc.error_code)
+    return ("owned", None) if any(_within(real, root) for root in roots) else None
+
+
+def is_revision_owned_path(target: str) -> bool:
+    return revision_path_verdict(target) is not None
+
+
+def assert_outside_revision_trees(targets: list) -> None:
+    """Refuse, before any work, when a legacy operation would write inside either tree."""
+    for target in targets:
+        if not isinstance(target, str) or not target:
+            continue
+        verdict = revision_path_verdict(target)
+        if verdict:
+            raise ClipRevisionFenceError(REVISION_PATH_PROTECTED, reason=verdict[0], error_code=verdict[1])
 
 
 def _history_path() -> str:
@@ -234,12 +414,34 @@ def _clip_sidecar_paths(clip_id: str) -> list[str]:
     ]
 
 
+def _clip_artifact_paths(entry: dict) -> list[str]:
+    """Every file ``delete_clip`` removes for a clip (sidecars, then the output)."""
+    artifacts = list(_clip_sidecar_paths(str(entry.get("id"))))
+    output_path = entry.get("output_path")
+    if output_path:
+        artifacts.append(output_path)
+    return artifacts
+
+
+def _thumbnail_dir(clip_id: str) -> str:
+    return os.path.join(paths["output"], "thumbnails", clip_id)
+
+
+def assert_legacy_removal_allowed(entry: dict) -> None:
+    """A tracked clip, or one whose files lie in a revision-owned tree, is not removed."""
+    if is_revision_tracked(entry):
+        raise ClipRevisionFenceError(CLIP_REVISION_TRACKED)
+    assert_outside_revision_trees(_clip_artifact_paths(entry) + [_thumbnail_dir(str(entry.get("id")))])
+
+
 def delete_clip(clip_id: str) -> Optional[dict]:
     """Remove a clip from history along with its rendered output and sidecars.
 
     Returns the removed entry, or None if no clip matched. The source video is
     never touched, only artifacts Clipperz rendered for this clip. The id is
     resolved inside the lock so a concurrent edit cannot target a stale list.
+    A tracked clip, or one whose files lie in a revision-owned tree, raises
+    ClipRevisionFenceError under the lock with nothing removed.
     """
     if not clip_id:
         return None
@@ -248,6 +450,7 @@ def delete_clip(clip_id: str) -> Optional[dict]:
         target = _find_in(entries, clip_id)
         if target is None:
             return None
+        assert_legacy_removal_allowed(target)
         entries.remove(target)
         return target
 
@@ -256,18 +459,14 @@ def delete_clip(clip_id: str) -> Optional[dict]:
         return None
     full_id = str(target.get("id"))
 
-    artifacts = list(_clip_sidecar_paths(full_id))
-    output_path = target.get("output_path")
-    if output_path:
-        artifacts.append(output_path)
-    for path in artifacts:
+    for path in _clip_artifact_paths(target):
         try:
             if path and os.path.isfile(path):
                 os.remove(path)
         except OSError:
             pass
 
-    thumb_dir = os.path.join(paths["output"], "thumbnails", full_id)
+    thumb_dir = _thumbnail_dir(full_id)
     try:
         if os.path.isdir(thumb_dir):
             shutil.rmtree(thumb_dir)
@@ -281,7 +480,9 @@ def update_clip(clip_id: str, **fields) -> Optional[dict]:
 
     Only keys with non-None values are applied, so callers can pass optional
     edits without overwriting existing data with None. The id is resolved
-    inside the lock; a clip deleted meanwhile is not resurrected.
+    inside the lock; a clip deleted meanwhile is not resurrected. On a tracked
+    clip any non-None revision-owned field raises ClipRevisionFenceError and
+    nothing is written; ``revisions`` is never applied by this writer.
     """
     if not clip_id:
         return None
@@ -290,6 +491,7 @@ def update_clip(clip_id: str, **fields) -> Optional[dict]:
         target = _find_in(entries, clip_id)
         if target is None:
             return None
+        _assert_patch_allowed(target, [key for key, value in fields.items() if value is not None])
         for key, value in fields.items():
             if value is not None:
                 target[key] = value

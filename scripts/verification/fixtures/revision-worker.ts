@@ -15,11 +15,14 @@
 //   draft <clipId> <incarnation> <draftV> <revV>
 //   state <clipId>
 //   verify <clipId> <revisionId>   reopen the immutable document and recheck its files
+// With CLIPPERZ_TEST_CARD_IMAGE and CLIPPERZ_TEST_CARD_SHA256 set, save and replay
+// requests carry that opening card (1B.2b.1) and use the fake composer; the
+// kill-after-compose mode ends the process right after composition.
 // Exit codes: 0 ok (JSON on stdout), 2 surfaced typed error (JSON on stderr), 3 usage.
 import { existsSync, writeFileSync } from "fs";
 import { ClipsHistory, HistoryReadError, FileLockError } from "../../../src/services/clips-history.js";
 import { ClipRevisionService, ClipRevisionError, type ClipRevisionHooks } from "../../../src/services/clip-revisions.js";
-import { fakeExactRender, fakeProbe } from "../../../src/services/clip-revisions.test-support.js";
+import { fakeCompose, fakeExactRender, fakeProbe, fakeStreams } from "../../../src/services/clip-revisions.test-support.js";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -33,8 +36,15 @@ async function waitForFile(path: string): Promise<void> {
 
 const WORDS = ["red", "green", "blue", "yellow", "cyan", "magenta"].map((word, i) => ({ word, start: i + 0.2, end: i + 0.7, confidence: 1 }));
 
+function cardFromEnv() {
+  const image = process.env.CLIPPERZ_TEST_CARD_IMAGE;
+  return image ? { image_path: image, image_sha256: process.env.CLIPPERZ_TEST_CARD_SHA256!, placement: "opening" as const, duration: 1.5 as const } : undefined;
+}
+
 function request(clipId: string, opId: string, incarnation: string, draftV: string, revV: string) {
+  const card = cardFromEnv();
   return {
+    ...(card ? { thumbnail_card: card } : {}),
     clip_id: clipId,
     operation_id: opId,
     expected: { incarnation, draft_version: Number(draftV), revision_version: Number(revV) },
@@ -64,6 +74,7 @@ function barrier(mode: string, marker?: string, go?: string): ClipRevisionHooks 
     case "none": return {};
     case "kill-before-commit": return { beforeCommit: die };
     case "kill-after-commit": return { afterCommit: die };
+    case "kill-after-compose": return { afterCompose: die };
     case "wait-before-commit": return { beforeCommit: wait };
     case "wait-before-render": return { beforeRender: wait };
     default: throw new Error(`unknown mode ${mode}`);
@@ -78,15 +89,17 @@ async function main(argv: string[]): Promise<number> {
     if (mode === "save") {
       const [clipId, opId, barrierMode, incarnation, draftV, revV, marker, go] = args;
       const render = fakeExactRender();
-      const svc = new ClipRevisionService({ history, render, probe: fakeProbe, hooks: barrier(barrierMode, marker, go) });
+      const compose = fakeCompose();
+      const svc = new ClipRevisionService({ history, render, probe: fakeProbe, compose, streams: fakeStreams, hooks: barrier(barrierMode, marker, go) });
       const r = await svc.saveRevision(request(clipId, opId, incarnation, draftV, revV));
-      result = { outcome: r.outcome, replayed: r.replayed, renders: render.calls, revision_id: r.outcome === "committed" ? r.revision.revision_id : null, operation: r.operation };
+      result = { outcome: r.outcome, replayed: r.replayed, renders: render.calls, composes: compose.calls, revision_id: r.outcome === "committed" ? r.revision.revision_id : null, operation: r.operation };
     } else if (mode === "replay") {
       const [clipId, opId, incarnation, draftV, revV] = args;
       const render = fakeExactRender({ failWith: new Error("replay must not render") });
-      const svc = new ClipRevisionService({ history, render, probe: fakeProbe });
+      const compose = fakeCompose({ failWith: new Error("replay must not compose") });
+      const svc = new ClipRevisionService({ history, render, probe: fakeProbe, compose, streams: fakeStreams });
       const r = await svc.saveRevision(request(clipId, opId, incarnation, draftV, revV));
-      result = { outcome: r.outcome, replayed: r.replayed, renders: render.calls, revision_id: r.outcome === "committed" ? r.revision.revision_id : null, operation: r.operation };
+      result = { outcome: r.outcome, replayed: r.replayed, renders: render.calls, composes: compose.calls, revision_id: r.outcome === "committed" ? r.revision.revision_id : null, operation: r.operation };
     } else if (mode === "invalidate") {
       result = await new ClipRevisionService({ history, render: fakeExactRender(), probe: fakeProbe }).invalidateOperation({ clip_id: args[0], operation_id: args[1], expected_incarnation: args[2], reason: "worker invalidate" });
     } else if (mode === "draft") {

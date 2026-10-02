@@ -8,6 +8,7 @@ import { withFileLock, FileLockError } from "../utils/mutation-lock.js";
 import { childLogger } from "../utils/logger.js";
 import { sliceTranscript, sliceWords } from "../utils/transcript.js";
 import { isDemoMode, demoClips } from "../ui/demo-fixtures.js";
+import { assertLegacyPatchAllowed, assertLegacyRecordAllowed, assertLegacyRemovalAllowed, assertOutsideRevisionTrees } from "./clip-write-fence.js";
 import type { BatchClipsResult, ClipHistoryEntry, Format, WordTimestamp } from "../models/index.js";
 
 const log = childLogger("clips-history");
@@ -215,6 +216,8 @@ export class ClipsHistory {
   }
 
   async record(entry: Omit<ClipHistoryEntry, "id" | "created_at">): Promise<ClipHistoryEntry> {
+    // Only the revision save service creates revision state; refused before any write.
+    assertLegacyRecordAllowed(entry);
     const full: ClipHistoryEntry = {
       ...entry,
       id: uuidv4(),
@@ -440,6 +443,9 @@ export class ClipsHistory {
     const changed = await this.mutate((entries) => {
       const e = entries.find((x) => x.id === id);
       if (!e) return null;
+      // Checked under the lock: a clip tracked since any earlier check keeps its
+      // revision-owned fields, and no legacy patch starts tracking.
+      assertLegacyPatchAllowed(e, patch);
       const before = e.title;
       Object.assign(e, patch);
       return { entry: e, previousTitle: before };
@@ -513,6 +519,8 @@ export class ClipsHistory {
   // word/recipe/reframe sidecars, thumbnail dir). The source video is never touched.
   // Accepts a full id or an unambiguous prefix (MCP convenience); the prefix is
   // resolved inside the critical section so a concurrent change cannot redirect it.
+  // A tracked clip, or one whose artifacts lie in a revision-owned tree, is
+  // refused under the lock before anything is removed.
   async remove(idOrPrefix: string): Promise<ClipHistoryEntry | null> {
     if (!idOrPrefix) return null;
     // Demo entries are read-only fixtures — never delete their (shipped) artifacts.
@@ -520,26 +528,34 @@ export class ClipsHistory {
       const id = await this.resolveId(idOrPrefix);
       return id ? (await this.findById(id)) ?? null : null;
     }
-    const entry = await this.mutate((entries) => {
+    const entry = await this.mutate(async (entries) => {
       const id = resolveIdIn(entries, idOrPrefix);
       if (!id) return null;
       const idx = entries.findIndex((e) => e.id === id);
       if (idx < 0) return null;
+      assertLegacyRemovalAllowed(entries[idx]);
+      await assertOutsideRevisionTrees(this.artifactPaths(entries[idx]), id);
       return entries.splice(idx, 1)[0];
     });
     if (!entry) return null;
 
-    const artifacts = [
+    const [thumbnails, ...artifacts] = this.artifactPaths(entry);
+    await Promise.all(
+      artifacts.map((p) => (p ? rm(p, { force: true }) : Promise.resolve())),
+    );
+    await rm(thumbnails, { recursive: true, force: true });
+    return entry;
+  }
+
+  /** The thumbnail directory, then every file `remove` deletes for a clip. */
+  private artifactPaths(entry: ClipHistoryEntry): [string, ...string[]] {
+    return [
+      join(paths.output, "thumbnails", entry.id),
       this.wordsPath(entry.id),
       this.recipePath(entry.id),
       this.reframePath(entry.id),
       entry.output_path,
     ];
-    await Promise.all(
-      artifacts.map((p) => (p ? rm(p, { force: true }) : Promise.resolve())),
-    );
-    await rm(join(paths.output, "thumbnails", entry.id), { recursive: true, force: true });
-    return entry;
   }
 
   async getBySource(videoPath: string): Promise<ClipHistoryEntry[]> {

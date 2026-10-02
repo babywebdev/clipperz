@@ -9,9 +9,10 @@
 // fixture only; never by production code.
 import { randomBytes } from "crypto";
 import { mkdirSync, readFileSync, renameSync, statSync, writeFileSync, cpSync } from "fs";
-import { join } from "path";
+import { basename, extname, join } from "path";
 import type { ClipResult, RenderTimeline, RenderTimelineBookend, RenderTimelineWord, WordTimestamp } from "../models/index.js";
-import type { MediaProbe, ProbeFn, RenderFn } from "./clip-revisions.js";
+import { OPENING_CARD_TIME_DOMAINS, type OpeningCardReceipt } from "../models/clip-revisions.js";
+import type { AudioStreamProbe, ComposeFn, MediaProbe, ProbeFn, RenderFn, StreamProbe, StreamProbeFn, VideoStreamProbe } from "./clip-revisions.js";
 
 export interface FakeRenderOptions {
   /** Composition branch reported for any requested bookend. */
@@ -189,16 +190,20 @@ export function fakeExactRender(options: FakeRenderOptions = {}): FakeRender {
 }
 
 /** Mirrors video_processor.concat_outro's report and exact_render.bookend_region.
- * A crossfade overlaps by the requested fade clamped to each input (hard cuts
- * overlap nothing); an intro occupies [0, asset - overlap] and hands over during
+ * A crossfade overlaps by the requested fade clamped to each input, and happens
+ * only when that clamp and the offset before it are both at least 0.05 s;
+ * otherwise the helper hard-cuts (`hardcut_soft_audio`) and overlaps nothing, as
+ * any hard cut does. `xfade_audio_concat` is reported as asked, for refusal tests.
+ * An intro occupies [0, asset - overlap] and hands over during
  * [asset - overlap, asset]; an outro starts one overlap before the content ends
- * (`contentEnd`) and runs for its asset length. */
-function bookend(kind: "intro" | "outro", main: number, appended: number, contentEnd: number, branch: RenderTimelineBookend["branch"], fade: number): RenderTimelineBookend {
-  let overlap = 0;
-  if (branch.startsWith("xfade") && fade > 0) {
-    overlap = Math.min(fade, Math.max(0.05, main - 0.05));
-    if (appended > 0) overlap = Math.min(overlap, Math.max(0.05, appended - 0.05));
-  }
+ * (`contentEnd`) and runs for its asset length. `join_inputs` are the two inputs. */
+function bookend(kind: "intro" | "outro", main: number, appended: number, contentEnd: number, requestedBranch: RenderTimelineBookend["branch"], fade: number): RenderTimelineBookend {
+  let clamp = fade > 0 ? fade : 0;
+  clamp = Math.min(clamp, Math.max(0.05, main - 0.05));
+  if (appended > 0) clamp = Math.min(clamp, Math.max(0.05, appended - 0.05));
+  const crossfades = Math.max(0, main - clamp) >= 0.05 && clamp >= 0.05;
+  const branch = requestedBranch === "xfade_acrossfade" && !crossfades ? "hardcut_soft_audio" : requestedBranch;
+  const overlap = branch.startsWith("xfade") ? clamp : 0;
   const asset = kind === "intro" ? main : appended;
   const regionStart = kind === "intro" ? 0 : Math.max(0, contentEnd - overlap);
   const regionEnd = kind === "intro" ? Math.max(0, main - overlap) : contentEnd - overlap + appended;
@@ -215,6 +220,7 @@ function bookend(kind: "intro" | "outro", main: number, appended: number, conten
     branch,
     transition,
     measured_output_duration: round(main + appended - overlap),
+    join_inputs: { main_duration: main, appended_duration: appended },
   };
 }
 
@@ -224,3 +230,147 @@ export const fakeProbe: ProbeFn = async (path: string): Promise<MediaProbe> => {
   const header = JSON.parse(text.split("\n")[0]) as { duration: number; has_audio: boolean };
   return { duration: header.duration, bytes: statSync(path).size, has_video: true, has_audio: header.has_audio };
 };
+
+// --- Opening card (1B.2b.1) ------------------------------------------------
+
+interface FakeHeader {
+  duration: number;
+  has_audio: boolean;
+  /** Recorded by the fake composer: what a stream probe of the composed file sees. */
+  streams?: { video: VideoStreamProbe; audio: AudioStreamProbe | null };
+}
+
+const readHeader = (path: string) => JSON.parse(readFileSync(path, "utf-8").split("\n")[0]) as FakeHeader;
+const FAKE_TIME_BASE = { num: 1, den: 12800 };
+const FAKE_FRAME_TICKS = 512; // 25 fps
+
+/** A fake render's streams: constant 25 fps 1080x1920 video from 0 and 44.1 kHz stereo
+ * audio, both as long as its header says. A composed fake file carries its own. */
+export const fakeStreams: StreamProbeFn = async (path: string): Promise<StreamProbe> => {
+  const header = readHeader(path);
+  const bytes = statSync(path).size;
+  if (header.streams) return { bytes, duration: header.duration, video: structuredClone(header.streams.video), audio: structuredClone(header.streams.audio) };
+  const packets = Math.max(1, Math.round(header.duration * 25));
+  return {
+    bytes,
+    duration: header.duration,
+    video: {
+      width: 1080, height: 1920, sample_aspect_ratio: "1:1", time_base: `${FAKE_TIME_BASE.num}/${FAKE_TIME_BASE.den}`, frame_rate: "25/1",
+      start: 0, duration: packets / 25,
+      pts: Array.from({ length: packets }, (_, i) => i * FAKE_FRAME_TICKS),
+      durations: Array.from({ length: packets }, () => FAKE_FRAME_TICKS),
+    },
+    audio: header.has_audio ? { sample_rate: 44100, channels: 2, channel_layout: "stereo", start: 0, duration: header.duration } : null,
+  };
+};
+
+export interface FakeComposeOptions {
+  /** Throw before creating anything: the composer failed and published nothing. */
+  failWith?: Error;
+  /** Create the group, then throw: a failure whose cleanup was denied. */
+  leaveGroupAndFail?: Error;
+  /** Publish the group completely, then throw. */
+  failAfterPublish?: Error;
+  /** Publish beneath this directory instead of the requested output_dir. */
+  publishUnder?: string;
+  /** Leave staging beside final/ (an incomplete group). */
+  leaveStaging?: boolean;
+  /** Write these bytes as the card image copy instead of the selected image's. */
+  imageBytes?: Buffer;
+  /** Alter the streams recorded into the composed file: what the service's probe will measure. */
+  alterStreams?: (streams: { video: VideoStreamProbe; audio: AudioStreamProbe | null }) => void;
+  /** Alter the returned receipt. */
+  alterReceipt?: (receipt: OpeningCardReceipt) => void;
+  onCompose?: (params: Record<string, unknown>) => Promise<void> | void;
+}
+
+export interface FakeCompose extends ComposeFn {
+  calls: number;
+  lastParams: Record<string, unknown> | null;
+}
+
+/** A fake opening card composer that reproduces backend/services/opening_card.py's
+ * group publication (`<group_stem>-<op>/` staged, then renamed to `final/`), its
+ * whole-frame card at the raw frame duration and its receipt, without FFmpeg. */
+export function fakeCompose(options: FakeComposeOptions = {}): FakeCompose {
+  const compose = (async (params: Record<string, unknown>): Promise<OpeningCardReceipt> => {
+    compose.calls++;
+    compose.lastParams = params;
+    await options.onCompose?.(params);
+    if (options.failWith) throw options.failWith;
+    const rawPath = String(params.raw_video_path);
+    const imagePath = String(params.image_path);
+    const raw = await fakeStreams(rawPath);
+    const root = options.publishUnder ?? String(params.output_dir);
+    const opId = `${new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 15)}Z-${process.pid}-${randomBytes(4).toString("hex")}`;
+    const parent = join(root, `${String(params.group_stem)}-${opId}`);
+    const staging = join(parent, "staging");
+    const finalDir = join(parent, "final");
+    mkdirSync(root, { recursive: true });
+    mkdirSync(parent);
+    mkdirSync(staging);
+    if (options.leaveGroupAndFail) throw options.leaveGroupAndFail;
+    const imageName = `card-image${extname(imagePath).toLowerCase()}`;
+    const imageBytes = options.imageBytes ?? readFileSync(imagePath);
+    writeFileSync(join(staging, imageName), imageBytes);
+
+    const rv = raw.video!;
+    const frames = Math.floor((3 * FAKE_TIME_BASE.den + FAKE_FRAME_TICKS * FAKE_TIME_BASE.num) / (2 * FAKE_FRAME_TICKS * FAKE_TIME_BASE.num));
+    const shift = frames * FAKE_FRAME_TICKS;
+    const card = (shift * FAKE_TIME_BASE.num) / FAKE_TIME_BASE.den;
+    const streams = {
+      video: {
+        ...rv,
+        duration: (rv.duration ?? 0) + card,
+        pts: [...Array.from({ length: frames }, (_, i) => i * FAKE_FRAME_TICKS), ...rv.pts.map((p) => p + shift)],
+        durations: [...Array.from({ length: frames }, () => FAKE_FRAME_TICKS), ...rv.durations],
+      },
+      audio: raw.audio ? { ...raw.audio, duration: (raw.audio.duration ?? 0) + card } : null,
+    };
+    options.alterStreams?.(streams);
+    const name = basename(rawPath);
+    const duration = Math.max(streams.video.duration ?? 0, streams.audio?.duration ?? 0);
+    writeFileSync(join(staging, name), `${JSON.stringify({ fake: true, composed: true, duration, has_audio: !!streams.audio, streams })}\n${randomBytes(1024).toString("base64")}`);
+    if (options.leaveStaging) cpSync(staging, finalDir, { recursive: true });
+    else renameSync(staging, finalDir);
+    if (options.failAfterPublish) throw options.failAfterPublish;
+
+    const summary = (v: VideoStreamProbe) => ({
+      width: v.width, height: v.height, sample_aspect_ratio: v.sample_aspect_ratio, time_base: v.time_base, frame_rate: v.frame_rate,
+      packets: v.pts.length, first_pts: v.pts[0], start: v.start, duration: v.duration,
+    });
+    const audioSummary = (a: AudioStreamProbe | null) => (a ? { ...a } : null);
+    const outputPath = join(finalDir, name);
+    const receipt: OpeningCardReceipt = {
+      version: 1,
+      kind: "opening_card",
+      placement: "opening",
+      transition: "hardcut",
+      overlap: 0,
+      requested_duration: 1.5,
+      raw: { path: rawPath, sha256: String(params.raw_sha256), file_size_bytes: raw.bytes, duration: raw.duration, video: summary(rv), audio: audioSummary(raw.audio) },
+      card: {
+        image_path: join(finalDir, imageName),
+        image_sha256: String(params.image_sha256),
+        image_bytes: imageBytes.length,
+        frames,
+        frame_ticks: FAKE_FRAME_TICKS,
+        frame_duration: (FAKE_FRAME_TICKS * FAKE_TIME_BASE.num) / FAKE_TIME_BASE.den,
+        measured_ticks: shift,
+        measured_duration: card,
+        audio_samples: raw.audio ? Math.floor((shift * FAKE_TIME_BASE.num * raw.audio.sample_rate) / FAKE_TIME_BASE.den) : null,
+        output_start: 0,
+        output_end: card,
+        audio_note: raw.audio ? null : "the raw render has no audio stream; the card adds none",
+      },
+      output: { path: outputPath, file_size_bytes: statSync(outputPath).size, duration, video: summary(streams.video), audio: audioSummary(streams.audio) },
+      time_domains: { ...OPENING_CARD_TIME_DOMAINS },
+      tolerance: { video_ticks: 0, card_seconds: 0.02, audio_seconds: 1025 / 44100, basis: "fake composer" },
+    };
+    options.alterReceipt?.(receipt);
+    return receipt;
+  }) as FakeCompose;
+  compose.calls = 0;
+  compose.lastParams = null;
+  return compose;
+}

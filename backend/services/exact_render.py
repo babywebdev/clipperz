@@ -456,13 +456,31 @@ def verify_bookend_transition(*, kind: str, report: dict) -> None:
         )
 
 
+def _join_input(report: dict, key: str, kind: str) -> float:
+    """One input duration the concat helper recorded for a join, as recorded."""
+    value = report.get(key)
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0:
+        raise ExactRenderVerificationError(
+            f"{kind} join report has no usable {key} ({value!r}); the receipt cannot "
+            "record the inputs the join was computed from"
+        )
+    return float(value)
+
+
 def bookend_region(
     *, kind: str, report: dict, output_start: float,
 ) -> dict:
-    """Describe one bookend join in output seconds from the concat helper's report."""
+    """Describe one bookend join in output seconds from the concat helper's report.
+
+    `join_inputs` keeps the two input durations concat_outro actually joined,
+    unrounded: `main_duration` is its first input, `appended_duration` its
+    second. The rounded asset and region values cannot recover them near its
+    clamp and crossfade thresholds, and a report lacking either is refused
+    rather than recorded with a guessed value.
+    """
     overlap = float(report.get("applied_overlap") or 0.0)
-    main = float(report.get("main_duration") or 0.0)
-    appended = float(report.get("appended_duration") or 0.0)
+    main = _join_input(report, "main_duration", kind)
+    appended = _join_input(report, "appended_duration", kind)
     if kind == "intro":
         # The intro was the "main" input and the content was appended to it.
         region_start = 0.0
@@ -482,4 +500,5 @@ def bookend_region(
         "branch": report.get("branch"),
         "transition": transition,
         "measured_output_duration": report.get("output_duration"),
+        "join_inputs": {"main_duration": main, "appended_duration": appended},
     }

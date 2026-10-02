@@ -1,6 +1,6 @@
 ---
 record: "ledger"
-author: "coordinating-lead"
+author: "agent"
 date: "[YYYY-MM-DD]"
 state: "active"
 summary: "[Outcome first; at most 40 words]"
@@ -9,7 +9,7 @@ read_when: "[Relevant situations; at most 25 words]"
 
 # Findings Ledger
 
-<!-- Install at docs/project/_LEDGER-TEMPLATE.md; coordinating lead copies to docs/project/findings-ledger.md on first actionable defect, including a defect fixed during implementation. Follow docs/workflow/record-frontmatter.md; shared ledger omits task/cycle. Only the lead edits; Worker/reviewer propose entries. One line per row; narrative stays in linked records. Optional style suggestions are excluded. -->
+<!-- Install at docs/project/_LEDGER-TEMPLATE.md; the current task owner copies to docs/project/findings-ledger.md on first actionable defect, including a defect fixed during implementation. Follow docs/workflow/record-frontmatter.md; shared ledger omits task/cycle. Only the current task owner edits; others propose entries under contract Recurrence and recovery. One line per row; narrative stays in linked records. Optional style suggestions are excluded. -->
 
 ## Open
 

@@ -2,16 +2,17 @@
 
 > Transcribe, clip, and publish from one place.
 
-This file owns shared project facts and conventions for Clipperz. Workflow roles
-and procedures live in `docs/workflow/`; read its README and the role selected by
-the tool entrypoint or explicit assignment. Reading this context does not activate
-a content persona or change that assignment.
+This file owns shared project facts and conventions for Clipperz. Workflow
+configuration, the contract and the common process live in `docs/workflow/`; the
+tool entrypoints route the active assignment through its README. Reading this
+context does not activate a content persona or change that assignment.
 
 PodStack is an optional content-production workflow. Only for explicitly requested
 PodStack/content-production work, read `docs/project/references/podstack.md` and
-the relevant command. Its content roles are task lenses, not replacements for the
-software Project Lead or Worker. Do not automatically activate PodStack because a
-software task mentions titles, transcripts, thumbnails, or publishing.
+the relevant command. Its content roles are task lenses, not software workflow
+authority or a change to the active assignment. Do not automatically activate
+PodStack because a software task mentions titles, transcripts, thumbnails, or
+publishing.
 
 You have two systems working together:
 

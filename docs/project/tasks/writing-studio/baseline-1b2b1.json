@@ -1,0 +1,96 @@
+{
+  "purpose": "Lead-13 planning freshness; not implementation verification",
+  "specRevision": "lead-13",
+  "capturedAt": "2026-09-14T22:34:47.9518779-05:00",
+  "head": "fed8ed13dcb2aade06bee341953d6b10d58bff13",
+  "workflowVersion": "4.1.0",
+  "instructionInventory": "docs/workflow/inventories/4.1.0-local-1.md",
+  "predecessor": {
+    "slice": "1B.2a accepted",
+    "manifest": "_local/project/evidence/writing-studio/1b-2a-repair-3/snapshot/manifest.json",
+    "review": "docs/project/tasks/writing-studio/reports/1b-2a-repair-3-review.md",
+    "comparison": "23 application/contract entries checked: zero drift. Existing accepted uncommitted implementation preserved. Lead bookkeeping is additional. fed8ed1 unchanged."
+  },
+  "inputs": [
+    {
+      "path": "src/services/clip-revisions.ts",
+      "sha256": "9d6c40425fb98b8e45f8fb0ff0a0818ae8c559330a249ef4484da8d55161cd8c"
+    },
+    {
+      "path": "src/models/clip-revisions.ts",
+      "sha256": "5378fb4b9d982d1ccda0d9612cb0c78c7db09213bcad09dfd78f3745932fbc32"
+    },
+    {
+      "path": "src/models/index.ts",
+      "sha256": "552630ebaa5e16ecf8866187ea2cf663ae54d3e8c1a32f103ed00199f58b43f2"
+    },
+    {
+      "path": "src/services/clips-history.ts",
+      "sha256": "aaf85cda20887d94b89a79ca4b84f3761e70e284641f86a8553be56fe3deb052"
+    },
+    {
+      "path": "src/ui/web-server.ts",
+      "sha256": "8fd09a150310212e548adc8c4e1cd5db84ff49823a610d1f20148c78bffb5e13"
+    },
+    {
+      "path": "src/services/storage-cleanup.ts",
+      "sha256": "22ba0ac741b8653be002fb31a52057891030ca9b861ff9a6f8b2c280cf11cbad"
+    },
+    {
+      "path": "backend/main.py",
+      "sha256": "9f50e88ccc1a053023f3cceaefdeb7d93ab87a559d2bad6eb0e48f046b905858"
+    },
+    {
+      "path": "backend/cli.py",
+      "sha256": "9bfcfac1aa0c8679e7432fe5138a2548d93ea189ac14f38e5d0465a794766946"
+    },
+    {
+      "path": "backend/services/clip_generator.py",
+      "sha256": "947795e8d1d4402e47d5550a23605245e991d074ae93f3d6b858f207a166814a"
+    },
+    {
+      "path": "backend/services/exact_render.py",
+      "sha256": "d7efe1bf05fb75d57895a324a716f18f40ac69b56918a48f77481054dd70f354"
+    },
+    {
+      "path": "backend/services/video_processor.py",
+      "sha256": "388807a0dbe8eaaeac9c55287a582ec3dff217f5b15bb88d5d8de77fd4f4d0cf"
+    },
+    {
+      "path": "backend/services/thumbnail_ai.py",
+      "sha256": "d1ee073efea7ae16cce95a14ff2758a18c16bc007674de5b890c6a5f66d0d7a7"
+    },
+    {
+      "path": "backend/services/clips_history.py",
+      "sha256": "0ca8ae9b7ad70c8e34f1adb83104040724b56c542a5d73a0bd8d7e2fd8b68ef1"
+    },
+    {
+      "path": "scripts/verification/check-saved-revision.mjs",
+      "sha256": "e8a5c9133467907f146093c5816f8c909a40dc5a9ec07797aecdd12d7a66e39e"
+    },
+    {
+      "path": "scripts/verification/check-exact-render.mjs",
+      "sha256": "379fb1041609e2d8006f9091d80f7eab41c93b8172a299060b4312edb2e4160d"
+    },
+    {
+      "path": "package.json",
+      "sha256": "b5f8cb7df014185b06de3d4e0ba8f593212572988db5517ef0af4e8234f6b82b"
+    },
+    {
+      "path": "package-lock.json",
+      "sha256": "315ea9a6c258942619c568cbe4029d692c3de3e20c560640ac60f6a7b9ceb65a"
+    },
+    {
+      "path": "_local/clipperz/config/clipperz.env",
+      "sha256": "f9911db081cd9e6091dd321ab64f099bbe909304e331fa2c664753548fa6003b"
+    },
+    {
+      "path": "docs/workflow/inventories/4.1.0-local-1.md",
+      "sha256": "9c968d1d154cfb9dc1e3a6e9b8940d47ada29664d3677cb6ce0c615afeee90cb"
+    },
+    {
+      "path": "_local/project/evidence/writing-studio/1b-2a-repair-3/snapshot/manifest.json",
+      "sha256": "a237483a90012fa9a10a9b3abff9fcfb5a1e09db5280e0f686076f09c364c691"
+    }
+  ]
+}

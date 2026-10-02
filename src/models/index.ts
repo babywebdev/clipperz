@@ -2,7 +2,7 @@
 
 export interface TaskRequest {
   task_id: string;
-  task_type: "transcribe" | "parse_transcript" | "create_clip" | "batch_clips" | "analyze_energy" | "detect_highlights" | "manage_reel" | "pack_transcript" | "detect_encoder" | "presets" | "ping" | "suggest_clips" | "find_moment" | "generate_content" | "generate_custom" | "corrections" | "manage_integrations" | "run_integration_tool" | "manage_config" | "manage_env" | "ai_cli_status" | "ai_provider_status" | "analyze_silence" | "render_silence_removed" | "export_full_episode";
+  task_type: "transcribe" | "parse_transcript" | "create_clip" | "compose_opening_card" | "batch_clips" | "analyze_energy" | "detect_highlights" | "manage_reel" | "pack_transcript" | "detect_encoder" | "presets" | "ping" | "suggest_clips" | "find_moment" | "generate_content" | "generate_custom" | "corrections" | "manage_integrations" | "run_integration_tool" | "manage_config" | "manage_env" | "ai_cli_status" | "ai_provider_status" | "analyze_silence" | "render_silence_removed" | "export_full_episode";
   params: Record<string, unknown>;
 }
 
@@ -130,6 +130,19 @@ export interface RenderTimelineBookend {
   branch: "xfade_acrossfade" | "xfade_audio_concat" | "hardcut_soft_audio" | "hardcut";
   transition: { output_start: number; output_end: number };
   measured_output_duration: number | null;
+  /** Recorded by exact receipts since Writing Studio 1B.2a repair-3. Exact receipts,
+   * and revisions saved from them, produced before that do not carry it. */
+  join_inputs?: RenderTimelineJoinInputs;
+}
+
+/** The two input durations video_processor.concat_outro actually joined, in seconds
+ * as it recorded them (not rounded). `main_duration` is its first input: the intro
+ * asset for an intro, everything before the outro (an intro included) for an outro.
+ * `appended_duration` is its second: the content for an intro, the outro asset for
+ * an outro. The join's clamp and crossfade eligibility follow from these and the fade. */
+export interface RenderTimelineJoinInputs {
+  main_duration: number;
+  appended_duration: number;
 }
 
 export interface RenderTimelineTolerance {

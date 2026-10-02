@@ -1,0 +1,290 @@
+{
+  "purpose": "Lead-26 planning freshness for slice 1B.2b.4a (finishing-action adapters); not implementation verification",
+  "specRevision": "lead-26",
+  "capturedAt": "2026-09-23T16:47:42+00:00",
+  "head": "fed8ed13dcb2aade06bee341953d6b10d58bff13",
+  "workflowVersion": "5.0.0",
+  "instructionInventory": "docs/workflow/inventories/5.0.0-local-1.md",
+  "predecessor": {
+    "slice": "1B.2b.3 accepted 2026-09-23 at lead-25",
+    "snapshot": "_local/project/evidence/writing-studio/1b-2b-3/repair-1/snapshot/manifest.json",
+    "snapshotSha256": "43ffa1ebea7a4cd52f35fd459d5a5ec6c8b0684227ea08b63edeca843d151c9a",
+    "review": "docs/project/tasks/writing-studio/reports/1b-2b-3-repair-1-review.md",
+    "comparison": "every planning input equals its repair-1 manifest entry or HEAD blob; the only tree drift from the snapshot is the eleven task-state records hash-equal to records-post-acceptance.sha256"
+  },
+  "inputs": [
+    {
+      "path": "src/services/clip-revisions.ts",
+      "sha256": "5e98d63f0817e94669f21809d93a60faebbc3608c317a58a9f1dccda8e0b0b8b",
+      "lfSha256": "5e98d63f0817e94669f21809d93a60faebbc3608c317a58a9f1dccda8e0b0b8b"
+    },
+    {
+      "path": "src/models/clip-revisions.ts",
+      "sha256": "468260363107dd19a86745faf6369ba8ca5d27ca3fb612ad8e73d929e53e0953",
+      "lfSha256": "468260363107dd19a86745faf6369ba8ca5d27ca3fb612ad8e73d929e53e0953"
+    },
+    {
+      "path": "src/models/index.ts",
+      "sha256": "0cb75534727421c1fef84e881928bbb5b2b055e366d4cc293a6bd02cd7919767",
+      "lfSha256": "0cb75534727421c1fef84e881928bbb5b2b055e366d4cc293a6bd02cd7919767"
+    },
+    {
+      "path": "src/services/clip-write-fence.ts",
+      "sha256": "2f9a1f271d299b8644363a5bfe6e9eed739e9631c4d8198afcc08ec26e332fc0",
+      "lfSha256": "2f9a1f271d299b8644363a5bfe6e9eed739e9631c4d8198afcc08ec26e332fc0"
+    },
+    {
+      "path": "src/ui/clip-write-fence-route.ts",
+      "sha256": "adc4a90a64154180b7c6b2f35403a410e7eb13bfab023dae200b767c01f0bd00",
+      "lfSha256": "adc4a90a64154180b7c6b2f35403a410e7eb13bfab023dae200b767c01f0bd00"
+    },
+    {
+      "path": "src/services/clips-history.ts",
+      "sha256": "81e2c7dfac0549ffee7785163f8dae4f6241e70e0ea93cd1452c5585e7e53514",
+      "lfSha256": "81e2c7dfac0549ffee7785163f8dae4f6241e70e0ea93cd1452c5585e7e53514"
+    },
+    {
+      "path": "src/ui/web-server.ts",
+      "sha256": "ccf56a97c4d3cf2e9ccb01e75f034186448e1dde817b297fa81dfef3a546449c",
+      "lfSha256": "ccf56a97c4d3cf2e9ccb01e75f034186448e1dde817b297fa81dfef3a546449c"
+    },
+    {
+      "path": "src/server.ts",
+      "sha256": "a88ae8f9283142a433916f6dc4802392af2ea23e68f3c7f8a7660a71b324c346",
+      "lfSha256": "586b2bed3f544da76964a45144e1385151aec0dc7736a39a1148631cffba97bf"
+    },
+    {
+      "path": "src/ui/client/ClipDetail.tsx",
+      "sha256": "c757e4d0eddd92999d902ecb7bbc7d8ba2a2863ebcb7c642154e0c9f0e45d912",
+      "lfSha256": "a6fd2d30eac125b24ce27b1ad60ea40d11349e3f34cb42fc4a69fb7f161564bc"
+    },
+    {
+      "path": "src/ui/client/ReframeEditor.tsx",
+      "sha256": "68c6e13a04ba8fe8db749068341af9d4b6c91c8abd7098dac9fe70bf92baa05f",
+      "lfSha256": "3e6a14267173a36f123b73a68b59d55752062dca98b8ecbf9caa03a243fb73ea"
+    },
+    {
+      "path": "src/ui/client/StudioHome.tsx",
+      "sha256": "f4c0363ca7b730c5a1cc16865f5f62d1ae40bcc46df8c5e29e53aec0ddf6407e",
+      "lfSha256": "5d65806c2fdcaca5bc5c22752e7f66d5526acfcd9ff9f4191b45fa8ce3910f82"
+    },
+    {
+      "path": "src/services/clip-editor-context.ts",
+      "sha256": "7d295ced50fe4fd9328cf9e564607d211ddd032e9db48d7aa0e16fb436792274",
+      "lfSha256": "7d295ced50fe4fd9328cf9e564607d211ddd032e9db48d7aa0e16fb436792274"
+    },
+    {
+      "path": "src/services/clip-editor-read-contract.ts",
+      "sha256": "fb6ac674a3036585a2937939c2dec710deaeea4aea39903ec39a221f2f0597be",
+      "lfSha256": "fb6ac674a3036585a2937939c2dec710deaeea4aea39903ec39a221f2f0597be"
+    },
+    {
+      "path": "src/models/clip-editor-context.ts",
+      "sha256": "05dfb65cb956560dd20fb3acde777a995693d98e2eff3d29651e4e4b2d940120",
+      "lfSha256": "05dfb65cb956560dd20fb3acde777a995693d98e2eff3d29651e4e4b2d940120"
+    },
+    {
+      "path": "src/ui/editor-context-route.ts",
+      "sha256": "22489141ed53a43736110899048630983616dde9c000a95181d87faa97fd4728",
+      "lfSha256": "22489141ed53a43736110899048630983616dde9c000a95181d87faa97fd4728"
+    },
+    {
+      "path": "src/config/paths.ts",
+      "sha256": "42b90ad9d5ef332a11367b2eb1a412ceda7885621b04f69a112bd4efd909362f",
+      "lfSha256": "a984f81d1a549df65670c7353b8589c8f9a747a9a5817e0d634e116fda068fd3"
+    },
+    {
+      "path": "src/config/policy.ts",
+      "sha256": "7cd51884d82279d6040c450386cae65ed1fbfbbf39b501186c64908df22e5d54",
+      "lfSha256": "7cd51884d82279d6040c450386cae65ed1fbfbbf39b501186c64908df22e5d54"
+    },
+    {
+      "path": "src/ui/demo-fixtures.ts",
+      "sha256": "6ce9651bad15df537f7e5ae1c516b59ce40f98524c9ae279c43eb4dbc1d97fa0",
+      "lfSha256": "29fd97ae2a0daf21dda66d600df761f8b82024d4b82dd60286470b84d29232a9"
+    },
+    {
+      "path": "src/services/storage-cleanup.ts",
+      "sha256": "22ba0ac741b8653be002fb31a52057891030ca9b861ff9a6f8b2c280cf11cbad",
+      "lfSha256": "22ba0ac741b8653be002fb31a52057891030ca9b861ff9a6f8b2c280cf11cbad"
+    },
+    {
+      "path": "backend/cli.py",
+      "sha256": "e909db29769702bfa077324759c85891e4eae5b77cc89e94dfdaeaac1b7878e6",
+      "lfSha256": "c3dc2bbdfe6bc30c04b2c12f799393a9fce22847f52069ed9acf8193d656b5bc"
+    },
+    {
+      "path": "backend/services/clips_history.py",
+      "sha256": "2109ececde46b409b9b6decf6be4b238df6c335850b145e53e16ccb36f7af067",
+      "lfSha256": "2109ececde46b409b9b6decf6be4b238df6c335850b145e53e16ccb36f7af067"
+    },
+    {
+      "path": "backend/services/clip_generator.py",
+      "sha256": "947795e8d1d4402e47d5550a23605245e991d074ae93f3d6b858f207a166814a",
+      "lfSha256": "947795e8d1d4402e47d5550a23605245e991d074ae93f3d6b858f207a166814a"
+    },
+    {
+      "path": "backend/services/exact_render.py",
+      "sha256": "d7efe1bf05fb75d57895a324a716f18f40ac69b56918a48f77481054dd70f354",
+      "lfSha256": "d7efe1bf05fb75d57895a324a716f18f40ac69b56918a48f77481054dd70f354"
+    },
+    {
+      "path": "backend/services/video_processor.py",
+      "sha256": "388807a0dbe8eaaeac9c55287a582ec3dff217f5b15bb88d5d8de77fd4f4d0cf",
+      "lfSha256": "83d8f4b4679c448f67ea6f5e7c88558c6f972248aaaa0821ced4812c1bd0b3ce"
+    },
+    {
+      "path": "backend/services/opening_card.py",
+      "sha256": "abf9cee9f63fa44186de552b3823cbe449437845326b3baba037054edc702ca5",
+      "lfSha256": "abf9cee9f63fa44186de552b3823cbe449437845326b3baba037054edc702ca5"
+    },
+    {
+      "path": "backend/main.py",
+      "sha256": "1d27e564a134561e2468bbe1e7f0ba19c8e5519683d89e422cbc2e560736ace8",
+      "lfSha256": "1d27e564a134561e2468bbe1e7f0ba19c8e5519683d89e422cbc2e560736ace8"
+    },
+    {
+      "path": "backend/config/paths.py",
+      "sha256": "1c51e1f44cd36ca51fe72aa92e338a37821a388950a4d911b886364f353a16c1",
+      "lfSha256": "61a6fe4534377a93112ec7b7b697fe890a0101b041b4abb4bea8b3695bc9c7ca"
+    },
+    {
+      "path": "src/services/clip-revisions.test.ts",
+      "sha256": "281163f73729e47bd39efc3cb89aee18e9d183617a36febef2f4d6b3252255a6",
+      "lfSha256": "281163f73729e47bd39efc3cb89aee18e9d183617a36febef2f4d6b3252255a6"
+    },
+    {
+      "path": "src/services/clip-revisions.test-support.ts",
+      "sha256": "a69ac7338eae9346669bddd9952ced30b0ccf42a2713fa300c8591209ea92bc2",
+      "lfSha256": "a69ac7338eae9346669bddd9952ced30b0ccf42a2713fa300c8591209ea92bc2"
+    },
+    {
+      "path": "src/services/clip-write-fence.test.ts",
+      "sha256": "936bd40f28b2aee53efeec7ee781a98e873a7211b74ceb65eeecb65de56ab356",
+      "lfSha256": "936bd40f28b2aee53efeec7ee781a98e873a7211b74ceb65eeecb65de56ab356"
+    },
+    {
+      "path": "src/services/clip-write-fence.cross-process.test.ts",
+      "sha256": "53db33f0986c4672406b1b7e69477179c497301ae0c5da2a502a21033e81af18",
+      "lfSha256": "53db33f0986c4672406b1b7e69477179c497301ae0c5da2a502a21033e81af18"
+    },
+    {
+      "path": "src/ui/clip-write-fence-route.test.ts",
+      "sha256": "83352d46f4008f1c8976b848fe8d0dba584cc98aa33921064d495a13403a9303",
+      "lfSha256": "83352d46f4008f1c8976b848fe8d0dba584cc98aa33921064d495a13403a9303"
+    },
+    {
+      "path": "tests/test_clips_history.py",
+      "sha256": "df4bdfc51a551192fa0bda733d643e0f4de5a4fc2c8e9037321690084474395d",
+      "lfSha256": "df4bdfc51a551192fa0bda733d643e0f4de5a4fc2c8e9037321690084474395d"
+    },
+    {
+      "path": "tests/test_cli.py",
+      "sha256": "e537dfe6a9f56574d848bffd239ada3bbc6815914550bf87a3ca91ce56ecf28b",
+      "lfSha256": "9c62a200a9dcde12832c25871a4e6867a09da1f2a4b437b4075d8e0748afb31d"
+    },
+    {
+      "path": "tests/test_exact_render.py",
+      "sha256": "c05e46879ac38b1903831962cb56918b0f6ddb319af8fef1fe56bec176dcce4c",
+      "lfSha256": "c05e46879ac38b1903831962cb56918b0f6ddb319af8fef1fe56bec176dcce4c"
+    },
+    {
+      "path": "scripts/verification/check-revision-fence.mjs",
+      "sha256": "6c7408464945077930fa890be88c5995b5498f90ccd4457a68096ee5b346da88",
+      "lfSha256": "6c7408464945077930fa890be88c5995b5498f90ccd4457a68096ee5b346da88"
+    },
+    {
+      "path": "scripts/verification/check-saved-revision.mjs",
+      "sha256": "3a50810700b0041f8312e5ed6e6036a9e7618bd64083f26dd7d24274fcc38900",
+      "lfSha256": "3a50810700b0041f8312e5ed6e6036a9e7618bd64083f26dd7d24274fcc38900"
+    },
+    {
+      "path": "scripts/verification/check-exact-render.mjs",
+      "sha256": "379fb1041609e2d8006f9091d80f7eab41c93b8172a299060b4312edb2e4160d",
+      "lfSha256": "379fb1041609e2d8006f9091d80f7eab41c93b8172a299060b4312edb2e4160d"
+    },
+    {
+      "path": "scripts/verification/check-editor-context.mjs",
+      "sha256": "54d9e5cc53815f2d63e08e6b82845d0b9d2536e9b9d85e66f35036ecb7fc6f60",
+      "lfSha256": "54d9e5cc53815f2d63e08e6b82845d0b9d2536e9b9d85e66f35036ecb7fc6f60"
+    },
+    {
+      "path": "scripts/verification/run-tests.mjs",
+      "sha256": "373eba2ee5cc5b6f25c862d14e58d9545600c1eacfcc1b9534eb3bcb42e30389",
+      "lfSha256": "373eba2ee5cc5b6f25c862d14e58d9545600c1eacfcc1b9534eb3bcb42e30389"
+    },
+    {
+      "path": "scripts/verification/vitest.config.mjs",
+      "sha256": "a59418265d49e5d51388240b36974069adf74ca2a0dc97e46827a3e02886eef4",
+      "lfSha256": "a59418265d49e5d51388240b36974069adf74ca2a0dc97e46827a3e02886eef4"
+    },
+    {
+      "path": "scripts/local/runtime.mjs",
+      "sha256": "0ed6f227f93b3aae26104ac6bdab5039cf926e3c0b612681afc0da809d3ea02e",
+      "lfSha256": "0ed6f227f93b3aae26104ac6bdab5039cf926e3c0b612681afc0da809d3ea02e"
+    },
+    {
+      "path": "package.json",
+      "sha256": "b5f8cb7df014185b06de3d4e0ba8f593212572988db5517ef0af4e8234f6b82b",
+      "lfSha256": "466d6d9070bdda500aaf7119b69965b2f02f514cc8aec4e96ccda83badb02bbe"
+    },
+    {
+      "path": "package-lock.json",
+      "sha256": "315ea9a6c258942619c568cbe4029d692c3de3e20c560640ac60f6a7b9ceb65a",
+      "lfSha256": "ddce79222e96bd1be0b99cc2ea47ae71485b024f406f1bd22bef41fb3177dbf4"
+    },
+    {
+      "path": "docs/local-setup.md",
+      "sha256": "5dd3248aa0a7bb2039227f22ba2bfa9fb4c305d90edd24f1aa2506d09e33c492",
+      "lfSha256": "5dd3248aa0a7bb2039227f22ba2bfa9fb4c305d90edd24f1aa2506d09e33c492"
+    },
+    {
+      "path": "docs/workflow/inventories/5.0.0-local-1.md",
+      "sha256": "d66dfab29428fde5bc0ab427b3dd5b2af5b2bc92f6c2cf86643a976133f61244",
+      "lfSha256": "d66dfab29428fde5bc0ab427b3dd5b2af5b2bc92f6c2cf86643a976133f61244"
+    },
+    {
+      "path": "_local/project/evidence/writing-studio/1b-2b-3/repair-1/snapshot/manifest.json",
+      "sha256": "43ffa1ebea7a4cd52f35fd459d5a5ec6c8b0684227ea08b63edeca843d151c9a",
+      "lfSha256": "43ffa1ebea7a4cd52f35fd459d5a5ec6c8b0684227ea08b63edeca843d151c9a"
+    }
+  ],
+  "ignoredInputs": [
+    {
+      "path": "_local/clipperz/config/clipperz.env",
+      "sha256": "78b3be9bf68834306ef833ccab4d3810b4913ceaf4e1a94b357b41e74ac39d10",
+      "note": "configured runtime settings; hashed only, content not read"
+    },
+    {
+      "path": "dist/ui/web-server.js",
+      "sha256": "ebc1d785c70016a35de5c76b0205ba8d6db6aef273499358dcc9711b3539aa68",
+      "note": "current build (ignored build output)"
+    },
+    {
+      "path": "dist/server.js",
+      "sha256": "a1adb62d86c05dbab2922a2fdfe8af2894616be7671cc821a9c2f173149568d6",
+      "note": "current build (ignored build output)"
+    },
+    {
+      "path": "dist/services/clips-history.js",
+      "sha256": "4fc7a3ec214cc6830efc89b385818ec8d91bdadf0894f2b9ca0096c549aa5d7a",
+      "note": "current build (ignored build output)"
+    },
+    {
+      "path": "dist/services/clip-revisions.js",
+      "sha256": "a91a2c9307f9fbe6123e0a4edf1f4b5436931ed1141a6523b16b3438218313ef",
+      "note": "current build (ignored build output)"
+    },
+    {
+      "path": "dist/services/clip-write-fence.js",
+      "sha256": "69f84519124054ecec0b6c7a6eaab3edec3c10da4b072c3255aa65bd1320efad",
+      "note": "current build (ignored build output)"
+    },
+    {
+      "path": "dist/ui/clip-write-fence-route.js",
+      "sha256": "257a84b34dd0201473768231e91c5eb6d8070ad321180163da77d8f9beeb7789",
+      "note": "current build (ignored build output)"
+    }
+  ],
+  "freshnessAudit": "_local/project/evidence/writing-studio/1b-2b-4a-plan/freshness.json"
+}

@@ -239,6 +239,28 @@ def handle_create_clip(task_id: str, params: dict):
     emit_result(task_id, "success", data=result)
 
 
+def handle_compose_opening_card(task_id: str, params: dict):
+    """Prepend one opening thumbnail card to a validated exact render (Writing Studio 1B.2b.1).
+
+    Internal: only the revision save service calls it. The composer validates
+    every field itself and refuses anything but the one supported card.
+    """
+    from services.opening_card import compose_opening_card
+
+    emit_progress(task_id, "starting", 0, "Composing opening card...")
+    result = compose_opening_card(
+        raw_video_path=params.get("raw_video_path"),
+        raw_sha256=params.get("raw_sha256"),
+        image_path=params.get("image_path"),
+        image_sha256=params.get("image_sha256"),
+        output_dir=params.get("output_dir"),
+        group_stem=params.get("group_stem"),
+        placement=params.get("placement"),
+        duration=params.get("duration"),
+    )
+    emit_result(task_id, "success", data=result)
+
+
 def _render_concurrency() -> int:
     raw = (os.environ.get("PODCLI_RENDER_CONCURRENCY") or "").strip()
     if raw:
@@ -1063,6 +1085,7 @@ TASK_HANDLERS = {
     "transcribe": handle_transcribe,
     "parse_transcript": handle_parse_transcript,
     "create_clip": handle_create_clip,
+    "compose_opening_card": handle_compose_opening_card,
     "batch_clips": handle_batch_clips,
     "analyze_energy": handle_analyze_energy,
     "detect_highlights": handle_detect_highlights,

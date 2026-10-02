@@ -2876,8 +2876,20 @@ def cmd_thumbnails(args):
     print(f"\n  {gray}Open the folder to preview and pick the best one.{reset}\n")
 
 
+def _refuse_revision_paths(targets):
+    """Writing Studio 1B.2b.3: path-based commands never write, replace or delete
+    inside the revision namespace or sidecar tree. Refuses before any work."""
+    from services.clips_history import ClipRevisionFenceError, assert_outside_revision_trees
+    try:
+        assert_outside_revision_trees(targets)
+    except ClipRevisionFenceError as e:
+        print(f"  \033[38;2;248;113;113m✗\033[0m {e}", file=sys.stderr)
+        sys.exit(1)
+
+
 def cmd_bake_thumbnail(args):
     """Composite a thumbnail PNG into a clip as an opening (or closing) card, in place."""
+    _refuse_revision_paths([args.clip])
     import tempfile, shutil
     from services.thumbnail_ai import thumbnail_to_video_frame
     from services.video_processor import concat_outro, _get_media_duration_seconds
@@ -2922,6 +2934,8 @@ def cmd_bake_thumbnail(args):
 
 def cmd_swap_thumbnail(args):
     """Regenerate and swap the thumbnail on an existing rendered clip."""
+    # Replaces the clip and copies variations into its directory.
+    _refuse_revision_paths([args.clip, os.path.dirname(os.path.abspath(args.clip))])
     from services.thumbnail_ai import generate_variations, thumbnail_to_video_frame
     from services.video_processor import concat_outro, _get_media_duration_seconds
     from services.asset_store import resolve_logo
@@ -3315,6 +3329,10 @@ def cmd_clips(args):
         find_clip,
         update_clip,
         delete_clip,
+        assert_legacy_removal_allowed,
+        is_revision_tracked,
+        ClipRevisionFenceError,
+        CLIP_REVISION_TRACKED,
     )
 
     accent = "\033[38;2;212;135;74m"
@@ -3358,6 +3376,11 @@ def cmd_clips(args):
         title = getattr(args, "title", None)
         caption_style = getattr(args, "caption_style", None)
         thumb_cfg_raw = getattr(args, "thumbnail_config", None)
+        # Refuse supplied options before null/empty values are discarded. The
+        # history writer retains its non-None, locked commit-time guarantee.
+        if is_revision_tracked(clip) and (caption_style is not None or thumb_cfg_raw is not None):
+            print(f"\n  {red}✗{reset} {ClipRevisionFenceError(CLIP_REVISION_TRACKED)}\n", file=sys.stderr)
+            sys.exit(1)
         thumbnail_config = None
         if thumb_cfg_raw:
             try:
@@ -3385,6 +3408,12 @@ def cmd_clips(args):
         clip = find_clip(args.clip_id)
         if not clip:
             print(f"\n  {red}✗{reset} Clip not found: {args.clip_id}\n", file=sys.stderr)
+            sys.exit(1)
+        # Refused before asking; delete_clip repeats the check under the lock.
+        try:
+            assert_legacy_removal_allowed(clip)
+        except ClipsHistoryError as e:
+            print(f"\n  {red}✗{reset} {e}\n", file=sys.stderr)
             sys.exit(1)
         if not getattr(args, "yes", False):
             title = clip.get("title", "untitled")
@@ -4804,8 +4833,8 @@ def main():
     clips_edit = clips_sub.add_parser("edit", help="Edit a clip's metadata (title, caption style)")
     clips_edit.add_argument("clip_id", help="Clip id (full or 8-char prefix)")
     clips_edit.add_argument("--title", help="New title")
-    clips_edit.add_argument(
-        "--caption-style", choices=["branded", "hormozi", "karaoke", "subtle"], help="New caption style"
+    clips_caption = clips_edit.add_argument(
+        "--caption-style", metavar="{branded,hormozi,karaoke,subtle}", help="New caption style"
     )
     clips_edit.add_argument("--thumbnail-config", help="Per-clip thumbnail config as a JSON string")
     clips_reopen = clips_sub.add_parser(
@@ -4883,6 +4912,17 @@ def main():
     )
 
     args = parser.parse_args()
+    # Delay only this option's choice check so every supplied value on a tracked
+    # clip reaches cmd_clips' refusal. Reparse invalid untracked values with the
+    # original choices to preserve argparse's exact legacy error and exit code.
+    if args.command == "clips" and args.clips_action == "edit":
+        choices = ["branded", "hormozi", "karaoke", "subtle"]
+        if args.caption_style is not None and args.caption_style not in choices:
+            from services.clips_history import find_clip, is_revision_tracked
+            clip = find_clip(args.clip_id)
+            if clip is None or not is_revision_tracked(clip):
+                clips_caption.choices = choices
+                parser.parse_args()
 
     _auto_migrate_cli(args)
 

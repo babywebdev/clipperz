@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import { createHash } from "crypto";
 import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, rmdirSync, symlinkSync, unlinkSync, writeFileSync, utimesSync } from "fs";
 import { tmpdir } from "os";
 import { basename, dirname, join } from "path";
@@ -221,7 +222,8 @@ describe("saving a revision", () => {
     expect(e.output_path).toBe(st.current.output_path);
     expect([e.start_second, e.end_second]).toEqual([1, 5]);
     expect(e.keep_segments).toEqual([{ start: 4, end: 5 }, { start: 1, end: 2 }]);
-    expect(e.duration).toBe(2);
+    // The legacy duration is the served file's probed length: 2 s of content plus the 1 s outro.
+    expect(e.duration).toBe(3);
     expect(e.outro_path).toBe(outro);
     expect(e.transcript_slice).toBe("cyan green");
     expect(e.extra).toEqual(seedClip.extra);
@@ -235,6 +237,12 @@ describe("saving a revision", () => {
     expect(doc.render_timeline.words.content.map((w: any) => [w.word, w.start, w.speaker])).toEqual([["cyan", 0.2, "S0"], ["green", 1.2, "S1"]]);
     expect(doc.render_timeline.words.source.map((w: any) => w.word)).toEqual(["green", "cyan"]);
     expect(doc.thumbnail_card).toMatchObject({ requested: false, applied: false });
+    // Without a card the served file is the raw render, and the record says so.
+    expect(doc.final_composition).toMatchObject({
+      version: 1, card: null, card_offset: 0, content_offset: 0, content_duration: 2,
+      output: { duration: 3, file: doc.files.main }, raw_render: { file: doc.files.main, group_root: st.current.group_root, output_duration: 3 },
+    });
+    expect(st.current.groups).toEqual([st.current.group_root]);
     expect(doc.bookends.outro.branch).toBe("hardcut");
     expect(doc.files.main.bytes).toBeGreaterThan(0);
     expect(doc.files.main.sha256).toMatch(/^[0-9a-f]{64}$/);
@@ -322,7 +330,8 @@ describe("saving a revision", () => {
       const state = await svc.ensureTracked("clip-a");
       const pending = svc.saveRevision({ clip_id: "clip-a", operation_id: "op-1", expected: expectedOf(state), recipe: recipe(), source_words: WORDS });
       await g.arrived;
-      expect((await history.remove("clip-a"))?.id).toBe("clip-a");
+      // 1B.2b.3: legacy remove() refuses a tracked clip; delete through the unfenced transaction seam.
+      expect(await history.transaction((list) => list.splice(list.findIndex((e) => e.id === "clip-a"), 1)[0]?.id)).toBe("clip-a");
       let recreated: any = null;
       if (recreate) {
         await history.transaction((list) => { list.push({ ...seedClip, title: "recreated" } as any); });
@@ -384,21 +393,35 @@ describe("saving a revision", () => {
     expect(existsSync(join(outside))).toBe(true);
   });
 
-  it("rejects an opening thumbnail-card request outright and records the card-absent receipt otherwise", async () => {
+  it("refuses malformed card descriptors without coercion; absent, null and false save without a card under one unchanged request identity", async () => {
     const svc = service();
-    const state = await svc.ensureTracked("clip-a");
+    // 1B.2b.3: legacy update() refuses thumbnail_config on a tracked clip; set it before tracking.
     await history.update("clip-a", { thumbnail_config: { preview_path: join(tmp, "thumb.png"), card_seconds: 1.5 } });
+    const state = await svc.ensureTracked("clip-a");
+    const image = join(tmp, "card.png");
+    writeFileSync(image, "png-bytes");
+    const good = { image_path: image, image_sha256: createHash("sha256").update(readFileSync(image)).digest("hex"), placement: "opening", duration: 1.5 };
     const before = historyBytes();
-    for (const card of [true, {}, { preview_path: "x" }, "card"]) {
-      await expect(svc.saveRevision({ clip_id: "clip-a", operation_id: "op-card", expected: expectedOf(state), recipe: recipe(), source_words: WORDS, thumbnail_card: card }))
-        .rejects.toMatchObject({ code: "UNSUPPORTED_THUMBNAIL_CARD" });
+    const malformed = [
+      true, {}, "card", { preview_path: "x" }, { ...good, placement: "closing" }, { ...good, duration: 2 }, { ...good, duration: "1.5" },
+      { ...good, image_sha256: good.image_sha256.toUpperCase() }, { ...good, image_path: "card.png" }, { ...good, image_path: join(tmp, "card.gif") }, { ...good, extra: 1 },
+    ];
+    for (const card of malformed) {
+      await expect(svc.saveRevision({ clip_id: "clip-a", operation_id: "op-card", expected: expectedOf(state), recipe: recipe(), source_words: WORDS, thumbnail_card: card as any }))
+        .rejects.toMatchObject({ code: "INVALID_THUMBNAIL_CARD" });
     }
     expect(historyBytes()).toEqual(before);
     expect(groups()).toEqual([]);
-    const ok = await svc.saveRevision({ clip_id: "clip-a", operation_id: "op-1", expected: expectedOf(state), recipe: recipe(), source_words: WORDS, thumbnail_card: null });
+    const request = { clip_id: "clip-a", operation_id: "op-1", expected: expectedOf(state), recipe: recipe(), source_words: WORDS };
+    const ok = await svc.saveRevision({ ...request, thumbnail_card: null });
     expect(ok.outcome).toBe("committed");
+    // A request that omits the card, or says false, is the same request: a replay, not a reused id.
+    for (const same of [structuredClone(request), { ...structuredClone(request), thumbnail_card: false as const }]) {
+      expect(await svc.saveRevision(same)).toMatchObject({ outcome: "committed", replayed: true });
+    }
     const e = entry();
-    expect(e.thumbnail_config).toEqual({ preview_path: join(tmp, "thumb.png"), card_seconds: 0 });
+    // 1B.2b.4a: a revision without a card keeps no legacy thumbnail preview; card_seconds follows its rule.
+    expect(e.thumbnail_config).toEqual({ card_seconds: 0 });
     expect(JSON.parse(readFileSync(e.revisions.current.path, "utf-8")).thumbnail_card).toEqual({ requested: false, applied: false, note: expect.any(String) });
   });
 
@@ -1000,7 +1023,11 @@ describe("receipt validation", () => {
     ["requested_fade differs", (r) => { r.render_timeline.bookends.requested_fade = 0.5; }, /requested_fade differs from the request/],
     ["outro requested_fade missing", (r) => { r.render_timeline.bookends.outro.requested_fade = null; }, /outro\.requested_fade must be a finite number/],
     ["hard cut claims overlap", (r) => { r.render_timeline.bookends.outro.applied_overlap = 0.25; }, /a hard cut overlaps nothing/],
-    ["crossfade claimed without a fade", (r) => { r.render_timeline.bookends.outro.branch = "xfade_acrossfade"; }, /crossfade overlap 0s is not the requested fade 0s/],
+    ["crossfade claimed without a fade", (r) => { r.render_timeline.bookends.outro.branch = "xfade_acrossfade"; }, /outro xfade_acrossfade cannot have crossfaded: concat_outro clamps the 0s fade to 0s/],
+    // Join provenance for a new save (repair-3, lead-12); the producer-derived matrix is clip-revisions.join-matrix.test.ts.
+    ["outro join_inputs missing", (r) => { delete r.render_timeline.bookends.outro.join_inputs; }, /receipt outro lacks join_inputs: a new save needs/],
+    ["outro join_inputs not an object", (r) => { r.render_timeline.bookends.outro.join_inputs = [2, 1]; }, /bookends\.outro\.join_inputs must be an object/],
+    ["outro join input negative", (r) => { r.render_timeline.bookends.outro.join_inputs.main_duration = -1; }, /bookends\.outro\.join_inputs\.main_duration must be a finite number >= 0/],
     ["outro transition unrelated", (r) => { r.render_timeline.bookends.outro.transition = { output_start: 500, output_end: 600 }; }, /outro region and transition do not start/],
     ["outro region shorter than its asset", (r) => { r.render_timeline.bookends.outro.output_end -= 0.5; }, /outro region does not run for its asset length/],
     ["outro asset disagrees with its region", (r) => { r.render_timeline.bookends.outro.asset_duration = 999; }, /outro region does not run for its asset length/],
@@ -1093,9 +1120,12 @@ describe("receipt validation", () => {
       ["renderer rounding within 0.001", { keep_segments: boundary }, boundaryWords, { onRender: (_p, r) => { const t = r.render_timeline!; t.words.content[1].end = Math.round((t.words.content[1].end + 0.001) * 1000) / 1000; t.captions.words[1].end = t.words.content[1].end; } }],
       ["supplied empty", {}, [], {}],
       ["unavailable", {}, null, {}],
-      ["clamped crossfades", { intro_path: intro, outro_path: outro, bookend_fade: 0.5 }, WORDS, { branch: "xfade_acrossfade", bookendSeconds: 0.3 }],
+      // 0.6 - 0.55 is 0.050000000000000044: both joins are main- or appended-limited and still crossfade.
+      ["clamped crossfades", { intro_path: intro, outro_path: outro, bookend_fade: 0.9 }, WORDS, { branch: "xfade_acrossfade", bookendSeconds: 0.6 }],
       ["hard-cut fallback with a fade", { intro_path: intro, outro_path: outro, bookend_fade: 0.25 }, WORDS, { branch: "hardcut_soft_audio" }],
       ["filler cleaning dropped a caption word", { keep_segments: [{ start: 0, end: 1 }], clean_fillers: true }, um, { onRender: (_p, r) => { r.render_timeline!.captions.words.splice(0, 1); } }],
+      // 0.3 - 0.25 is 0.04999999999999999: concat_outro cannot crossfade this intro and hard-cuts.
+      ["main-limited intro falls back to a hard cut", { intro_path: intro, outro_path: outro, bookend_fade: 0.5 }, WORDS, { branch: "xfade_acrossfade", bookendSeconds: 0.3 }],
     ];
     let n = 0;
     for (const [label, over, words, fake] of valid) {
@@ -1118,9 +1148,44 @@ describe("receipt validation", () => {
     const unavailable = timeline("valid-4");
     expect([unavailable.words.input, unavailable.words.source, unavailable.words.content, unavailable.captions.words]).toEqual(["unavailable", null, [], []]);
     const crossfade = timeline("valid-5").bookends;
-    expect([crossfade.intro.applied_overlap, crossfade.outro.applied_overlap, crossfade.intro.transition, crossfade.outro.transition]).toEqual([0.25, 0.25, { output_start: 0.05, output_end: 0.3 }, { output_start: 1.8, output_end: 2.05 }]);
+    expect([crossfade.intro.applied_overlap, crossfade.outro.applied_overlap, crossfade.intro.transition, crossfade.outro.transition]).toEqual([0.55, 0.55, { output_start: 0.05, output_end: 0.6 }, { output_start: 1.5, output_end: 2.05 }]);
+    expect([crossfade.intro.join_inputs, crossfade.outro.join_inputs]).toEqual([{ main_duration: 0.6, appended_duration: 2 }, { main_duration: 2.05, appended_duration: 0.6 }]);
     const cleaned = timeline("valid-7").captions;
     expect([cleaned.filler_cleaning, cleaned.words.map((w: any) => w.word)]).toEqual([true, ["actual"]]);
+    const fallback = timeline("valid-8").bookends;
+    expect([fallback.intro.branch, fallback.intro.applied_overlap, fallback.outro.branch, fallback.outro.applied_overlap]).toEqual(["hardcut_soft_audio", 0, "xfade_acrossfade", 0.25]);
+  });
+
+  it("reads and replays a revision saved before join provenance as saved, never rewriting or upgrading it", async () => {
+    const intro = join(tmp, "intro.mp4");
+    writeFileSync(intro, "intro-bytes");
+    const state = await service().ensureTracked("clip-a");
+    const request = { clip_id: "clip-a", operation_id: "op-older", expected: expectedOf(state), recipe: recipe({ intro_path: intro, outro_path: outro, bookend_fade: 0.25 }), source_words: WORDS };
+    const saved: any = await service({ render: fakeExactRender({ branch: "xfade_acrossfade" }) }).saveRevision(structuredClone(request));
+    expect(saved.outcome, saved.operation.error).toBe("committed");
+    // Store the document as 1B.2a did before repair-3: no join_inputs anywhere.
+    const path = saved.revision.path;
+    const doc = JSON.parse(readFileSync(path, "utf-8"));
+    for (const kind of ["intro", "outro"]) {
+      delete doc.bookends[kind].join_inputs;
+      delete doc.render_timeline.bookends[kind].join_inputs;
+    }
+    writeFileSync(path, JSON.stringify(doc, null, 2));
+    const older = readFileSync(path);
+    const svc = service();
+    const loaded = await svc.loadRevision("clip-a", saved.revision.revision_id);
+    expect(loaded.bookends.intro).not.toHaveProperty("join_inputs");
+    expect(loaded.render_timeline.bookends.outro).not.toHaveProperty("join_inputs");
+    expect(loaded.bookends.outro!.applied_overlap).toBe(0.25);
+    const renders = fakeExactRender();
+    const replay: any = await service({ render: renders }).saveRevision(structuredClone(request));
+    expect([replay.outcome, replay.replayed, replay.revision.revision_id, renders.calls]).toEqual(["committed", true, saved.revision.revision_id, 0]);
+    // A later save needs provenance only for its own bookends; the older revision becomes previous, untouched.
+    const next: any = await service().saveRevision({ clip_id: "clip-a", operation_id: "op-newer", expected: expectedOf(entry().revisions), recipe: recipe(), source_words: WORDS });
+    expect(next.outcome, next.operation.error).toBe("committed");
+    expect(entry().revisions.previous.revision_id).toBe(saved.revision.revision_id);
+    expect(readFileSync(path)).toEqual(older);
+    expect((await svc.loadRevision("clip-a", saved.revision.revision_id)).bookends.outro).not.toHaveProperty("join_inputs");
   });
 });
 

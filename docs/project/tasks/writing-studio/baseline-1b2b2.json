@@ -1,0 +1,96 @@
+{
+  "purpose": "Lead-15 planning freshness, not implementation verification",
+  "specRevision": "lead-15",
+  "capturedAt": "2026-09-19T23:20:22.5584129-05:00",
+  "head": "fed8ed13dcb2aade06bee341953d6b10d58bff13",
+  "workflowVersion": "4.1.0",
+  "instructionInventory": "docs/workflow/inventories/4.1.0-local-2.md",
+  "predecessor": {
+    "slice": "1B.2b.1 accepted",
+    "snapshot": "_local/project/evidence/writing-studio/1b-2b-1-repair-1/snapshot/manifest.json",
+    "review": "docs/project/tasks/writing-studio/reports/1b-2b-1-repair-1-review.md",
+    "comparison": "41 non-document application/contract entries checked with overlapping categories: zero drift. Preserve accepted uncommitted work and separate AI-pin maintenance. Lead-only bookkeeping additional."
+  },
+  "inputs": [
+    {
+      "path": "src/services/clip-revisions.ts",
+      "sha256": "5e98d63f0817e94669f21809d93a60faebbc3608c317a58a9f1dccda8e0b0b8b"
+    },
+    {
+      "path": "src/models/clip-revisions.ts",
+      "sha256": "468260363107dd19a86745faf6369ba8ca5d27ca3fb612ad8e73d929e53e0953"
+    },
+    {
+      "path": "src/models/index.ts",
+      "sha256": "0cb75534727421c1fef84e881928bbb5b2b055e366d4cc293a6bd02cd7919767"
+    },
+    {
+      "path": "src/services/clips-history.ts",
+      "sha256": "aaf85cda20887d94b89a79ca4b84f3761e70e284641f86a8553be56fe3deb052"
+    },
+    {
+      "path": "src/ui/web-server.ts",
+      "sha256": "8fd09a150310212e548adc8c4e1cd5db84ff49823a610d1f20148c78bffb5e13"
+    },
+    {
+      "path": "src/services/storage-cleanup.ts",
+      "sha256": "22ba0ac741b8653be002fb31a52057891030ca9b861ff9a6f8b2c280cf11cbad"
+    },
+    {
+      "path": "src/config/paths.ts",
+      "sha256": "42b90ad9d5ef332a11367b2eb1a412ceda7885621b04f69a112bd4efd909362f"
+    },
+    {
+      "path": "src/config/policy.ts",
+      "sha256": "7cd51884d82279d6040c450386cae65ed1fbfbbf39b501186c64908df22e5d54"
+    },
+    {
+      "path": "src/server-policy.test.ts",
+      "sha256": "0af36ab087fcf629cd632db017c9e4b29f1d63607232b88d6776cbd92b473f04"
+    },
+    {
+      "path": "backend/services/clips_history.py",
+      "sha256": "0ca8ae9b7ad70c8e34f1adb83104040724b56c542a5d73a0bd8d7e2fd8b68ef1"
+    },
+    {
+      "path": "backend/services/clip_generator.py",
+      "sha256": "947795e8d1d4402e47d5550a23605245e991d074ae93f3d6b858f207a166814a"
+    },
+    {
+      "path": "scripts/verification/check-saved-revision.mjs",
+      "sha256": "3a50810700b0041f8312e5ed6e6036a9e7618bd64083f26dd7d24274fcc38900"
+    },
+    {
+      "path": "scripts/verification/check-preview-render.mjs",
+      "sha256": "4113ff304d3df8f4fab4b81a643129331068affff0cd8dbb60f13705405a7648"
+    },
+    {
+      "path": "scripts/verification/run-tests.mjs",
+      "sha256": "373eba2ee5cc5b6f25c862d14e58d9545600c1eacfcc1b9534eb3bcb42e30389"
+    },
+    {
+      "path": "scripts/local/runtime.mjs",
+      "sha256": "0ed6f227f93b3aae26104ac6bdab5039cf926e3c0b612681afc0da809d3ea02e"
+    },
+    {
+      "path": "package.json",
+      "sha256": "b5f8cb7df014185b06de3d4e0ba8f593212572988db5517ef0af4e8234f6b82b"
+    },
+    {
+      "path": "package-lock.json",
+      "sha256": "315ea9a6c258942619c568cbe4029d692c3de3e20c560640ac60f6a7b9ceb65a"
+    },
+    {
+      "path": "_local/clipperz/config/clipperz.env",
+      "sha256": "78b3be9bf68834306ef833ccab4d3810b4913ceaf4e1a94b357b41e74ac39d10"
+    },
+    {
+      "path": "docs/workflow/inventories/4.1.0-local-2.md",
+      "sha256": "1db80e88d56ecb9c31c94e80c50ac8d797876dc3ab8f1b61dfb8e85fc0944f8e"
+    },
+    {
+      "path": "_local/project/evidence/writing-studio/1b-2b-1-repair-1/snapshot/manifest.json",
+      "sha256": "6daecc8b8e8258c57335440863535ea2a3681817bc62741e158d320001a4fe39"
+    }
+  ]
+}

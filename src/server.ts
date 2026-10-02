@@ -29,6 +29,7 @@ import { FileManager } from "./services/file-manager.js";
 import { KnowledgeBase } from "./services/knowledge-base.js";
 import { AssetManager, inferType } from "./services/asset-manager.js";
 import { ClipsHistory } from "./services/clips-history.js";
+import { ClipWriteFenceError } from "./services/clip-write-fence.js";
 import { TranscriptCache } from "./services/transcript-cache.js";
 import { paths } from "./config/paths.js";
 import { webServerUrl } from "./config/server.js";
@@ -1273,7 +1274,22 @@ export function createServer(): McpServer {
             return {
               content: [{ type: "text" as const, text: "Provide clip_id to delete." }],
             };
-          const removed = await history.remove(clip_id);
+          let removed: Awaited<ReturnType<ClipsHistory["remove"]>>;
+          try {
+            removed = await history.remove(clip_id);
+          } catch (err: unknown) {
+            if (!(err instanceof ClipWriteFenceError)) throw err;
+            // Writing Studio 1B.2b.3: a tracked clip, or one whose files lie in a
+            // revision-owned tree, is refused under the lock; nothing was removed.
+            log.warn("Legacy clip write refused", {
+              clip: err.clipId ?? clip_id, operation: "mcp-delete", code: err.code,
+              ...(err.reason && { reason: err.reason }), ...(err.errorCode && { error_code: err.errorCode }),
+            });
+            return {
+              content: [{ type: "text" as const, text: `Not deleted (${err.code}): ${err.message}` }],
+              isError: true,
+            };
+          }
           return {
             content: [
               {
